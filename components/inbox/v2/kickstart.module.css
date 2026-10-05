@@ -1,0 +1,2132 @@
+.root {
+  /* Precision Indigo: the scene's palette steps re-pointed at pi tokens, so
+     the welcome follows light and dark with the rest of the app. */
+  --palette-blue-50: var(--pi-head-bg);
+  --palette-blue-100: var(--pi-line);
+  --palette-blue-200: var(--pi-line-2);
+  --palette-blue-300: var(--pi-brand-border);
+  --palette-blue-400: var(--pi-brand);
+  --palette-blue-500: var(--pi-brand);
+  --palette-blue-600: var(--pi-brand-hover);
+  --palette-blue-700: var(--pi-brand-active);
+  --palette-blue-800: var(--pi-ink-2);
+  --palette-blue-900: var(--pi-ink);
+  --palette-blue-950: var(--pi-ink);
+  --palette-green-50: var(--pi-success-bg);
+  --palette-green-100: var(--pi-success-bg);
+  --palette-green-200: var(--pi-success-line);
+  --palette-green-400: var(--pi-success-dot);
+  --palette-green-500: var(--pi-success-dot);
+  --palette-green-700: var(--pi-success);
+  --palette-green-800: var(--pi-success);
+  --ink: var(--pi-ink);
+  --muted-ink: var(--pi-body);
+  --blue: var(--pi-brand);
+  width: 100%;
+  /* The page gutter, not a gutter of its own: the empty state is a band on the
+     Inbox page like the title bar and the table, so it lines up on the same
+     edge its "Inbox" title does — workspace.tsx's `kickstartGutter` (40px).
+     A 48px pad plus `margin: 0 auto` put this section's content 40px right of
+     that title, and the offset moved with the viewport, so it never lined up
+     at any width. */
+  padding: clamp(16px, 3vh, 32px) 56px 32px;
+  /* Nothing follows the cards, so the block rides the middle of the page
+     rather than hanging off the top with the slack pooled underneath. `safe`
+     keeps the top reachable when the viewport is shorter than the content. */
+  /* Centred by auto margins rather than by stretching to the scroller: the
+     block keeps its own height, so the two panes size to their content and
+     the list doesn't inflate to fill the viewport. */
+  box-sizing: border-box;
+  margin-block: auto;
+  color: var(--ink);
+}
+/* Two panes side by side: what the Inbox is on the left, what to do about it
+   on the right. The channels are a stacked list rather than a card row, so the
+   right pane reads as one column of actions instead of three tiles. */
+.split {
+  display: grid;
+  /* Equal columns, equal heights: the demo card and the channel list are the
+     two halves of the same block and end on the same line. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: clamp(36px, 4vw, 64px);
+}
+.pitch {
+  display: flex;
+  flex-direction: column;
+  /* Intro at the top, card at the bottom: when the channel list is the taller
+     pane, the slack falls between them instead of inflating the card. */
+  justify-content: space-between;
+  gap: 32px;
+  min-width: 0;
+}
+.intake {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.intro {
+  min-width: 0;
+}
+.intro h2 {
+  max-width: 420px;
+  margin: 0 0 20px;
+  font-size: clamp(28px, 2.6vw, 38px);
+  line-height: 1.18;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.intro h2 > span {
+  display: block;
+  color: var(--blue);
+}
+.intro > p {
+  max-width: 400px;
+  color: var(--muted-ink);
+  font-size: 18px;
+  line-height: 1.7;
+}
+.passes {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.passes li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--pi-body);
+}
+.passes svg {
+  flex-shrink: 0;
+  color: var(--blue);
+}
+.demo {
+  min-width: 0;
+  /* Sits at the bottom of its pane (see .pitch) so the card's bottom edge
+     lands on the last channel row's, at its own height — never stretched. */
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--palette-blue-100);
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+  color: var(--ink);
+}
+.demoTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.demoTop > span {
+  font-weight: 600;
+  color: var(--ink);
+}
+.demoTop button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--pi-body);
+  background: var(--pi-surface-panel);
+  transition: background 180ms;
+}
+.demoTop button:hover {
+  background: var(--palette-blue-50);
+}
+.flow {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  margin: 20px 0 20px;
+}
+.detailTray {
+  display: grid;
+  height: 26px;
+  align-items: center;
+}
+/* Flush left with "How it works" and the entry row — centred, the chip row and
+   the step rail were the only two things in the card on a different axis. */
+.documents,
+.fields {
+  grid-area: 1 / 1;
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  transition:
+    opacity 400ms,
+    transform 550ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.documents[data-visible="false"] {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+.fields[data-visible="false"] {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.documentChip,
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  background: var(--palette-blue-50);
+  border: 1px solid var(--palette-blue-100);
+  color: var(--pi-body);
+}
+.field {
+  background: var(--palette-blue-50);
+  border-color: var(--palette-blue-100);
+  color: var(--palette-blue-400);
+}
+.demo[data-step="1"] .field {
+  animation: captureField 1.1s both;
+  animation-delay: calc(0.3s + var(--index) * 0.75s);
+}
+.demo[data-step="1"] .field svg {
+  animation: drawField 0.5s both;
+  animation-delay: calc(0.8s + var(--index) * 0.75s);
+}
+.entry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 68px;
+  width: 100%;
+  padding: 16px 20px;
+  background: var(--pi-surface-panel);
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 12px;
+  color: var(--ink);
+  box-shadow: var(--shadow-contact);
+  transition:
+    transform 850ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 700ms,
+    box-shadow 700ms;
+}
+.entryIcon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--palette-blue-50);
+  color: var(--blue);
+  transition:
+    color 700ms,
+    background 700ms;
+}
+.entryBody {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.entryTitle {
+  font-size: 13px;
+  font-weight: 600;
+}
+.entryDetail {
+  color: var(--pi-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.entryStatus {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 64px;
+  margin-left: auto;
+}
+.ready {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--palette-green-100);
+  border-radius: 4px;
+  background: var(--palette-green-50);
+  color: var(--palette-green-500);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateX(4px);
+  transition:
+    opacity 600ms,
+    transform 600ms;
+}
+.ready[data-visible="true"] {
+  opacity: 1;
+  transform: translateX(0);
+}
+.ready svg path,
+.ready svg polyline {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  transition: stroke-dashoffset 600ms 250ms;
+}
+.ready[data-visible="true"] svg path,
+.ready[data-visible="true"] svg polyline {
+  stroke-dashoffset: 0;
+}
+.processing {
+  grid-area: 1 / 1;
+  display: flex;
+  color: var(--blue);
+  opacity: 0;
+  transition: opacity 250ms;
+}
+.processing[data-visible="true"] {
+  opacity: 1;
+}
+.processing svg {
+  animation: turn 2s linear infinite;
+}
+.processingRing {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  fill: none;
+  stroke: var(--palette-blue-300);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  /* 154 is the rounded rect's perimeter (4 × 18 straight + 2πr at r=13, the
+     tile's 9px radius plus the 4px the ring sits outside it). The
+     segment travels the outline instead of the whole ring rotating, which is
+     what made a square tile look like it had a sphere spinning behind it. */
+  stroke-dasharray: 40 114;
+  opacity: 0;
+}
+.demo[data-step="1"] .processingRing {
+  opacity: 1;
+  animation: trace 2.4s linear infinite;
+}
+.processingTrack {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  right: 10px;
+  height: 3px;
+  border-radius: 2px;
+  overflow: hidden;
+  opacity: 0;
+  background: var(--palette-blue-100);
+  transition: opacity 350ms;
+}
+.processingTrack i {
+  display: block;
+  height: 100%;
+  background: var(--pi-brand);
+  transform-origin: left;
+}
+.demo[data-step="1"] .processingTrack {
+  opacity: 1;
+}
+.demo[data-step="1"] .processingTrack i {
+  animation: prepareProgress 3.6s cubic-bezier(0.2, 0.5, 0.4, 1) both;
+}
+.demo[data-step="1"] .entry {
+  border-color: var(--palette-blue-200);
+  box-shadow: var(--shadow-contact);
+}
+.demo[data-step="2"] .entry {
+  transform: translateY(-16px);
+  border-color: var(--palette-green-200);
+}
+.demo[data-step="2"] .entryIcon {
+  background: var(--palette-green-50);
+  color: var(--palette-green-500);
+}
+.process {
+  display: flex;
+  justify-content: flex-start;
+  border-top: 1px solid var(--palette-blue-100);
+  padding-top: 16px;
+}
+.process button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 2px 0;
+  color: var(--pi-body);
+  font-size: 12px;
+  transition: color 300ms;
+}
+.process button[aria-pressed="true"] {
+  color: var(--blue);
+}
+.process button + button::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  margin: 0 12px;
+  background: var(--palette-blue-100);
+}
+.stepMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 50%;
+  color: var(--pi-body);
+  font-size: 12px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stepMarker > svg {
+  display: block;
+  flex-shrink: 0;
+}
+.process button[aria-pressed="true"] .stepMarker {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+  box-shadow: var(--shadow-contact);
+}
+.process button[data-complete="true"] .stepMarker {
+  background: var(--palette-blue-50);
+  border-color: var(--palette-blue-100);
+  color: var(--blue);
+}
+.intakeHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.intakeHeading h3 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.intakeHeading > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--pi-faint);
+}
+.intakeHeading strong {
+  color: var(--pi-body);
+  font-weight: 500;
+}
+/* One stacked list of channels, each row: icon · what it is · how to use it.
+   The rows share the slack so the list ends level with the demo card. */
+.channels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: 1fr;
+  flex: 1;
+  gap: 16px;
+  /* The rows reflow off the pane's width, not the page's — the pane is roughly
+     half the content area, so a page-width breakpoint reads it wrong. */
+  container-type: inline-size;
+}
+.channel {
+  position: relative;
+  /* The motif bleeds past the right edge; the card's own radius crops it. */
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(150px, 1fr) minmax(224px, 296px);
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  padding: 20px 20px;
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 8px;
+  background: var(--pi-surface-panel);
+  transition:
+    border-color 200ms,
+    box-shadow 200ms,
+    background 200ms;
+}
+/* Surface, not content: it fills the card without competing with the heading
+   or the action, and it drifts on hover so the card feels like one object. */
+.channelMotif {
+  position: absolute;
+  top: -14px;
+  right: -18px;
+  z-index: 0;
+  width: 150px;
+  height: 120px;
+  opacity: 0.07;
+  pointer-events: none;
+  transition:
+    transform 320ms ease,
+    opacity 320ms ease;
+}
+.channelMotif svg {
+  width: 100%;
+  height: 100%;
+}
+.channel:hover .channelMotif,
+.channel:focus-within .channelMotif {
+  opacity: 0.1;
+  transform: translate(-4px, 2px);
+}
+/* An absolutely positioned child paints over static siblings, so the card's
+   real content has to claim a layer of its own. */
+.channelIcon,
+.channelText,
+.channelAction {
+  position: relative;
+  z-index: 1;
+}
+.channel:hover,
+.channel:focus-within {
+  border-color: var(--palette-blue-200);
+  box-shadow: var(--shadow-contact);
+}
+/* Title and body share one edge; the icon sits in its own column beside them,
+   so nothing inside a row is indented off a second margin. */
+/* Narrow pane: the action drops under the text instead of squeezing it. */
+@container (max-width: 540px) {
+  .channel {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px 16px;
+  }
+  .channelAction {
+    grid-column: 2;
+  }
+}
+.channelText {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.channelAction {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.channelIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 8px;
+  background: var(--palette-blue-50);
+  color: var(--pi-body);
+}
+.channelIcon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+  transition: transform 250ms;
+}
+.channel h4 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.channelText p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted-ink);
+}
+.upload {
+  background: var(--palette-blue-50);
+}
+.upload .channelIcon {
+  background: var(--palette-blue-50);
+  border-color: var(--palette-blue-100);
+  color: var(--blue);
+}
+/* Each motif takes its channel's own colour, so the three read as a set
+   without any of them introducing a hue the card does not already use. */
+.upload .channelMotif {
+  color: var(--blue);
+}
+.email .channelMotif {
+  color: var(--pi-body);
+}
+.whatsapp .channelMotif {
+  color: var(--palette-green-700);
+}
+.upload:hover,
+.dragging {
+  border-color: var(--palette-blue-200);
+  background: var(--palette-blue-50);
+}
+.upload:hover .channelIcon svg {
+  transform: translateY(-2px);
+}
+.uploadButton,
+.whatsappButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  height: auto;
+  padding: 8px 12px;
+  gap: 8px;
+  border-radius: 6px;
+  /* Bloocks md label: 14/20. */
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.uploadButton {
+  justify-content: flex-start;
+  background: var(--blue);
+  border: 1px solid var(--palette-blue-400);
+  color: white;
+  box-shadow: var(--shadow-contact);
+}
+/* Hover changes the gradient, not the background COLOUR.
+
+   `background: var(--palette-blue-400)` was a flash of the card showing through the button.
+   The rest state paints with a background-image (the gradient below), and the
+   shorthand dropped that image the instant the pointer arrived — while the
+   colour it replaced it with started from transparent and took the Button's
+   own `transition-colors` 150ms to arrive. For those 150ms the button was a
+   hole onto the near-white card behind it.
+
+   Setting only the image keeps background-color out of it: images do not
+   transition, so the swap is immediate and there is nothing to fade up from. */
+.uploadButton:hover {
+  background-image: none;
+}
+.uploadButton svg:last-child {
+  margin-left: auto;
+}
+.fileHint {
+  display: block;
+  font-size: 12px;
+  color: var(--pi-faint);
+  line-height: 1.6;
+  margin: 0;
+}
+.emailAddress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 6px;
+  background: var(--palette-blue-50);
+}
+.emailAddress code {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  color: var(--palette-blue-500);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.emailAddress button {
+  flex-shrink: 0;
+  color: var(--pi-body);
+}
+.email:hover .channelIcon svg {
+  transform: translateX(2px);
+}
+.whatsapp .channelIcon {
+  background: var(--palette-green-50);
+  border-color: var(--palette-green-200);
+  color: var(--palette-green-700);
+}
+.whatsappButton {
+  background: var(--palette-green-50);
+  border: 1px solid var(--palette-green-200);
+  color: var(--palette-green-700);
+}
+.whatsappButton svg {
+  flex-shrink: 0;
+}
+.whatsappButton:hover {
+  background: var(--palette-green-100);
+  color: var(--palette-green-800);
+}
+.dropHint {
+  position: absolute;
+  inset: 0;
+  /* Above the card's content, which now sits on a layer of its own. */
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  border: 2px dashed var(--blue);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--palette-blue-50) 98%, transparent);
+  color: var(--blue);
+  pointer-events: none;
+}
+.dropHint strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+.root button:focus-visible {
+  outline: 2px solid var(--palette-blue-300);
+  outline-offset: 4px;
+}
+.demo[data-playing="false"] .processing svg,
+.demo[data-playing="false"] .processingRing,
+.demo[data-playing="false"] .processingTrack i,
+.demo[data-playing="false"] .field,
+.demo[data-playing="false"] .field svg {
+  animation-play-state: paused;
+}
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes trace {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -154;
+  }
+}
+@keyframes captureField {
+  from {
+    opacity: 0.35;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes drawField {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes prepareProgress {
+  0% {
+    transform: scaleX(0);
+  }
+  30% {
+    transform: scaleX(0.3);
+  }
+  65% {
+    transform: scaleX(0.68);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+@media (min-width: 851px) and (max-height: 800px) {
+  .root {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  .intro h2 {
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+  .intakeHeading {
+    margin-bottom: 12px;
+  }
+  /* The left pane sets the block's height — the channel rows stretch to it —
+     so a short viewport is won back here, not in the list. */
+  .demo {
+    margin-top: 16px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+  .flow {
+    margin-top: 16px;
+    margin-bottom: 16px;
+    gap: 16px;
+  }
+  .entry {
+    min-height: 62px;
+  }
+  .process {
+    padding-top: 12px;
+  }
+  .channel {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  .channels {
+    gap: 12px;
+  }
+}
+/* ── Welcome dialog ──────────────────────────────────────────────────────
+   The same block, framed by a dialog instead of the page. It no longer rides
+   the middle of a tall scroller, so the auto margins go and the padding is the
+   dialog's own inset rather than the page gutter. */
+.inDialog {
+  margin-block: 0;
+  padding: 32px 40px 28px;
+}
+/* Once documents are waiting, reviewing them is the one primary action on the
+   dialog — so the upload button steps down to an outline. */
+.uploadButton.uploadQuiet {
+  background: var(--pi-surface-panel);
+  background-image: none;
+  border-color: var(--palette-blue-200);
+  color: var(--palette-blue-700);
+  box-shadow: none;
+}
+.uploadButton.uploadQuiet:hover {
+  background: var(--palette-blue-50);
+  background-image: none;
+}
+.connected {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-green-200);
+  background: var(--palette-green-50);
+  color: var(--palette-green-800);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 32px;
+}
+.channelText .sendTo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted-ink);
+}
+.sendTo strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.sendTo button {
+  flex-shrink: 0;
+  margin-block: -8px;
+  color: var(--palette-green-700);
+}
+.registeredNumber {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-ink);
+}
+.registeredNumber strong {
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.footerEnd {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+.tourLink {
+  height: auto;
+  min-height: 36px;
+  padding: 0;
+  color: var(--palette-blue-700);
+  font-size: 14px;
+}
+.reviewButton {
+  gap: 8px;
+  /* Bloocks md: 36px tall, 12px sides — the same size as every other
+     primary, so the card's one filled button wins on colour, not size. */
+  min-height: 36px;
+  padding: 8px 12px;
+  background: var(--blue);
+  color: white;
+  font-weight: 500;
+}
+.reviewButton:hover {
+  background: var(--palette-blue-500);
+}
+@media (min-width: 851px) and (max-height: 800px) {
+  .inDialog {
+    padding-top: 24px;
+    padding-bottom: 20px;
+  }
+  .footer {
+    margin-top: 24px;
+  }
+}
+/* Below this the two panes start squeezing each other — the entry row and the
+   intake heading wrap — so the split stacks instead. */
+@media (max-width: 1150px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 44px;
+  }
+  /* Stacked, there is no second pane to match — rows go back to their own
+     height instead of stretching. */
+  .channels {
+    grid-auto-rows: auto;
+    flex: none;
+  }
+  .intro h2 {
+    font-size: 36px;
+    letter-spacing: -0.02em;
+    max-width: none;
+  }
+  .demo {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .process button + button::before {
+    width: 14px;
+    margin: 0 8px;
+  }
+}
+@media (max-width: 850px) {
+  .root {
+    padding: 24px;
+  }
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+  }
+  .intro h2 {
+    max-width: none;
+    font-size: clamp(28px, 5.5vw, 36px);
+  }
+  .intro > p {
+    max-width: 460px;
+  }
+  .demo {
+    padding: 20px;
+  }
+  .intakeHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .intakeHeading > span {
+    flex-wrap: wrap;
+  }
+  /* Phone: the row's three columns stack — icon, then text, then the action
+     across the full width. */
+  .channel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px;
+  }
+  .channelAction {
+    grid-column: 1;
+  }
+}
+@media (max-width: 380px) {
+  .root {
+    padding: 20px 16px;
+  }
+  .demo {
+    padding: 16px 12px;
+  }
+  .entry {
+    gap: 8px;
+    padding: 12px 12px;
+  }
+  .entryIcon {
+    width: 32px;
+    height: 38px;
+  }
+  .entryTitle {
+    font-size: 13px;
+  }
+  .process button {
+    gap: 4px;
+  }
+  .process button + button::before {
+    width: 8px;
+    margin: 0 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  .processingRing {
+    display: none;
+  }
+}
+
+/* Illustrated welcome experience. */
+.root {
+  max-width: 1560px;
+  margin-inline: auto;
+  padding: 32px 56px;
+}
+.split {
+  gap: clamp(40px, 5vw, 80px);
+  align-items: center;
+}
+.pitch {
+  gap: 24px;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: var(--pi-faint);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+}
+.eyebrow > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--palette-blue-300);
+  box-shadow: var(--shadow-contact);
+}
+.intro h2 {
+  max-width: 560px;
+  font-size: clamp(32px, 2.7vw, 44px);
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+.intro > p {
+  max-width: 470px;
+  font-size: 16px;
+  line-height: 1.75;
+}
+.passes {
+  gap: 8px;
+  margin-top: 20px;
+}
+.passes li {
+  font-size: 12px;
+}
+.demo {
+  position: relative;
+  overflow: hidden;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: var(--pi-head-bg);
+  box-shadow: var(--shadow-contact);
+}
+.demoTop {
+  position: relative;
+  z-index: 1;
+}
+.illustration {
+  position: relative;
+  height: 175px;
+  margin: 0 -12px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.orbit,
+.orbitInner {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 360px;
+  height: 160px;
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  z-index: -1;
+}
+.orbit {
+  background: none;
+}
+.orbitInner {
+  width: 260px;
+  height: 114px;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  border-style: dashed;
+}
+.connections {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  stroke: var(--palette-blue-200);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 5;
+}
+.paper {
+  position: absolute;
+  top: 24px;
+  width: 94px;
+  height: 112px;
+  padding: 12px 12px;
+  background: var(--pi-surface-panel);
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 8px;
+  box-shadow: var(--shadow-contact);
+}
+.paperLeft {
+  left: calc(50% - 177px);
+  transform: rotate(-13deg);
+}
+.paperRight {
+  right: calc(50% - 177px);
+  top: 18px;
+  transform: rotate(12deg);
+}
+.paperLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--pi-faint);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+}
+.paper i {
+  display: block;
+  height: 4px;
+  margin-top: 12px;
+  background: var(--palette-blue-100);
+  border-radius: 4px;
+}
+.paper i + i {
+  width: 70%;
+  margin-top: 8px;
+}
+.paperTotal {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--palette-blue-500);
+}
+.paperTotal svg {
+  color: var(--palette-green-400);
+}
+.paperRows {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  margin-top: 12px;
+}
+.paperRows b {
+  height: 13px;
+  width: 14px;
+  background: var(--palette-blue-100);
+  border-radius: 2px;
+}
+.paperRows b:nth-child(2) {
+  height: 20px;
+  background: var(--palette-blue-200);
+}
+.paperRows b:nth-child(3) {
+  height: 16px;
+  background: var(--palette-blue-300);
+}
+.sparkleTile {
+  position: absolute;
+  top: 8px;
+  left: calc(50% - 18px);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: var(--palette-blue-300);
+  border: 1px solid var(--palette-blue-100);
+  background: var(--palette-blue-50);
+  border-radius: 12px;
+  transform: rotate(8deg);
+}
+.inboxTile {
+  position: absolute;
+  top: 61px;
+  left: calc(50% - 41px);
+  width: 82px;
+  height: 75px;
+  display: grid;
+  place-items: center;
+  color: white;
+  border-radius: 16px;
+  border: 1px solid var(--palette-blue-300);
+  background: var(--pi-btn-fill);
+  box-shadow: var(--shadow-contact);
+  transform: rotate(-5deg);
+}
+.verified {
+  position: absolute;
+  right: -6px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 3px solid var(--pi-surface-panel);
+  border-radius: 50%;
+  background: var(--palette-green-400);
+}
+.graphicCaption {
+  position: absolute;
+  bottom: 6px;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  color: var(--pi-faint);
+}
+.starOne,
+.starTwo {
+  position: absolute;
+  color: var(--palette-blue-200);
+  top: 22px;
+  left: 18%;
+  font-size: 14px;
+}
+.starTwo {
+  top: 125px;
+  left: 82%;
+  font-size: 12px;
+  color: var(--palette-blue-200);
+}
+.flow {
+  margin: 8px 0 16px;
+  gap: 12px;
+}
+.detailTray {
+  height: 26px;
+}
+.process {
+  padding-top: 12px;
+}
+.intakeHeading {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.intakeHeading h3 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.intakeHeading > span {
+  font-size: 12px;
+}
+.channels {
+  gap: 16px;
+  grid-auto-rows: auto;
+}
+.channel {
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 12px 16px;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-contact);
+}
+/* The action runs the full width of the card rather than starting under the
+   heading. Held in the second column it left a 46px gutter running down the
+   left of every card — the icon's column, empty for the whole height below
+   the icon — and the card read as though something had been deleted from it.
+   The narrow layout already does this; there is no reason the wide one
+   shouldn't. */
+.channelAction {
+  grid-column: 1 / -1;
+}
+/* With the action spanning, the icon and the heading are the whole of row one,
+   so the row sets its own height and the icon centres against the text rather
+   than against the card. */
+.channelIcon {
+  align-self: center;
+}
+.channelIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--palette-blue-50);
+  box-shadow: var(--shadow-contact);
+}
+.channelIcon svg {
+  width: 23px;
+  height: 23px;
+}
+.channel h4 {
+  font-size: 14px;
+}
+.channelText {
+  padding-right: 20px;
+}
+.channelText p {
+  font-size: 12px;
+}
+.upload {
+  padding-block: 28px;
+  background: var(--pi-surface-panel);
+  border-color: var(--palette-blue-100);
+}
+.upload .channelIcon {
+  background: var(--pi-brand-tint);
+  border-color: var(--palette-blue-100);
+}
+.uploadButton {
+  min-height: 36px;
+  border-radius: 6px;
+  background: var(--pi-btn-fill);
+  box-shadow: var(--shadow-contact);
+}
+.fileHint {
+  font-size: 12px;
+  margin-top: 2px;
+}
+.emailAddress,
+.whatsappButton {
+  min-height: 36px;
+  border-radius: 6px;
+}
+.assurance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  color: var(--pi-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.assurance svg {
+  flex-shrink: 0;
+  color: var(--pi-faint);
+}
+@media (max-width: 1150px) {
+  .root {
+    max-width: 780px;
+    padding: 32px;
+  }
+  .split {
+    gap: 36px;
+  }
+}
+@media (max-width: 600px) {
+  .root {
+    padding: 24px 20px;
+  }
+  .intro h2 {
+    font-size: 36px;
+  }
+  .channel {
+    padding: 20px 16px;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .channelIcon {
+    width: 40px;
+    height: 40px;
+  }
+  .channelAction {
+    grid-column: 1 / -1;
+  }
+  .paperLeft {
+    left: calc(50% - 137px);
+  }
+  .paperRight {
+    right: calc(50% - 137px);
+  }
+  .paper {
+    width: 78px;
+    height: 103px;
+    padding: 12px 8px;
+  }
+  .orbit {
+    width: 290px;
+  }
+  .assurance {
+    align-items: flex-start;
+    font-size: 12px;
+  }
+}
+
+/* One shared scene transforms from incoming paperwork to a reviewable entry. */
+.split {
+  align-items: stretch;
+}
+.pitch {
+  justify-content: flex-start;
+  gap: 24px;
+}
+.demo {
+  flex: 1;
+  min-height: 350px;
+  margin-top: 0;
+}
+.intake {
+  position: relative;
+}
+.assurance {
+  position: absolute;
+  top: 100%;
+  width: 100%;
+}
+.root {
+  padding-bottom: 64px;
+}
+.animationStage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.scene {
+  position: relative;
+  height: 205px;
+  width: 100%;
+  isolation: isolate;
+}
+.scene .orbit {
+  width: 370px;
+  height: 172px;
+}
+.scene .orbitInner {
+  width: 270px;
+  height: 130px;
+}
+.scene .paper {
+  top: 47px;
+  transition:
+    transform 850ms ease,
+    opacity 650ms ease;
+}
+.scene .sparkleTile {
+  top: 13px;
+  transition:
+    opacity 400ms,
+    transform 600ms;
+}
+.scene .inboxTile {
+  top: 77px;
+  transition:
+    opacity 450ms,
+    transform 700ms;
+  overflow: hidden;
+}
+.scene .starOne {
+  top: 34px;
+}
+.scene .starTwo {
+  top: 163px;
+}
+.demo[data-step="1"] .paperLeft {
+  transform: translate(100px, 15px) rotate(-3deg) scale(0.6);
+  opacity: 0;
+}
+.demo[data-step="1"] .paperRight {
+  transform: translate(-100px, 15px) rotate(3deg) scale(0.6);
+  opacity: 0;
+}
+.demo[data-step="1"] .inboxTile {
+  transform: rotate(0deg) scale(1.12);
+}
+.demo[data-step="1"] .sparkleTile {
+  opacity: 0;
+  transform: translateY(55px) scale(0.6);
+}
+.scanLine {
+  position: absolute;
+  inset: 0;
+  background: none;
+  opacity: 0;
+}
+.demo[data-step="1"] .scanLine {
+  opacity: 1;
+  animation: scanDocument 1.6s ease-in-out infinite;
+}
+.extractedFields {
+  position: absolute;
+  top: 177px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0;
+}
+.extractedFields span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--palette-blue-100);
+  border-radius: 6px;
+  background: var(--palette-blue-50);
+  color: var(--palette-blue-400);
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.demo[data-step="1"] .extractedFields {
+  opacity: 1;
+}
+.demo[data-step="1"] .extractedFields span {
+  animation: captureField 0.6s both;
+  animation-delay: calc(0.5s + var(--index) * 0.6s);
+}
+.reviewDocument {
+  position: absolute;
+  width: min(300px, 94%);
+  left: 50%;
+  top: 31px;
+  padding: 16px;
+  border: 1px solid var(--palette-green-100);
+  border-radius: 12px;
+  background: white;
+  box-shadow: var(--shadow-contact);
+  opacity: 0;
+  transform: translate(-50%, 20px) scale(0.85);
+  transition:
+    opacity 650ms,
+    transform 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.reviewHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.reviewHeading > span:first-child {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+.reviewHeading svg {
+  color: var(--palette-blue-400);
+}
+.reviewBadge {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--palette-green-500);
+  background: var(--palette-green-50);
+  padding: 4px 4px;
+  border-radius: 4px;
+  font-size: 8px;
+}
+.reviewVendor {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--pi-faint);
+}
+.reviewAmount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+.reviewAmount span {
+  font-size: 9px;
+  letter-spacing: 0;
+  font-weight: 400;
+  color: var(--pi-faint);
+}
+.reviewFooter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--palette-green-50);
+  font-size: 9px;
+  color: var(--palette-green-700);
+}
+.demo[data-step="2"] .reviewDocument {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+.demo[data-step="2"] .paperLeft {
+  opacity: 0;
+  transform: translate(100px, 15px) scale(0.6);
+}
+.demo[data-step="2"] .paperRight {
+  opacity: 0;
+  transform: translate(-100px, 15px) scale(0.6);
+}
+.demo[data-step="2"] .inboxTile,
+.demo[data-step="2"] .sparkleTile {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.6);
+}
+.sceneCaption {
+  text-align: center;
+  padding: 16px 4px 24px;
+}
+.sceneCaption strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.sceneCaption p {
+  max-width: 340px;
+  /* Two lines at 12px × 1.6, exactly. 38px was 0.4px short, so the two-line
+     caption grew the card and the steps below jumped between slides. */
+  min-height: 3.2em;
+  margin: 8px auto 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--pi-faint);
+}
+.process {
+  justify-content: center;
+}
+.demo[data-playing="false"] .scene * {
+  animation-play-state: paused;
+}
+@keyframes scanDocument {
+  from {
+    transform: translateY(-80%);
+  }
+  to {
+    transform: translateY(80%);
+  }
+}
+@media (max-width: 1150px) {
+  .assurance {
+    position: static;
+  }
+  .demo {
+    flex: none;
+  }
+}
+@media (max-width: 600px) {
+  .scene .orbit {
+    width: 280px;
+  }
+  .scene .orbitInner {
+    width: 210px;
+  }
+  .sceneCaption strong {
+    font-size: 13px;
+  }
+  .reviewDocument {
+    padding: 12px;
+  }
+}
+.demo[data-playing="false"] .extractedFields span {
+  animation: none;
+}
+
+/* Keep the welcome content comfortably inside the workspace at laptop sizes. */
+.root {
+  max-width: 1320px;
+  padding: 40px 64px 72px;
+}
+.split {
+  gap: clamp(40px, 4vw, 64px);
+}
+.pitch {
+  gap: 24px;
+}
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  margin-bottom: 16px;
+}
+.intro h2 {
+  font-size: clamp(28px, 2.25vw, 36px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.intro > p {
+  max-width: 420px;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.intakeHeading {
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.intakeHeading h3 {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.intakeHeading > span {
+  font-size: 12px;
+}
+.channels {
+  gap: 12px;
+}
+.channel {
+  padding: 20px 20px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px 12px;
+  border-radius: 12px;
+}
+.upload {
+  padding-block: 24px;
+}
+.channelIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+.channelIcon svg {
+  width: 20px;
+  height: 20px;
+}
+.channel h4 {
+  font-size: 13px;
+}
+.channelText p {
+  font-size: 12px;
+}
+/* Buttons keep Bloocks md (36px, 14/20) here too; only the text around
+   them compacts. */
+.uploadButton,
+.whatsappButton {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.emailAddress {
+  min-height: 36px;
+}
+.emailAddress code {
+  font-size: 12px;
+}
+.fileHint {
+  font-size: 9px;
+}
+.demo {
+  min-height: 300px;
+  padding: 16px 20px;
+  border-radius: 16px;
+}
+.demoTop {
+  font-size: 12px;
+}
+.demoTop button {
+  min-height: 26px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.scene {
+  height: 205px;
+  transform: scale(0.85);
+  transform-origin: center;
+  margin-block: -16px;
+}
+.sceneCaption {
+  padding: 12px 4px 16px;
+}
+.sceneCaption strong {
+  font-size: 12px;
+}
+.sceneCaption p {
+  max-width: 300px;
+  min-height: 3.2em; /* two lines at 11px × 1.6; 34px was 1.2px short */
+  font-size: 12px;
+  margin-top: 8px;
+}
+.process {
+  padding-top: 12px;
+}
+.process button {
+  font-size: 12px;
+  min-height: 25px;
+  gap: 8px;
+}
+.stepMarker {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+  font-size: 12px;
+}
+.assurance {
+  margin-top: 16px;
+  font-size: 12px;
+}
+@media (max-width: 1150px) {
+  .root {
+    max-width: 720px;
+    padding: 32px 40px 48px;
+  }
+  .split {
+    gap: 32px;
+  }
+}
+@media (max-width: 600px) {
+  .root {
+    padding: 28px 20px 36px;
+  }
+  .intro h2 {
+    font-size: 28px;
+  }
+  .channel {
+    padding: 20px 16px;
+  }
+  .channelAction {
+    grid-column: 1 / -1;
+  }
+  .demo {
+    padding-inline: 16px;
+  }
+  .sceneCaption p {
+    max-width: 260px;
+  }
+}
+
+/* ── Welcome dialog: always fully on screen ─────────────────────────────────
+   Kept last so it wins over the page-band rules above at equal specificity;
+   every rule is scoped to `.inDialog`, so the page layout is untouched.
+
+   Two levers. Width: the page stacked its panes below 1150px because the
+   sidebar took its share; the dialog has the full viewport, so it stays
+   side by side down to 900px — stacked, it was 1,200px tall. Height: on
+   short screens the type, spacing and card padding tighten and the
+   animation scales down (zoom, so the layout shrinks with it). The
+   animation itself is unchanged. */
+@media (min-width: 900px) and (max-width: 1150px) {
+  /* The page band capped itself at 720–780px to sit under the page title;
+     the dialog is the frame here, so the content fills it. */
+  .inDialog {
+    max-width: none;
+    padding: 28px 32px 24px;
+  }
+  .inDialog .split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px;
+  }
+  .inDialog .channels {
+    grid-auto-rows: 1fr;
+    flex: 1;
+  }
+  .inDialog .intro h2 {
+    font-size: 28px;
+  }
+}
+@media (min-width: 900px) and (max-height: 700px) {
+  .inDialog {
+    padding: 24px 32px 20px;
+  }
+  .inDialog .split {
+    gap: 32px;
+  }
+  .inDialog .pitch {
+    gap: 16px;
+  }
+  .inDialog .intro h2 {
+    font-size: 28px;
+    margin-bottom: 12px;
+  }
+  .inDialog .intro > p {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  /* The card's floor is set for the page band; here the content sets it. */
+  .inDialog .demo {
+    min-height: 0;
+    margin-top: 0;
+    padding: 12px 20px 12px;
+  }
+  .inDialog .scene {
+    zoom: 0.72;
+  }
+  .inDialog .intakeHeading {
+    margin-bottom: 12px;
+  }
+  .inDialog .channels {
+    gap: 8px;
+  }
+  .inDialog .channel {
+    padding: 12px 16px;
+  }
+  .inDialog .footer {
+    margin-top: 16px;
+  }
+}
+/* Shorter still (a 1366×768 laptop at 125%, browser bars included): the
+   "How it works" label and the upload formats go — the formats are in the
+   upload panel itself — and the animation scales further. */
+@media (min-width: 900px) and (max-height: 580px) {
+  .inDialog {
+    padding-top: 20px;
+    padding-bottom: 16px;
+  }
+  .inDialog .demoTop,
+  .inDialog .fileHint {
+    display: none;
+  }
+  .inDialog .scene {
+    zoom: 0.6;
+  }
+  .inDialog .intro h2 {
+    font-size: 22px;
+  }
+  .inDialog .channel {
+    padding-block: 12px;
+    row-gap: 8px;
+  }
+}
+
+/* One card for all three channels.
+
+   The cards had drifted into three treatments — Upload on a blue-tinted
+   gradient, Email white with a grey icon, WhatsApp white with a green icon
+   and a full-width green bar — so they read as three components rather than
+   one list, and the green bar, a status, outweighed every action on the
+   dialog. Now the surface and the icon tile are shared, blue carries the
+   structure, and green is kept to two small marks on WhatsApp: its icon, so
+   the channel is recognisable, and the check on what it has delivered. */
+.upload {
+  background: var(--pi-surface-panel);
+}
+.channelIcon,
+.upload .channelIcon {
+  background: var(--palette-blue-50);
+  border-color: var(--palette-blue-100);
+  color: var(--blue);
+}
+.upload:hover,
+.upload.dragging {
+  background: var(--palette-blue-50);
+}
+/* A status line, not a button: no fill, no border, no button height. */
+.connected {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 500;
+}
+.connected svg {
+  color: var(--palette-green-700);
+}
+
+/* Each channel in its own hue, at the same strength.
+
+   Blue for upload (the brand), sky blue for email, green for WhatsApp. Red is
+   left out: it means an error everywhere else in the product. Every card
+   spends its hue in the same three places at the same palette steps — the
+   icon tile, a wash in the top-right corner, and the motif — so no one card
+   outweighs the others, and the actions stay in the brand blue. */
+.upload {
+  --tone-50: var(--palette-blue-50);
+  --tone-100: var(--palette-blue-100);
+  --tone-200: var(--palette-blue-200);
+  --tone-600: var(--palette-blue-600);
+}
+/* Email takes the chart blues: --chart-3 for the tint and --chart-4 for the
+   icon. It stays in the brand's own family, but sits far enough from upload's
+   indigo (hue 230) at hue 210 to read as its own channel. Amber was tried and
+   dropped because it reads as a warning. */
+.email {
+  --tone-50: hsl(var(--chart-3) / 0.12);
+  --tone-100: hsl(var(--chart-3) / 0.35);
+  --tone-200: hsl(var(--chart-3) / 0.7);
+  --tone-600: hsl(var(--chart-4));
+}
+.whatsapp {
+  --tone-50: var(--palette-green-50);
+  --tone-100: var(--palette-green-100);
+  --tone-200: var(--palette-green-200);
+  --tone-600: var(--palette-green-700);
+}
+.upload,
+.email,
+.whatsapp {
+  background:
+    var(--pi-surface-panel);
+}
+.upload .channelIcon,
+.email .channelIcon,
+.whatsapp .channelIcon {
+  background: var(--tone-50);
+  border-color: var(--tone-200);
+  color: var(--tone-600);
+}
+.upload .channelMotif,
+.email .channelMotif,
+.whatsapp .channelMotif {
+  color: var(--tone-600);
+}
+.upload:hover,
+.upload.dragging,
+.email:hover,
+.whatsapp:hover {
+  border-color: var(--tone-200);
+  background:
+    var(--pi-surface-panel);
+}
+
+/* The address field sits in the email card, so it takes the card's tone rather
+   than the brand lavender it was drawn in. The indigo field inside a sky-blue
+   card read as two blues arguing. The address itself is ink, because it is
+   something to read and copy, not decoration. */
+.email .emailAddress {
+  background: var(--tone-50);
+  border-color: var(--tone-200);
+}
+.email .emailAddress code {
+  color: var(--ink);
+}
+.email .emailAddress button {
+  color: var(--tone-600);
+}
+
+/* ── Precision Indigo finish ───────────────────────────────────────────────
+   Flat surfaces only: white cards on hairlines, a lit-edge brand tile, no
+   washes, glints, glows or sparkles (the reference workbench has none). */
+.demo {
+  background: var(--pi-head-bg);
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.orbit {
+  background: none;
+}
+.paper {
+  background: var(--pi-surface-panel);
+  border-color: var(--pi-line-2);
+  border-radius: 6px;
+  box-shadow: var(--shadow-contact);
+}
+.inboxTile {
+  background: var(--pi-btn-fill);
+  border-color: var(--pi-btn-primary-edge);
+  border-radius: 16px;
+  box-shadow: var(--shadow-contact);
+}
+.scanLine,
+.starOne,
+.starTwo,
+.channelMotif {
+  display: none;
+}
+.processingTrack {
+  background: var(--pi-fill-2);
+}
+.processingTrack i {
+  background: var(--pi-brand);
+}
+.uploadButton {
+  background: var(--pi-btn-fill);
+  border-color: var(--pi-btn-primary-edge);
+  color: white;
+  box-shadow: var(--shadow-contact);
+}
+.uploadButton:hover {
+  background-image: none;
+  background-color: var(--pi-btn-fill-hover);
+}
+.upload,
+.email,
+.whatsapp {
+  border-color: var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+}
+.upload:hover,
+.email:hover,
+.whatsapp:hover {
+  border-color: var(--pi-line-2);
+  background: var(--pi-surface-panel);
+}
+.upload.dragging {
+  border-color: var(--pi-brand);
+  background: var(--pi-brand-tint);
+}
+.upload .channelIcon,
+.email .channelIcon,
+.whatsapp .channelIcon {
+  border-radius: 8px;
+  background: var(--pi-fill);
+  border-color: var(--pi-line);
+  color: var(--pi-ink-2);
+  box-shadow: none;
+}
+.upload .channelIcon {
+  background: var(--pi-brand-tint);
+  border-color: var(--pi-brand-border);
+  color: var(--pi-brand);
+}
+.whatsapp .channelIcon {
+  background: var(--pi-success-bg);
+  border-color: var(--pi-success-line);
+  color: var(--pi-success);
+}
+.email .emailAddress {
+  background: var(--pi-page);
+  border-color: var(--pi-line-2);
+}
+.email .emailAddress code {
+  font-family: var(--font-mono);
+  color: var(--pi-ink);
+}
+.email .emailAddress button {
+  color: var(--pi-brand);
+}
+/* Filled marks use the lit-edge button fill, which stays dark enough for
+   white text in both themes (the brand ink lightens in dark mode). */
+.process button[aria-pressed="true"] .stepMarker {
+  background: var(--pi-btn-fill);
+  border-color: var(--pi-btn-primary-edge);
+}
+.reviewButton {
+  background: var(--pi-btn-fill);
+  border: 1px solid var(--pi-btn-primary-edge);
+  box-shadow: var(--shadow-contact);
+}
+.reviewButton:hover {
+  background: var(--pi-btn-fill-hover);
+}
+.eyebrow > span {
+  background: var(--pi-brand);
+  box-shadow: none;
+}
+.intro h2 {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}

@@ -1,0 +1,1817 @@
+/* ── Bill form (AP), after the Finops review form — Oct 2026 ───────────────
+   Markup: components/inbox/v2/review-layout.ts (composeBillForm).
+   Lines and the line sheet: the engine's LINES block, public/ap/index.html.
+   Header, checks, Needs you, sheets: components/inbox/v2/bill-review.tsx.
+
+   The shape is the Finops prototype's review form
+   (~/Documents/folio-workspace, components/coding-review.tsx): a resolved-count
+   header, a "Voucher details" card of label rows whose › opens a sheet, a
+   spreadsheet items table whose description opens the line's sheet, and a
+   totals card. The values are Precision Indigo's: tokens, radius xs 4 · sm 6
+   · md 8 · lg 12 · xl 16, spacing on 4/8, type 12 · 13 · 14 · 15 · 17 · 28.
+
+   AI suggestions are teal, the palette's secondary accent: a "New" or
+   "Suggested" chip on the field; the value itself stays ink.
+   Scoped to all three entry forms (`html :is(.ap-sheet, .ar-sheet, .jv-form)`) so it outranks sheet.css and form-workspace.css. */
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) {
+  --doc-w: 36%;
+  --offer-wash: transparent;
+  --offer-stroke: var(--pi-line-strong);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .bill-hidden {
+  display: none !important;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .form {
+  gap: 24px;
+  padding: 20px 24px 40px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .card.cr-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* ── header ─────────────────────────────────────────────────────────────── */
+.cr-header {
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--pi-line);
+}
+.cr-status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--pi-body);
+}
+.cr-status-line svg {
+  color: var(--pi-success);
+}
+.cr-kicker {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+.cr-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+.cr-total {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cr-total strong {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--pi-ink);
+}
+.cr-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--pi-body);
+}
+.cr-draft i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pi-faint);
+}
+.cr-progress {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--pi-body);
+}
+.cr-progress b {
+  font-weight: 600;
+  color: var(--pi-ink);
+}
+.cr-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-warning);
+}
+.cr-open:hover {
+  color: var(--pi-ink);
+}
+.cr-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--pi-success);
+}
+.cr-bar {
+  grid-column: 1 / -1;
+  position: relative;
+  overflow: hidden;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--pi-line);
+}
+.cr-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--pi-success-dot);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cr-header button:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── voucher details ────────────────────────────────────────────────────── */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 12px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-title {
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-title::before,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-title::after {
+  content: none;
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label small {
+  font-size: 12px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label small i,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-label i {
+  font-style: normal;
+  color: var(--pi-warning);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-card {
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row {
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 4px 8px 4px 16px;
+  border-bottom: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row:last-child {
+  border-bottom: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row[hidden] {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-label {
+  font-size: 13px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value > .field,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value > .picker {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  justify-content: center;
+  grid-template-columns: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .t-label,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .picker__label {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .control,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .picker__state {
+  height: 32px;
+  min-height: 32px;
+  width: calc(100% + 12px);
+  /* 12px inside the edge, pulled out by the same so the text stays on the
+     column; 8px let the first letter run into the rounded corner */
+  margin-left: -12px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .control .t-value,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .picker select {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .picker select {
+  flex: 1;
+  max-width: none;
+  border: 0;
+  background: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .control:hover,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .picker__state:hover {
+  border-color: var(--pi-line-2);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .control:focus-within,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row-value
+  .picker__state:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row-value
+  .field.is-invalid
+  .control {
+  border-color: var(--pi-danger);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .field__error {
+  font-size: 12px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .pencil {
+  opacity: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row:hover .pencil,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row:focus-within .pencil {
+  opacity: 1;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-status {
+  display: inline-flex;
+  flex: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-status svg {
+  display: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row[data-tone="ok"]
+  .cr-status
+  svg:first-child {
+  display: block;
+  color: var(--pi-success);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row[data-tone="warn"]
+  .cr-status
+  svg:last-child {
+  display: block;
+  color: var(--pi-warning);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row[data-tone="err"]
+  .cr-status
+  svg:last-child {
+  display: block;
+  color: var(--pi-danger);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-host:hover {
+  background: var(--pi-row-hover);
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-host.has-pending svg {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-pending:empty {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-pending {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: var(--pi-warning-bg);
+  color: var(--pi-warning);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-host:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+}
+
+/* ── items ──────────────────────────────────────────────────────────────── */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items {
+  display: flex;
+  flex-direction: column;
+  scroll-margin-top: 24px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .lines__anchor {
+  display: contents;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head h3 span {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: var(--pi-fill);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: center;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-coded,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-cur {
+  font-size: 12px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-cur {
+  padding-left: 12px;
+  border-left: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-expand:hover {
+  background: var(--pi-row-hover);
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid-wrap {
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-table);
+  overflow: hidden;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid {
+  overflow-x: auto;
+  border: 0;
+  min-width: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table {
+  width: 100%;
+  min-width: 1060px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-idx {
+  width: 40px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-item {
+  width: 220px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-stock {
+  width: 168px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-qty {
+  width: 56px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-rate {
+  width: 88px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-ledger {
+  width: 168px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-centre {
+  width: 152px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-act {
+  width: 40px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-amt {
+  width: 116px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table th {
+  height: 36px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-body);
+  text-align: left;
+  white-space: nowrap;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table td {
+  height: 56px;
+  padding: 0;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-surface-panel);
+  font-size: 13px;
+  color: var(--pi-ink);
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table tbody tr:hover td {
+  background: var(--pi-row-hover);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table tr.is-selected td {
+  background: var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cr-num {
+  text-align: right;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cr-idx {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table th.cr-idx {
+  background: var(--pi-head-bg);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table th.cr-desc {
+  padding: 0 12px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cr-act {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  padding: 0 4px;
+  text-align: center;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table th.cr-act {
+  background: var(--pi-head-bg);
+}
+/* an edge shadow says columns are scrolled under the frozen ones */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid[data-l="true"] .cr-table .cr-idx {
+  box-shadow: 6px 0 6px -6px rgb(15 23 42 / 0.18);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid[data-r="true"] .cr-table .cr-amt {
+  box-shadow: -6px 0 6px -6px rgb(15 23 42 / 0.18);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-more {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-more:hover {
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-more:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 1px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table tr:not(:hover):not(:focus-within) .cr-more {
+  opacity: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-book {
+  display: block;
+  overflow: hidden;
+  padding: 0 12px;
+  text-overflow: ellipsis;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid-bar > [hidden] {
+  display: none;
+}
+/* the scrollbar stays drawn: a table wider than its card has to say so */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pi-line-strong) transparent;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cr-amt {
+  position: sticky;
+  right: 40px;
+  z-index: 1;
+  padding: 0 12px;
+  text-align: right;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table th.cr-amt {
+  background: var(--pi-head-bg);
+  font-family: inherit;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table td.cr-amt.is-invalid {
+  color: var(--pi-danger);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cr-idx {
+  padding: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--pi-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* the number, until the row is pointed at or ticked: then its checkbox */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table td.cr-idx .checkbox {
+  display: none;
+  margin: 0 auto;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table tr:hover td.cr-idx .checkbox,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-table
+  tr.is-selected
+  td.cr-idx
+  .checkbox,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-table
+  td.cr-idx:focus-within
+  .checkbox {
+  display: grid;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table tr:hover td.cr-idx > span,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-table
+  tr.is-selected
+  td.cr-idx
+  > span,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-table
+  td.cr-idx:focus-within
+  > span {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .checkbox__box {
+  border-color: var(--pi-line-strong);
+  border-radius: 4px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table td.cr-desc {
+  padding: 0 12px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-ink);
+  text-align: left;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-item > span {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 20px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-item.is-untitled {
+  font-weight: 400;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-item > svg {
+  flex: none;
+  color: var(--pi-faint);
+  transform: rotate(-90deg);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-item:hover {
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-item:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-desc:has(small) .cr-item {
+  min-height: 0;
+  padding-top: 8px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-desc:not(:has(small)) .cr-item {
+  min-height: 0;
+  padding: 8px 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-desc small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 0 8px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table td.cr-num {
+  padding: 0 4px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-in {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--pi-ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-in::placeholder {
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tr:hover .cr-in:not(:focus) {
+  box-shadow: inset 0 0 0 1px var(--pi-line-2);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-in:focus {
+  background: var(--pi-brand-tint);
+  box-shadow: inset 0 0 0 1.5px var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-na {
+  display: block;
+  padding: 0 8px;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table td.cr-picker {
+  padding: 0 4px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-pick,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-cc {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-cc .cell__select:has(option[value=""]:checked) {
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cr-pick .fieldplus {
+  margin-left: auto;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-pick [data-cr-item]::placeholder {
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-pick:focus-within,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-cc:focus-within {
+  background: var(--pi-brand-tint);
+  box-shadow: inset 0 0 0 1.5px var(--pi-brand);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-table
+  .cell
+  :is(.cell__input, .cell__select) {
+  font-size: 13px;
+  color: var(--pi-ink);
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  td[data-unresolved="true"]
+  .cr-pick
+  :is(.cell__input, .cell__select) {
+  color: var(--pi-warning);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table td[data-unresolved="true"] .cr-pick .cell__input::placeholder {
+  color: var(--pi-warning);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cell--new {
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--pi-line-strong);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-empty {
+  padding: 24px 12px !important;
+  text-align: center;
+  color: var(--pi-body);
+  white-space: normal !important;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px 8px 8px;
+  border-top: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-add:hover {
+  background: var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-total {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-total strong {
+  margin-left: 8px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pi-ink);
+  font-variant-numeric: tabular-nums;
+}
+/* Expand: the table in its own dialog (#cr-sheet-items) */
+html :is(.ap-sheet, .ar-sheet, .jv-form) dialog.cr-sheet.cr-sheet--wide {
+  width: min(1160px, calc(100vw - 48px));
+  max-width: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet--wide .cr-table {
+  min-width: 1060px;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-sheet--wide
+  .cr-table
+  col.c-ledger {
+  width: 200px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet--wide .cr-table .predbtn {
+  display: grid;
+}
+
+/* ── totals card ────────────────────────────────────────────────────────── */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+  text-align: left;
+  cursor: pointer;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals:hover {
+  border-color: var(--pi-line-2);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span + span {
+  border-left: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span:last-child {
+  align-items: flex-end;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals small {
+  font-size: 13px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals b {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--pi-ink);
+  font-variant-numeric: tabular-nums;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span:last-child b {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+/* ── sheets ─────────────────────────────────────────────────────────────── */
+html :is(.ap-sheet, .ar-sheet, .jv-form) dialog.cr-sheet {
+  width: min(456px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(680px, calc(100dvh - 48px));
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: var(--pi-surface-panel);
+  color: var(--pi-ink);
+  box-shadow: 0 24px 80px rgb(17 27 52 / 0.2);
+  overflow: hidden;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) dialog.cr-sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) dialog.cr-sheet::backdrop {
+  background: rgb(16 26 48 / 0.3);
+  backdrop-filter: blur(3px);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-head {
+  position: relative;
+  flex: none;
+  padding: 20px 56px 16px 24px;
+  border-bottom: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-title h2 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-head p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-head p:empty {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-x {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-x:hover {
+  background: var(--pi-row-hover);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-pill:empty {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-pill[data-tone="ok"] {
+  background: var(--pi-success-bg);
+  color: var(--pi-success);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-pill[data-tone="warn"] {
+  background: var(--pi-warning-bg);
+  color: var(--pi-warning);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-foot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  border-top: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-done {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-done:hover {
+  background: var(--pi-row-hover);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sub {
+  margin: 4px 0 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--pi-line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pi-body);
+}
+/* fields in a sheet: label above a bordered control */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .t-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-ink-2);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .t-label .req {
+  color: var(--pi-warning);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .control {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .control .t-value {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .control:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-sheet-body
+  .field.is-invalid
+  .control {
+  border-color: var(--pi-danger);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .narration textarea {
+  min-height: 72px;
+  padding: 8px 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .card__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .addl {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-head-bg);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body .breakdown {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-danger {
+  color: var(--pi-danger);
+}
+
+/* the line sheet (engine-rendered) */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-line {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-field > span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-ink-2);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-line .cr-fgrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cell.cr-box {
+  height: 40px;
+  padding: 0 12px;
+  gap: 8px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cell.cr-box:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cell.cr-box
+  :is(.cell__input, .cell__select) {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-unit {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-unit--btn {
+  font-weight: 500;
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-kind {
+  align-self: flex-start;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  color: var(--pi-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-kind[data-kind="service"] {
+  background: var(--pi-surface-panel);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-field .hsn {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  font-size: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-field .hsn > * {
+  font-size: 14px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-field .hsn__input {
+  flex: 1;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tax {
+  margin: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tax > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--pi-line);
+  font-size: 13px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tax dt {
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tax dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tax > div:last-child {
+  border-bottom: 0;
+  font-weight: 600;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-line-acts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Needs you */
+.cr-need {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--pi-line);
+  font-size: 13px;
+  color: var(--pi-ink);
+}
+.cr-need small {
+  font-size: 12px;
+  color: var(--pi-body);
+}
+.cr-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pi-warning-dot);
+}
+.cr-dot[data-tone="err"] {
+  background: var(--pi-danger-dot);
+}
+.cr-propose {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-warning-line);
+  border-radius: 6px;
+  background: var(--pi-warning-bg);
+  color: var(--pi-warning);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.cr-propose:hover {
+  border-color: var(--pi-warning);
+}
+.cr-empty-needs {
+  padding: 20px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--pi-body);
+}
+
+/* ── AI suggestions ─────────────────────────────────────────────────────
+   Teal, the palette's one secondary accent: indigo is already the brand,
+   the links and the selection, and the semantic hues mean ok / warn / error.
+   The suggestion is the chip ("New" — accepting it creates a master;
+   "Suggested" — it matched one that exists); the value itself stays ink. */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .predtag,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .predtag--new {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: var(--pi-teal-tint);
+  color: var(--pi-teal-strong);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  text-decoration: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .predtag--why {
+  cursor: help;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .predtag--why:hover {
+  box-shadow: inset 0 0 0 1px var(--pi-teal);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .control.control--offer,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cell.cr-box.cell--new,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .picker__state.is-suggested {
+  border: 1px dashed var(--pi-line-strong);
+  background: var(--pi-surface-panel);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row-value .control.control--offer {
+  gap: 8px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.predbtn, .fieldplus) {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.predbtn, .fieldplus) svg {
+  width: 16px;
+  height: 16px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.predbtn, .fieldplus):hover {
+  background: var(--pi-brand-tint);
+}
+
+/* ── narrow form column ─────────────────────────────────────────────────── */
+@container form (max-width: 520px) {
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row {
+    grid-template-columns: 112px minmax(0, 1fr) 36px;
+  }
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals {
+    grid-template-columns: 1fr;
+  }
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span + span {
+    border-left: 0;
+    border-top: 1px solid var(--pi-line);
+  }
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span:last-child {
+    align-items: flex-start;
+  }
+}
+
+/* the rows carry the engine's .trow (its handlers find lines by it), and
+   sheet.css lays .trow out as flex — a table row stays a table row */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table tr.trow {
+  display: table-row;
+}
+/* in a 196px cell the create button is clipped; the line's sheet and the
+   picker's own "create" option carry it */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .predbtn {
+  display: none;
+}
+/* a scrolling flex column must not squeeze its fields into each other */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet-body > * {
+  flex: none;
+}
+/* "New" in a cell is said by the word and the violet value; no box */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cell--new {
+  box-shadow: none;
+}
+
+/* ── the journal (React: components/inbox/journal) ─────────────────────────
+   The same rows, table, totals and sheets, over shadcn controls rather than
+   the engine's. These make those controls sit in a row as the engine's do:
+   text at rest, a field on hover and focus. */
+html .jv-form .jv-row-control {
+  flex: 1;
+  min-width: 0;
+}
+html .jv-form .jv-row-control > :is(button, input) {
+  height: 32px;
+  width: calc(100% + 12px);
+  margin-left: -12px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html
+  .jv-form
+  .jv-row-control
+  > :is(button, input):hover:not(:disabled):not([readonly]) {
+  border-color: var(--pi-line-2);
+}
+html .jv-form .jv-row-control > :is(button, input):focus-visible,
+html .jv-form .jv-row-control > button[data-state="open"] {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+  outline: none;
+}
+html
+  .jv-form
+  .jv-row-control
+  > button:not(:hover):not(:focus-visible):not([data-state="open"])
+  svg {
+  opacity: 0;
+}
+html .jv-form .cr-row[data-tone="muted"] .cr-status svg {
+  display: none;
+}
+html .jv-form .cr-sheet-body :is(input, textarea, button[role="combobox"]) {
+  font-size: 14px;
+}
+
+/* entries: the spreadsheet grid */
+html .jv-form .jv-lines > div:nth-child(2) {
+  border-radius: 12px;
+}
+html .jv-form .jv-lines th {
+  height: 36px;
+  padding: 0 12px;
+  border-right: 1px solid var(--pi-line);
+  font-size: 12px;
+}
+html .jv-form .jv-lines td {
+  height: 48px;
+  padding: 0;
+  border-right: 1px solid var(--pi-line);
+  vertical-align: middle;
+}
+html .jv-form .jv-lines :is(th, td):last-child {
+  border-right: 0;
+}
+html .jv-form .jv-lines td :is(input, [role="combobox"]) {
+  height: 47px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+}
+html .jv-form .jv-lines td :is(input, [role="combobox"]):focus,
+html .jv-form .jv-lines td [role="combobox"][aria-expanded="true"] {
+  background: var(--pi-brand-tint);
+  box-shadow: inset 0 0 0 1.5px var(--pi-brand);
+  outline: none;
+}
+html .jv-form .jv-lines td > p {
+  padding: 0 12px 8px;
+}
+html .jv-form .jv-lines td:has(> [role="combobox"]),
+html .jv-form .jv-lines td:has(input) {
+  padding: 0;
+}
+html .jv-form .jv-lines td:last-child,
+html .jv-form .jv-lines td:nth-child(5) {
+  padding: 0 8px;
+}
+html .jv-form .jv-lines button:has(svg):not([role="combobox"]) {
+  border-radius: 6px;
+}
+
+/* totals: three figures, the difference in its state */
+html .jv-form .cr-totals {
+  cursor: default;
+}
+html .jv-form .cr-totals > span[data-tone="err"] b {
+  color: var(--pi-danger);
+}
+.cr-balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -12px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+.cr-balance.ok {
+  color: var(--pi-success);
+}
+.cr-balance.warn {
+  color: var(--pi-warning);
+}
+/* shadcn's Input wraps its <input> in a column div */
+html .jv-form .jv-row-control input[data-slot="input"] {
+  height: 32px;
+  margin-left: -12px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html .jv-form .jv-row-control input[data-slot="input"]:hover:not([readonly]) {
+  border-color: var(--pi-line-2);
+}
+html .jv-form .jv-row-control input[data-slot="input"]:focus-visible {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html .jv-form .jv-lines td .jv-cell-trigger {
+  height: 47px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html .jv-form .jv-lines td .jv-cell-trigger[data-state="open"] {
+  background: var(--pi-brand-tint);
+  box-shadow: inset 0 0 0 1.5px var(--pi-brand);
+}
+html .jv-form .jv-lines td .jv-cell-trigger[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1.5px var(--pi-danger);
+}
+html .jv-form .jv-lines td input[data-slot="input"] {
+  height: 47px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html .jv-form .jv-lines td input[data-slot="input"]:focus-visible {
+  background: var(--pi-brand-tint);
+  box-shadow: inset 0 0 0 1.5px var(--pi-brand);
+}
+/* the journal lays its bands out with gap, so the header needs no margin */
+html .jv-form > .cr-header {
+  margin-bottom: 0;
+}
+/* the journal's sheets are Radix dialogs (journal/sheet.tsx): the same box */
+html .jv-sheet.cr-sheet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: min(456px, calc(100vw - 32px));
+  max-height: min(680px, calc(100dvh - 48px));
+  border-radius: 16px;
+  background: var(--pi-surface-panel);
+  color: var(--pi-ink);
+  box-shadow: 0 24px 80px rgb(17 27 52 / 0.2);
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+}
+html .jv-sheet.cr-sheet.cr-sheet--wide {
+  width: min(1160px, calc(100vw - 48px));
+}
+html .jv-sheet .jv-lines .cr-items-head {
+  display: none;
+}
+
+/* ── voucher card, quieter (4 Oct 2026) ─────────────────────────────────
+   One mark per row, and only when the row wants something: a 7px dot (the
+   system's dot-chip language) in the same trailing column on every row —
+   amber when it is open, red when it is wrong, nothing when it is done. The
+   sheets open from the card's footer, so no row carries a chevron and every
+   value ends on the same line. */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row {
+  grid-template-columns: 144px minmax(0, 1fr) 7px;
+  gap: 16px;
+  padding: 4px 20px 4px 16px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row[data-tone="warn"] .cr-status {
+  background: var(--pi-warning-dot);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-row[data-tone="err"] .cr-status {
+  background: var(--pi-danger-dot);
+}
+/* carets, calendars and pencils appear with the field, not at rest */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row:not(:hover):not(:focus-within)
+  .cr-row-value
+  .control
+  > :is(.ico, .pencil),
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row:not(:hover):not(:focus-within)
+  .cr-row-value
+  .picker
+  svg {
+  opacity: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-card-foot {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  border-top: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-ink-2);
+  text-align: left;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link + .cr-foot-link {
+  border-left: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link svg {
+  flex: none;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link:hover {
+  background: var(--pi-row-hover);
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: -2px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-card {
+  overflow: hidden;
+}
+
+/* header: the total's label and its provenance on one line */
+.cr-header .cr-kicker {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+.cr-kicker-note {
+  font-weight: 400;
+  color: var(--pi-faint);
+}
+.cr-kicker-note::before {
+  content: "·";
+  margin-right: 8px;
+}
+/* a select's caret is its background image */
+html :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row:not(:hover):not(:focus-within)
+  .cr-row-value
+  select {
+  background-image: none;
+}
+/* the line's "open" arrow appears with the row, not on every row at rest */
+html :is(.ap-sheet, .ar-sheet) .cr-table tr:not(:hover) .cr-item > svg {
+  opacity: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cr-item:focus-visible > svg {
+  opacity: 1;
+}
+/* tables: a row's controls (carets, the bin, the allocation pill) appear
+   with the row — at rest a table is its values */
+html :is(.ap-sheet, .ar-sheet) .cr-table tr:not(:hover):not(:focus-within) select {
+  background-image: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table tr:not(:hover):not(:focus-within) .cellcaret {
+  opacity: 0;
+}
+html .jv-form .jv-lines tbody tr:not(:hover):not(:focus-within) .jv-cell-trigger svg,
+html .jv-form .jv-lines tbody tr:not(:hover):not(:focus-within) td:last-child button {
+  opacity: 0;
+}
+html .jv-form .jv-lines td:nth-child(5) button {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--pi-body);
+  font-size: 13px;
+  font-weight: 400;
+}
+html .jv-form .jv-lines td:nth-child(5) button:hover {
+  border-color: var(--pi-line-2);
+  color: var(--pi-ink);
+}
+html .jv-form .jv-lines tbody tr:not(:hover):not(:focus-within) td:nth-child(5) button svg {
+  opacity: 0;
+}
+html .jv-form .jv-lines td:nth-child(5) button {
+  box-shadow: none;
+}
+
+/* ── items table: description field, item + HSN stack, picker footer ─────── */
+html :is(.ap-sheet, .ar-sheet) .cr-table td.cr-desc {
+  padding: 0 4px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-in.cr-in--text {
+  text-align: left;
+  text-overflow: ellipsis;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table td.cr-stack {
+  padding: 8px 4px;
+}
+/* two fields in one cell: a 4px gap keeps their edges apart on hover/focus */
+html :is(.ap-sheet, .ar-sheet) .cr-table td.cr-stack .cell.cr-hsn {
+  margin-top: 4px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn {
+  width: 100%;
+  height: 24px;
+  padding: 0 8px;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn:focus-within {
+  background: var(--pi-brand-tint);
+  box-shadow: inset 0 0 0 1.5px var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-hsn__k {
+  flex: none;
+  font-size: 12px;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn .cell__input {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--pi-body);
+  font-variant-numeric: tabular-nums;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn .cell__input::placeholder {
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn .cell__input.is-pred {
+  color: var(--pi-teal-strong);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-tr:hover .cell.cr-hsn:not(:focus-within) {
+  box-shadow: inset 0 0 0 1px var(--pi-line-2);
+}
+/* "create new" stays put under the list, however far the list scrolls */
+html :is(.ap-sheet, .ar-sheet) .cselp__foot {
+  flex: none;
+  padding: 4px;
+  border-top: 1px solid var(--pi-line);
+  background: var(--pi-surface-panel);
+}
+html :is(.ap-sheet, .ar-sheet) .cselp__foot[hidden] {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cselp__opt.cselp__create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font-weight: 500;
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet) .cselp__opt.cselp__create > svg {
+  flex: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cselp__opt.cselp__create.is-off {
+  color: var(--pi-faint);
+}
+/* the cell draws the focus ring; the input inside it does not draw a second */
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell :is(.cell__input, .cell__select, .cellcaret):focus,
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell :is(.cell__input, .cell__select, .cellcaret):focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell.is-open,
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell :is(.cell__input, .cellcaret).is-open {
+  outline: none;
+  box-shadow: none;
+}
+/* every editable cell in a pointed-at row shows its edge, the same way */
+html :is(.ap-sheet, .ar-sheet) .cr-tr:hover .cell:is(.cr-pick, .cr-cc):not(:focus-within):not(.is-disabled) {
+  box-shadow: inset 0 0 0 1px var(--pi-line-2);
+}
+/* On a tinted row (hovered or ticked) the fields sit on the surface colour,
+   so they read as fields rather than outlines over the tint. */
+html :is(.ap-sheet, .ar-sheet) .cr-tr:is(:hover, .is-selected, :focus-within) .cell:is(.cr-pick, .cr-cc, .cr-hsn):not(.is-disabled),
+html :is(.ap-sheet, .ar-sheet) .cr-tr:is(:hover, .is-selected, :focus-within) .cr-in {
+  background: var(--pi-surface-panel);
+  box-shadow: inset 0 0 0 1px var(--pi-line-2);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-tr .cell:is(.cr-pick, .cr-cc, .cr-hsn):focus-within,
+html :is(.ap-sheet, .ar-sheet) .cr-tr .cr-in:focus {
+  background: var(--pi-surface-panel);
+  box-shadow: inset 0 0 0 1.5px var(--pi-brand);
+}
+/* `html .ap-sheet input` sets every input transparent !important (sheet-bridge),
+   so the table's own fields have to answer in kind */
+html :is(.ap-sheet, .ar-sheet) .cr-tr:is(:hover, .is-selected, :focus-within) .cr-in {
+  background: var(--pi-surface-panel) !important;
+}
+
+/* ── table field padding (4 Oct 2026) ─────────────────────────────────────
+   Fields in cells keep 12px inside their edge, as the voucher rows do — 8px
+   let the text run into the rounded corner once the edge was drawn. Cell
+   text then starts 16px in (4px cell + 12px field), and the headers and the
+   plain cells (amount, ledger name, dashes) start there too. */
+html :is(.ap-sheet, .ar-sheet) .cr-table .cell:is(.cr-pick, .cr-cc, .cr-hsn) {
+  padding: 0 12px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-in {
+  padding: 0 12px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table th:not(.cr-idx):not(.cr-act),
+html :is(.ap-sheet, .ar-sheet) .cr-table td.cr-amt {
+  padding: 0 16px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-na {
+  padding: 0 12px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table col.c-qty {
+  width: 72px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table col.c-rate {
+  width: 104px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table,
+html :is(.ap-sheet, .ar-sheet) .cr-sheet--wide .cr-table {
+  min-width: 1092px;
+}

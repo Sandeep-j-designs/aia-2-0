@@ -1,0 +1,407 @@
+/*
+  Document loader — the type switch and first-time extraction. Precision
+  Indigo tokens only (light and dark follow the theme): white paper cards on
+  the page, a lit-edge brand tile, and the reference's .extraction-stages
+  segmented bars for progress. Only transform and opacity animate.
+
+  Every scene loop divides 7.2s (3.6, 2.4, 7.2, 1.8, 1.44), so the whole scene
+  repeats every 7.2s and the handoff GIF (Inbox Animations - Final) loops
+  without a seam. Keep new durations on that grid.
+*/
+.root {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 32px;
+}
+
+.scene {
+  position: relative;
+  width: 460px;
+  max-width: 100%;
+  height: 240px;
+  isolation: isolate;
+}
+
+.orbit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 400px;
+  height: 170px;
+  border: 1px dashed var(--pi-line-2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+}
+
+/* ------------------------------------------------------------------ cards */
+.card {
+  position: absolute;
+  top: 16px;
+  width: 162px;
+  min-height: 196px;
+  display: flex;
+  flex-direction: column;
+  padding: 13px 12px;
+  overflow: hidden;
+  background: var(--pi-surface-panel);
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-contact);
+}
+.source {
+  left: 0;
+  animation: drift 3.6s ease-in-out infinite;
+}
+.target {
+  right: 0;
+  border-color: var(--pi-brand-border);
+}
+
+.cardLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--pi-ink-3);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.targetLabel {
+  color: var(--pi-brand);
+}
+
+.party {
+  margin-top: 10px;
+  overflow: hidden;
+  color: var(--pi-ink);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  margin-top: 2px;
+  color: var(--pi-faint);
+  font-size: 10px;
+}
+.source i {
+  display: block;
+  height: 4px;
+  margin-top: 9px;
+  background: var(--pi-fill-2);
+  border-radius: 2px;
+}
+.source i:nth-of-type(2) {
+  width: 78%;
+}
+.source i:nth-of-type(3) {
+  width: 56%;
+  margin-bottom: 14px;
+}
+.total {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--pi-rule-ledger);
+  color: var(--pi-ink);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+}
+
+/* A hairline scan rule sweeping down the source (reference .document-scan). */
+.scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: var(--pi-brand);
+  opacity: 0.6;
+  animation: scan 2.4s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------ the crossing */
+.sparkle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  display: grid;
+  place-items: center;
+  color: hsl(var(--primary-foreground));
+  background: var(--pi-btn-fill);
+  border: 1px solid var(--pi-btn-primary-edge);
+  border-radius: 12px;
+  box-shadow: var(--shadow-contact);
+  z-index: 2;
+  animation: breathe 2.4s ease-in-out infinite;
+}
+.sparkle svg {
+  animation: turn 7.2s linear infinite;
+}
+
+/* Three dots travelling source → target, behind the tile. */
+.flow {
+  position: absolute;
+  left: 150px;
+  right: 150px;
+  top: 50%;
+  height: 6px;
+  margin-top: -3px;
+  z-index: 1;
+}
+.flow span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pi-brand);
+  opacity: 0;
+  animation: flow 1.8s linear infinite;
+}
+.flow span:nth-child(2) {
+  animation-delay: 0.6s;
+}
+.flow span:nth-child(3) {
+  animation-delay: 1.2s;
+}
+
+/* ---------------------------------------------------------- target rows */
+.row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  min-height: 27px;
+}
+.row:last-of-type {
+  margin-bottom: 10px;
+}
+.rowLabel {
+  color: var(--pi-faint);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rowValue {
+  overflow: hidden;
+  color: var(--pi-ink);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 400ms ease,
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* The placeholder the value lands on; it shimmers until then. */
+.rowSkeleton {
+  position: absolute;
+  left: 0;
+  bottom: 3px;
+  width: 80%;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--pi-fill-2);
+  animation: shimmer 1.44s ease-in-out infinite;
+  transition: opacity 250ms ease;
+}
+.row[data-filled="true"] .rowValue {
+  opacity: 1;
+  transform: none;
+}
+.row[data-filled="true"] .rowSkeleton {
+  opacity: 0;
+  animation: none;
+}
+
+.targetTotal {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--pi-rule-ledger);
+  color: var(--pi-ink);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.25;
+  transition: opacity 400ms ease;
+}
+.targetTotal svg {
+  color: var(--pi-success-dot);
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 300ms ease,
+    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.targetTotal[data-filled="true"] {
+  opacity: 1;
+}
+.targetTotal[data-filled="true"] svg {
+  opacity: 1;
+  transform: none;
+}
+
+/* --------------------------------------------- copy + extraction stages */
+.copy {
+  display: flex;
+  width: 460px;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.heading {
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--pi-ink);
+}
+.stepText {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pi-body);
+}
+/* reference .extraction-stages: one 2px segment per step */
+.stages {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  margin: 16px 0 4px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.stage {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--pi-faint);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.stage i {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--pi-fill-2);
+  transition: background-color var(--dur-med) var(--ease-enter);
+}
+.stage[data-state="current"] {
+  color: var(--pi-brand);
+}
+.stage[data-state="current"] i {
+  background: var(--pi-brand);
+}
+.stage[data-state="complete"] i {
+  background: var(--pi-success-dot);
+}
+.note {
+  max-width: 384px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pi-faint);
+}
+
+/* ------------------------------------------------------------- keyframes */
+@keyframes scan {
+  0% {
+    transform: translateY(-40px);
+  }
+  100% {
+    transform: translateY(230px);
+  }
+}
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes flow {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(154px);
+    opacity: 0;
+  }
+}
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* The scene holds still; the rows still fill in with the time. */
+@media (prefers-reduced-motion: reduce) {
+  .source,
+  .scan,
+  .sparkle,
+  .sparkle svg,
+  .flow span,
+  .rowSkeleton {
+    animation: none;
+  }
+  .scan,
+  .flow {
+    display: none;
+  }
+  .rowValue,
+  .targetTotal,
+  .targetTotal svg,
+  .stage i {
+    transition: none;
+  }
+}

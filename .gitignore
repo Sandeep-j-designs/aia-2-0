@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.next-*/
+out/
+.backups/
+.DS_Store
+next-env.d.ts
+*.tsbuildinfo

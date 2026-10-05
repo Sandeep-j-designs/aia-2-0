@@ -1,0 +1,1107 @@
+/* Karbon AI Accountant — Unified Inbox
+   Design tokens carried from the Accounts Payable, Bill Upload and Sync Queue
+   prototypes. Those three already agree on this vocabulary; the inbox is the
+   fourth surface, so it reads off the same names rather than its own.
+
+   Only two families are local to this screen: the collapsed-sidebar width and
+   the fixed table row height. Everything else is the house set.
+*/
+:root{
+  /* Surfaces */
+  --surface:        #ffffff;
+  --bg-primary:     #fbfbfe;     /* Background/Section — hover ground, page ground */
+  --bg-secondary:   #f6f7ff;     /* active nav, soft pills, brand-tinted panels */
+  --interactive:    #e2e5fb;     /* the same tint, pressed */
+
+  /* Lines */
+  --stroke:         #efefef;     /* dividers-strokes */
+  --card-stroke:    #e5e7eb;     /* the border list cards and menus actually carry */
+  --hairline:       #ebebf4;     /* rules inside a tinted panel — indigo-biased so
+                                    they read as part of the ground, not laid over it */
+
+  /* Brand */
+  --brand:          #465ed5;     /* accent, links, focus ring */
+  --brand-deep:     #3146b0;     /* action-primary-bg — every primary */
+  --brand-press:    #283a95;     /* primary hover. Bill Upload carries this as a
+                                    literal; named here so the inbox keeps its
+                                    no-raw-hex property. Same value. */
+  --brand-soft:     #bac3f4;     /* Border/Components — control edges are indigo, not grey */
+  --on-brand:       #ffffff;
+
+  /* Text */
+  --text:           #1e1e1e;     /* text-primary */
+  --text-muted:     #707070;     /* text-secondary */
+  --text-body:      #4a4a4a;
+
+  /* Status — the AA-tuned values, not the Tailwind defaults this file shipped
+     with. Each is contrast-checked against both white and its own wash. */
+  --danger:         #c11212;     /* 6.2:1 on white */
+  --danger-wash:    #fdeeee;
+  --danger-edge:    #f0c0c0;
+  --success:        #0f6e41;     /* 6.3:1 on white, 5.6:1 on the pill tint */
+  --success-wash:   #e6f5ee;
+  --success-edge:   #b9ddc9;
+  --warning:        #8a5300;     /* 6.3:1 on white, 5.6:1 on the warn pill tint */
+  --warning-wash:   #fff3d9;
+  --warning-edge:   #f0d69a;
+
+  /* App chrome — the dark topbar the other prototypes wear */
+  --chrome:         #21263c;     /* base-surface-dark */
+  --chrome-text:    #ffffff;
+  --chrome-muted:   #a9adbe;
+  --chrome-field:   #303850;     /* base-surface-dark-sec */
+  --chrome-rule:    #3b4257;
+  --chrome-badge:   #12a594;     /* the company badge, sampled */
+
+  /* Type + form */
+  --font:           'Open Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --radius:         6px;
+  --radius-card:    8px;
+  --radius-plane:   10px;        /* a full-width content plane; the 6px control
+                                    radius nests inside it correctly */
+  --field-shadow:   drop-shadow(0 1px 1px rgba(0,0,0,.07));
+  --knob-shadow:    0 2px 4px rgba(39,39,39,.1);
+  --chevron:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 7.5 4.5' fill='none'%3E%3Cpath d='M0.75 0.75L3.75 3.75L6.75 0.75' stroke='%23707070' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  /* ------------------------------------------------------------ type scale
+     Bill Upload's ten steps, bounded 9 and 64, carried verbatim. Sizes are
+     named by their value rather than by a job, because the same step serves
+     more than one. The inbox previously ran 12/13/14 doing one another's
+     work in ~50 places; 13 and 15 are not steps and are gone.
+
+     9  · the invoice facsimile's fine print — a picture of a document
+     10 · figures inside dense chips
+     11 · tracked micro-capitals, column keys
+     12 · meta and caption, the line under a name
+     14 · body, and every interactive label
+     16 · subheads and the names of things
+     20 · dialog titles
+     28 · page title
+     40 · the ledger figure
+     64 · the stated ceiling, deliberately unspent                          */
+  --t-9:9px;    --t-9-lh:12px;
+  --t-10:10px;  --t-10-lh:14px;
+  --t-11:11px;  --t-11-lh:16px;
+  --t-12:12px;  --t-12-lh:16px;
+  --t-14:14px;  --t-14-lh:20px;
+  --t-16:16px;  --t-16-lh:24px;
+  --t-20:20px;  --t-20-lh:28px;
+  --t-28:28px;  --t-28-lh:36px;
+  --t-40:40px;  --t-40-lh:44px;
+  --t-64:64px;  --t-64-lh:64px;
+  /* Display steps tighten as they grow; ALL CAPS always gains tracking. */
+  --tr-28:-.02em;
+  --tr-40:-.035em;
+  --tr-64:-.04em;
+
+  /* Elevation — three steps, tinted with --chrome so a raised plane stays
+     warm-neutral. e1 = a content plane, e2 = the bar that overrides it,
+     e3 = a dialog lifted off the whole page. Nothing gets a fourth. */
+  --e1:0 1px 2px rgba(33,38,60,.05),0 1px 1px rgba(33,38,60,.04);
+  --e2:0 6px 16px rgba(33,38,60,.08),0 1px 3px rgba(33,38,60,.05);
+  --e3:0 12px 32px rgba(33,38,60,.16),0 2px 8px rgba(33,38,60,.10);
+
+  /* A document reader needs a ground darker than the paper, or the page has
+     no edge and the pane reads as empty white — --bg-primary (#fbfbfe) is
+     not dark enough. */
+  --reader-ground:  #eeeef3;
+
+  /* Motion. The house curve is a decelerator — right for something arriving,
+     wrong for something leaving. Things that go away accelerate instead. */
+  --ease:           cubic-bezier(.2,.7,.3,1);
+  --ease-exit:      cubic-bezier(.4,0,.9,.5);
+  --dur:            .18s;
+
+  /* Sizing */
+  --topbar-h:       50px;
+  --sidebar-w:      200px;
+  --gutter:         20px;
+  --sidebar-collapsed-w: 56px;   /* inbox-only — no other prototype collapses */
+  --row-h-fixed:    45px;        /* the reference row height; a minimum, so the
+                                    two-line File cell grows past it */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body{
+  margin:0;
+  font-family: var(--font);
+  font-size: var(--t-14);
+  line-height: 20px;
+  color: var(--text);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1,h2,h3,p,dl,dd,dt{ margin:0; }
+[hidden]{ display:none !important; }
+:focus-visible{ outline:2px solid var(--brand); outline-offset:2px; border-radius:3px; }
+
+button{ font: inherit; color: inherit; cursor: pointer; border: 0; background: transparent; }
+input, select, textarea{ font: inherit; color: inherit; }
+a{ color: var(--brand-deep); text-decoration: none; }
+
+/* ---------------- Typography classes ----------------
+   AP's semantic classes, re-expressed on Bill Upload's numeric scale so the
+   two vocabularies name the same values. AP's .t-title is 24px, which is not
+   a step — it resolves up to --t-28, the scale's stated page-title size, and
+   picks up --tr-28 tracking with it. */
+.t-title  { font-size: var(--t-28); line-height:var(--t-28-lh); letter-spacing:var(--tr-28); font-weight:500; }
+.t-section{ font-size: var(--t-16); line-height:var(--t-16-lh); letter-spacing:-.18px; font-weight:600; color:var(--text-muted); }
+.t-label  { font-size: var(--t-12); line-height:var(--t-12-lh); min-height:20px; letter-spacing:-.12px; font-weight:600; color:var(--text-muted); }
+.t-value  { font-size: var(--t-14); line-height:var(--t-14-lh); letter-spacing:-.16px; font-weight:400; color:var(--text-muted); }
+.t-cell   { font-size: var(--t-12); line-height:20px; font-weight:400; color:var(--text-muted); }
+.req      { color:var(--danger); }
+
+/* Density toggle — toggled via [data-density="compact"] on body */
+body[data-density="compact"] { --row-h: 44px; --pad-y: 8px; }
+body { --row-h: 56px; --pad-y: 12px; }
+
+/* ================= App layout =================
+   Dark bar across the top, white sidebar beneath it — the arrangement the
+   Sync Queue and Bill Upload prototypes use. */
+.app{ display:flex; flex-direction:column; height:100vh; overflow:hidden; background: var(--surface); }
+.app__shell{ flex:1; min-height:0; display:flex; overflow:hidden; }
+.app__main{ flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; background: var(--surface); overflow:hidden; }
+
+/* ---------------- Topbar (chrome) ---------------- */
+.topbar{
+  height: var(--topbar-h); flex:none;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding: 0 16px;
+  background: var(--chrome); color: var(--chrome-text);
+}
+.topbar__left{ display:flex; align-items:center; gap:14px; min-width:0; }
+.topbar__right{ display:flex; align-items:center; gap:14px; min-width:0; flex:none; }
+.topbar__div{ width:1px; height:20px; background: var(--chrome-rule); flex:none; }
+
+.brand{ display:flex; align-items:center; flex:none; }
+.brand__logo{ height:24px; width:auto; display:block; }
+
+/* Crumbs ride in the dark bar. Muted for the trail, full white for the leaf. */
+.topbar__crumbs{ display:flex; align-items:center; gap:8px; min-width:0; font-size: var(--t-14); color: var(--chrome-muted); }
+.topbar__crumbs strong{
+  color: var(--chrome-text); font-weight:600;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:360px; display:inline-block; vertical-align:bottom;
+}
+.topbar__link{
+  display:flex; align-items:center; gap:8px;
+  background:none; border:none; color: var(--chrome-text);
+  font-size: var(--t-14); line-height:var(--t-14-lh); letter-spacing:-.16px;
+  padding:8px; border-radius:8px;
+}
+.topbar__link:hover{ background: rgba(255,255,255,.08); }
+.avatar{
+  width:32px; height:32px; flex:none; border-radius:50%;
+  background: var(--chrome-field); color: var(--on-brand);
+  display:grid; place-items:center; font-size: var(--t-16); line-height:22px; font-weight:600; border:none;
+}
+
+/* Company switcher. Sync Queue makes this a white chip; Bill Upload keeps it
+   on the dark chrome so the bar stays one plane. Bill Upload's reading. */
+.cosw__btn{
+  display:flex; align-items:center; gap:6px; max-width:300px; height:32px;
+  padding:1px 7px; border-radius: var(--radius);
+  background: var(--chrome-field); color: var(--chrome-text);
+  border:1px solid transparent;
+  font-size: var(--t-14); line-height:var(--t-14-lh); letter-spacing:-.16px;
+}
+.cosw__btn:hover{ border-color: #4a5570; }
+.cosw__badge{
+  width:18px; height:18px; flex:none; border-radius:4.5px;
+  background: var(--chrome-badge); color: var(--on-brand);
+  display:grid; place-items:center; font-size: var(--t-11); font-weight:700;
+}
+.cosw__name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+
+/* ---------------- Sidebar ---------------- */
+.sidebar{
+  flex:none; width: var(--sidebar-w);
+  border-right: 1px solid var(--stroke);
+  display:flex; flex-direction:column; justify-content:space-between;
+  padding: 8px 0 12px;
+  background: var(--surface);
+  overflow-y:auto;
+  transition: width var(--dur) var(--ease);
+}
+.sidebar.is-collapsed{ width: var(--sidebar-collapsed-w); }
+
+.nav{ display:flex; flex-direction:column; gap:2px; padding: 0 12px; }
+.nav__item{
+  display:flex; align-items:center; gap:12px; width:100%;
+  height:35px; padding: 0 12px;
+  border-radius: var(--radius); border:none; background:none;
+  font-size: var(--t-14); line-height:20px; color: var(--text); text-align:left;
+  position:relative;
+}
+.nav__item:hover{ background: var(--bg-primary); }
+.nav__item[aria-current="page"]{ background: var(--bg-secondary); color: var(--brand-deep); font-weight:600; }
+.nav__item .ico{ color: var(--text-muted); flex:none; }
+.nav__item[aria-current="page"] .ico{ color: var(--brand-deep); }
+.nav__item .ico--tail{ margin-left:auto; width:14px; height:14px; }
+.nav__label{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.nav__badge{
+  min-width:20px; height:18px; padding: 0 6px; flex:none;
+  background: var(--brand-deep); color: var(--on-brand);
+  border-radius: 99px;
+  font-size: var(--t-11); font-weight:700; line-height:18px; text-align:center;
+}
+.nav__divider{ height:1px; background: var(--stroke); margin: 8px 12px; }
+
+.sidebar__foot{ padding: 0 12px; }
+.collapse{
+  width:32px; height:32px; border-radius: var(--radius); border:none;
+  background: var(--bg-secondary); color: var(--text-muted);
+  display:grid; place-items:center;
+}
+.collapse:hover{ background: var(--interactive); color: var(--brand-deep); }
+.sidebar.is-collapsed .collapse svg{ transform: scaleX(-1); }
+
+/* Collapsed: icons only, badge tucks into the corner, label becomes a tooltip */
+.sidebar.is-collapsed .nav{ padding: 0 8px; }
+.sidebar.is-collapsed .nav__item{ justify-content:center; padding: 0 4px; gap:0; }
+.sidebar.is-collapsed .nav__label,
+.sidebar.is-collapsed .nav__item .ico--tail{ display:none; }
+.sidebar.is-collapsed .nav__badge{
+  position:absolute; top:1px; right:1px;
+  min-width:16px; height:14px; padding: 0 4px;
+  font-size: var(--t-9); line-height:14px;
+}
+.sidebar.is-collapsed .nav__divider{ margin: 8px 4px; }
+.sidebar.is-collapsed .sidebar__foot{ padding: 0 8px; display:flex; justify-content:center; }
+
+.sidebar.is-collapsed .nav__item:hover::after{
+  content: attr(data-label);
+  position:absolute; left: calc(100% + 12px); top:50%;
+  transform: translateY(-50%);
+  background: var(--chrome); color: var(--chrome-text);
+  padding: 6px 10px; border-radius: var(--radius);
+  font-size: var(--t-12); font-weight:600; white-space:nowrap;
+  z-index:20; pointer-events:none;
+  box-shadow: var(--e2);
+}
+
+/* ---------------- Page chrome ---------------- */
+.page{ flex:1; min-height:0; min-width: 0; display:flex; flex-direction:column; background: var(--surface); overflow: hidden; }
+.page__head{ padding: 20px var(--gutter) 0; display:flex; align-items:center; gap:16px; flex-shrink: 0; }
+.page__title{ font-size: var(--t-28); line-height:var(--t-28-lh); letter-spacing:var(--tr-28); font-weight:500; color: var(--text); margin: 0; }
+.page__body{ flex:1; min-height:0; min-width: 0; padding: 16px var(--gutter) var(--gutter); display:flex; flex-direction:column; overflow: hidden; }
+
+/* ---------------- Buttons ----------------
+   House variants, taken from the Accounts Payable prototype: 34px tall, the
+   house radius, and the -.16px tracking that the type scale uses.
+
+   Note one deliberate divergence: Sync Queue redefines --quiet as a neutral
+   outline button, while AP has it as a quiet brand text button. AP's reading
+   wins here — it's the larger and more worked-through of the two, and the
+   inbox needs a text-weight action for "Skip", "Change", "View lineage". */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  height:34px; padding: 8px 16px;
+  border-radius: var(--radius); border:none;
+  font-size: var(--t-14); line-height:20px; letter-spacing:-.16px; font-weight:600;
+  white-space:nowrap;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.btn:disabled{ opacity:.4; cursor:not-allowed; }
+.btn--solid{ background: var(--brand-deep); color: var(--on-brand); }
+.btn--solid:hover:not(:disabled){ background: var(--brand-press); }
+.btn--outline{ background: var(--surface); border:1px solid var(--brand-soft); color: var(--brand-deep); }
+.btn--outline:hover:not(:disabled){ background: var(--bg-secondary); }
+.btn--quiet{ background: transparent; color: var(--brand-deep); padding-inline: 0; }
+.btn--quiet:hover:not(:disabled){ text-decoration: underline; }
+/* Inbox-only. No house equivalent — the bulk bar and the conversion header
+   need a filled action that isn't the primary. Built from house tokens. */
+.btn--soft{ background: var(--bg-secondary); color: var(--brand-deep); }
+.btn--soft:hover:not(:disabled){ background: var(--interactive); }
+.btn--danger{ background: transparent; color: var(--danger); border:1px solid currentColor; height:32px; padding: 6px 12px; font-size: var(--t-12); }
+.btn--danger:hover:not(:disabled){ background: var(--danger-wash); }
+.btn--sm{ height:30px; padding: 6px 12px; font-size: var(--t-14); gap:8px; }
+.btn--icon{ padding: 6px; width:32px; height:32px; gap:0; }
+.link{ background:none; border:none; padding:0; color: var(--brand-deep); font-size: var(--t-12); text-decoration:underline; font-weight:600; }
+
+/* Quiet icon button — toolbars, pane headers, pagers, panel dismiss. */
+.icon-btn{
+  width:32px; height:32px; flex:none;
+  border-radius: var(--radius);
+  display:inline-flex; align-items:center; justify-content:center;
+  color: var(--text-muted);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.icon-btn:hover{ background: var(--bg-primary); color: var(--text); }
+
+/* ---------------- Tabs ---------------- */
+.tabs{ display:flex; align-items:center; gap: 4px; border-bottom: 1px solid var(--stroke); flex-wrap: nowrap; overflow-x: auto; }
+.tab{ padding: 10px 14px; font-size: var(--t-14); color: var(--text-muted); position: relative; cursor:pointer; display:flex; align-items:center; gap:8px; white-space: nowrap; flex-shrink: 0; }
+.tab:hover{ color: var(--text); }
+.tab.is-active{ color: var(--brand-deep); font-weight: 600; }
+.tab.is-active::after{ content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background: var(--brand-deep); border-radius: 2px 2px 0 0; }
+.tab__count{ min-width:18px; height:18px; padding: 0 6px; border-radius: 99px; background: var(--bg-primary); color: var(--text-muted); font-size: var(--t-11); font-weight:600; display:inline-flex; align-items:center; justify-content:center; }
+.tab.is-active .tab__count{ background: var(--bg-secondary); color: var(--brand-deep); }
+
+/* ---------------- Status pills ----------------
+   House sizing: 2px 8px, 11px/600. Tighter than the 12px pill this file
+   shipped with — the AP and Bill Upload tables run these at density. */
+.pill{ display:inline-flex; align-items:center; gap:5px; padding: 2px 8px; border-radius: 99px; font-size: var(--t-11); font-weight: 600; line-height: 16px; white-space: nowrap; }
+.pill--info    { background: var(--bg-secondary); color: var(--brand-deep); }
+.pill--success { background: var(--success-wash); color: var(--success); }
+.pill--warn    { background: var(--warning-wash); color: var(--warning); }
+.pill--danger  { background: var(--danger-wash); color: var(--danger); }
+.pill--neutral { background: var(--bg-primary); color: var(--text-muted); }
+.pill--soft    { background: var(--bg-secondary); color: var(--brand-deep); border: 1px solid var(--brand-soft); }
+.pill__dot{ width:6px; height:6px; border-radius:50%; background: currentColor; opacity:.7; }
+
+/* Shimmer for Extracting — the tint travelling to its own pressed step */
+.pill--shimmer{ position: relative; overflow: hidden; background: linear-gradient(90deg, var(--bg-secondary) 0%, var(--interactive) 50%, var(--bg-secondary) 100%); background-size: 200% 100%; color: var(--brand-deep); animation: shimmer 1.4s linear infinite; border: 1px solid var(--brand-soft); }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Spinner */
+.spin{ display:inline-block; width:12px; height:12px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------------- Tables ----------------
+   Bill Upload's .dt, carried over. The defining move is that cells are ruled
+   on TWO sides — bottom AND right — so the grid reads as columns, not just
+   rows. Last cell in a row drops its right rule.
+
+   There is no outer border and no corner radius: the table is bounded by its
+   own cell rules and nothing else. The wrapper is a plain scroll box.
+
+   Heights are 40 for the header and 45 for a row. In a table `height` is a
+   minimum, so the inbox's two-line File cell grows past 45 on its own — the
+   reference rows are single-line, this screen's are not. */
+.tbl{ width:100%; border-collapse: separate; border-spacing: 0; background: var(--surface); table-layout: fixed; }
+.tbl th, .tbl td{
+  text-align:left; vertical-align: middle; overflow: hidden;
+  border-bottom: 1px solid var(--stroke);
+  border-right: 1px solid var(--stroke);
+}
+.tbl th:last-child, .tbl td:last-child{ border-right: none; }
+.tbl th{
+  height:40px; padding: 0 8px 0 12px;
+  position: sticky; top:0; z-index: 1;
+  background: var(--bg-primary);
+  font-size: var(--t-12); line-height:16px; font-weight:600; letter-spacing:.12px;
+  color: var(--text-muted); white-space: nowrap; text-transform: none;
+}
+.tbl td{
+  height: var(--row-h-fixed); padding: 0 12px;
+  background: var(--surface);
+  font-size: var(--t-12); line-height:16px; font-weight:400; letter-spacing:-.12px;
+  color: var(--text); text-overflow: ellipsis; white-space: nowrap;
+}
+.tbl td > div, .tbl td > span{ max-width: 100%; }
+.tbl tr.is-selected td{ background: var(--bg-secondary); }
+.tbl tbody tr:hover td{ background: var(--bg-primary); }
+.tbl tr.is-selected:hover td{ background: var(--bg-secondary); }
+.tbl tr.is-disabled{ opacity: .55; cursor: not-allowed !important; }
+.tbl tr.is-disabled:hover td{ background: transparent; }
+/* Scoped to .tbl so they outrank the base `.tbl th, .tbl td` alignment —
+   a bare .tbl__num loses on specificity (0,1,0 vs 0,1,1) and the amount
+   column was silently left-aligning. The reference solves it the same way
+   with `.dt .r`. */
+.tbl .tbl__num{ text-align: right; font-variant-numeric: tabular-nums; }
+.tbl .tbl__date{ text-align: right; }
+.tbl .num{ font-variant-numeric: tabular-nums; }
+/* The pick and action columns are fixed and centred, as in the reference. */
+.tbl .col-check{ width:51px; padding: 0 8px; text-align:center; }
+.tbl .col-kebab{ width:68px; padding: 0 8px; text-align:center; }
+.tbl-wrap{ flex:1; overflow: auto; background: var(--surface); min-width: 0; }
+.tbl-wrap::-webkit-scrollbar{ height:8px; width:8px; }
+.tbl-wrap::-webkit-scrollbar-thumb{ background: var(--brand-soft); border-radius: 99px; }
+
+/* Inbox list table uses auto layout so File column can flex-grow with a min-width.
+   The kebab cell needs overflow:visible so the portal trigger is unclipped. */
+.tbl--inbox{ table-layout: auto; min-width: 1280px; }
+.tbl--inbox td, .tbl--inbox th{ overflow: visible; }
+.tbl--inbox .col-file{ min-width: 280px; width: auto; }
+.tbl--inbox .col-source   { min-width: 170px; width: 170px; }
+.tbl--inbox .col-vendor   { min-width: 180px; width: 180px; }
+.tbl--inbox .col-voucher  { min-width: 120px; width: 120px; }
+.tbl--inbox .col-route    { min-width: 110px; width: 110px; }
+.tbl--inbox .col-amount   { min-width: 130px; width: 130px; }
+.tbl--inbox .col-received { min-width: 130px; width: 130px; }
+.tbl--inbox .col-status   { min-width: 140px; width: 140px; }
+.tbl--inbox .col-kebab    { width: 68px; }
+.tbl--inbox .col-check    { width: 51px; }
+
+/* For cells where we need ellipsis on a child block — use the cell-ellipsis class */
+.cell-ellipsis{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
+}
+
+/* ---------------- Inputs ----------------
+   The house field: 34px, an indigo --brand-soft edge rather than a grey one,
+   and the drop-shadow that lifts it half a step off the ground. Focus is a
+   --brand-deep edge with a 2px --brand-soft ring — no rgba literals. */
+.field{ display:flex; flex-direction:column; gap:8px; min-width:0; }
+.field__label{ font-size: var(--t-12); line-height:16px; letter-spacing:-.12px; font-weight:600; color: var(--text-muted); }
+.field__label .req{ color: var(--danger); margin-right: 2px; }
+.input, .select, .textarea{
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--brand-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  filter: var(--field-shadow);
+  font-size: var(--t-14);
+  line-height: 20px;
+  letter-spacing: -.16px;
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.input:hover, .select:hover{ border-color: var(--brand); }
+.input:focus, .select:focus, .textarea:focus{ border-color: var(--brand-deep); box-shadow: 0 0 0 2px var(--brand-soft); }
+.input--invalid{ border-color: var(--danger); }
+.input--invalid:focus{ border-color: var(--danger); box-shadow: 0 0 0 2px var(--danger-edge); }
+.input--warn{ border-color: var(--warning-edge); background: var(--warning-wash); }
+.input::placeholder, .textarea::placeholder{ color: var(--text-muted); opacity:1; }
+.textarea{ height: auto; padding: 8px 12px; resize: vertical; }
+.select{ appearance: none; background-image: var(--chevron); background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px; }
+.search{ position: relative; }
+.search > .input{ padding-left: 32px; }
+.search > svg{ position:absolute; left:10px; top:50%; transform: translateY(-50%); color: var(--text-muted); pointer-events:none; z-index:1; }
+
+/* House checkbox: 16px, 3px radius, --brand-soft edge, --brand-deep when set */
+.checkbox{ width:16px; height:16px; border-radius: 3px; border:1px solid var(--brand-soft); background: var(--surface); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink: 0; }
+.checkbox.is-checked,
+.checkbox.is-indeterminate{ background: var(--brand-deep); border-color: var(--brand-deep); color: var(--on-brand); }
+
+/* ---------------- Modal ---------------- */
+.modal-backdrop{ position: fixed; inset: 0; background: rgba(20,24,40,.32); z-index: 60; display:flex; align-items:center; justify-content:center; padding: 32px; }
+.modal{ background: var(--surface); border:1px solid var(--brand-soft); border-radius: var(--radius); width: 720px; max-width: 100%; max-height: 100%; display:flex; flex-direction:column; overflow:hidden; box-shadow: var(--e3); }
+.modal__head{ display:flex; align-items:center; padding: 18px 20px; border-bottom: 1px solid var(--stroke); }
+.modal__title{ font-size: var(--t-20); line-height:var(--t-20-lh); letter-spacing:-.18px; font-weight:600; color: var(--text); flex:1; margin:0; }
+.modal__body{ padding: 20px; overflow: auto; }
+.modal__foot{ display:flex; justify-content:flex-end; gap:8px; padding: 12px 20px; border-top: 1px solid var(--stroke); }
+
+/* ---------------- Channel pills ---------------- */
+.chan{ display:inline-flex; align-items:center; gap:6px; padding: 3px 8px; border-radius: 99px; font-size: var(--t-11); font-weight: 600; }
+.chan--email   { background: var(--bg-secondary); color: var(--brand-deep); }
+.chan--whatsapp{ background: var(--success-wash); color: var(--success); }
+.chan--upload  { background: var(--bg-primary); color: var(--text-muted); }
+.chan--drive   { background: var(--warning-wash); color: var(--warning); }
+
+/* ---------------- Misc ---------------- */
+.kbd{ font-family: ui-monospace, Menlo, monospace; font-size: var(--t-11); padding: 1px 6px; border:1px solid var(--stroke); border-radius: 4px; color: var(--text-muted); background: var(--bg-primary); }
+.dot{ width:6px; height:6px; border-radius:50%; display:inline-block; }
+.code{ font-family: ui-monospace, Menlo, monospace; font-size: var(--t-12); color: var(--brand); background: var(--bg-secondary); padding: 3px 8px; border-radius: 4px; border: 1px dashed var(--brand-soft); }
+hr.rule{ border:0; border-top: 1px solid var(--stroke); margin: 16px 0; }
+.muted{ color: var(--text-muted); }
+.faint{ color: var(--text-muted); }
+.right{ text-align: right; }
+.num{ font-variant-numeric: tabular-nums; }
+.mono{ font-family: ui-monospace, Menlo, monospace; }
+.nowrap{ white-space: nowrap; }
+
+/* ---------------- File preview pane ---------------- */
+.preview{ background: var(--reader-ground); border-right: 1px solid var(--stroke); position: relative; overflow: auto; }
+.preview__paper{ width: min(560px, 92%); margin: 32px auto; background: var(--surface); box-shadow: 0 6px 20px rgba(0,0,0,.08); border-radius: 4px; padding: 40px 48px; font-size: var(--t-12); color: #333; line-height: 1.65; min-height: 720px; }
+.preview__toolbar{ position: sticky; top: 0; display:flex; align-items:center; justify-content:flex-end; gap:6px; padding: 10px 14px; background: rgba(245,245,247,.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--stroke); z-index: 2; }
+.preview__bank-rows{ font-family: ui-monospace, Menlo, monospace; font-size: var(--t-11); }
+
+/* Progress rail */
+.rail{ display:flex; align-items:center; gap: 8px; }
+.rail__stop{ display:flex; align-items:center; gap:8px; padding: 4px 0; }
+.rail__dot{ width:18px; height:18px; border-radius:50%; background: var(--surface); border:1.5px solid var(--brand-soft); display:inline-flex; align-items:center; justify-content:center; color: var(--text-muted); font-size: var(--t-11); font-weight:700; flex-shrink: 0; }
+.rail__stop.is-active .rail__dot{ background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.rail__stop.is-done .rail__dot{ background: var(--success); border-color: var(--success); color: var(--on-brand); }
+.rail__label{ font-size: var(--t-12); color: var(--text-muted); font-weight: 600; }
+.rail__stop.is-active .rail__label{ color: var(--brand); }
+.rail__stop.is-done .rail__label{ color: var(--success); }
+.rail__bar{ width: 44px; height: 2px; background: var(--stroke); border-radius: 2px; }
+.rail__bar.is-done{ background: var(--success); }
+
+/* Confidence chip */
+.conf{ display:inline-flex; align-items:center; gap:6px; padding: 3px 8px; border-radius: 99px; font-size: var(--t-12); font-weight: 600; }
+.conf--high { background: var(--success-wash); color: var(--success); }
+.conf--med  { background: var(--warning-wash); color: var(--warning); }
+.conf--low  { background: var(--danger-wash); color: var(--danger); }
+
+/* AI-suggested marker */
+.ai-mark{ display:inline-flex; align-items:center; gap:4px; font-size: var(--t-11); color: var(--brand); font-weight: 600; background: var(--bg-secondary); padding: 2px 6px; border-radius: 99px; }
+
+/* Segmented control (route selector) */
+.seg{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.seg__opt{
+  display: flex; flex-direction: column; align-items: flex-start;
+  text-align: left; gap: 4px;
+  padding: 12px 14px; border-radius: var(--radius-card);
+  background: var(--surface); border: 1px solid var(--stroke);
+  cursor: pointer; position: relative;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.seg__opt:hover{ border-color: var(--brand-soft); background: var(--bg-secondary); }
+.seg__opt.is-selected{ border-color: var(--brand); background: var(--bg-secondary); box-shadow: 0 0 0 3px rgba(49,70,176,.08); }
+.seg__opt-title{ font-size: var(--t-14); font-weight: 600; color: var(--text); display:flex; align-items:center; gap:6px; }
+.seg__opt-sub{ font-size: var(--t-11); color: var(--text-muted); }
+
+/* Toast/Hint */
+.hint{ display:flex; align-items:flex-start; gap:10px; padding: 10px 12px; border-radius: var(--radius); font-size: var(--t-14); line-height: 20px; }
+.hint--info{ background: var(--bg-secondary); color: var(--brand-deep); border:1px solid var(--brand-soft); }
+.hint--warn{ background: var(--warning-wash); color: var(--warning); border:1px solid var(--warning-edge); }
+.hint--danger{ background: var(--danger-wash); color: var(--danger); border:1px solid var(--danger-edge); }
+.hint--success{ background: var(--success-wash); color: var(--success); border:1px solid var(--success-edge); }
+
+/* Form rows */
+.form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+.form-grid--3{ grid-template-columns: 1fr 1fr 1fr; }
+.form-grid--full{ grid-column: 1 / -1; }
+.fieldline-warn{ font-size: var(--t-11); color: var(--warning); margin-top: 2px; display:flex; align-items:center; gap: 4px; }
+.fieldline-help{ font-size: var(--t-11); color: var(--text-muted); margin-top: 2px; }
+
+/* AR Sub-rail */
+.subrail{ display:flex; align-items:center; gap: 6px; padding: 8px 14px; background: var(--bg-secondary); border-radius: var(--radius); }
+.subrail__step{ display:flex; align-items:center; gap:6px; padding: 4px 10px; border-radius: 99px; font-size: var(--t-12); font-weight: 600; color: var(--text-muted); }
+.subrail__step.is-active{ background: var(--surface); color: var(--brand); border:1px solid var(--brand-soft); }
+.subrail__step.is-done{ color: var(--success); }
+.subrail__sep{ color: var(--text-muted); font-size: var(--t-11); }
+
+/* Bulk action bar */
+.bulk{
+  position: fixed;
+  bottom: 24px; left: 50%; transform: translateX(-50%);
+  display:flex; align-items:center; gap: 12px;
+  background: var(--chrome); color: var(--on-brand);
+  padding: 10px 16px; border-radius: 99px;
+  box-shadow: var(--e3);
+  z-index: 25;
+}
+.bulk__count{ font-size: var(--t-12); font-weight: 600; }
+/* The bar sits on --chrome, so its buttons take the dark-surface tokens the
+   other prototypes use for controls on that ground — not black-on-black greys. */
+.bulk__btn{ background: var(--chrome-field); color: var(--chrome-text); padding: 6px 12px; border-radius: var(--radius); font-size: var(--t-14); font-weight:600; }
+.bulk__btn:hover{ background: var(--chrome-rule); }
+/* --danger is pitched for white and goes muddy on navy; the disc red from the
+   Bill Upload chrome palette is the same step tuned for this surface. */
+.bulk__btn--danger{ color: #e8706b; }
+/* Stays --brand, not --brand-deep: on navy the deep step sits too close to
+   the bar itself. Same reasoning as the danger colour above. */
+.bulk__btn--solid{ background: var(--brand); }
+.bulk__btn--solid:hover{ background: var(--brand-deep); }
+
+/* AR data grid */
+.grid-cell-invalid{ background: var(--danger-wash); }
+.grid-cell-invalid input{ border-color: var(--danger); }
+.grid-row-invalid td{ background: rgba(255,239,239,.5); }
+.grid-row-valid td{ background: rgba(239,255,239,.4); }
+
+/* Phase 3 footer counter */
+.counter-bar{ display:flex; align-items:center; gap: 24px; padding: 12px 16px; background: var(--bg-primary); border-top: 1px solid var(--stroke); font-size: var(--t-12); }
+.counter-bar strong{ color: var(--text); font-weight: 600; }
+
+/* Empty state */
+.empty{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding: 48px 32px;
+  background: var(--surface);
+  overflow-y: auto;
+  min-height: 0;
+}
+.empty__inner{
+  width: 100%; max-width: 960px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 40px;
+}
+.empty__hero{ text-align: center; }
+.empty__eyebrow{ font-size: var(--t-11); letter-spacing: .14em; text-transform: uppercase; color: var(--brand); font-weight: 700; margin-bottom: 8px; }
+.empty__title{ font-size: var(--t-28); line-height:var(--t-28-lh); font-weight: 600; color: var(--text); margin: 0 0 10px; letter-spacing: var(--tr-28); }
+.empty__sub{ color: var(--text-muted); font-size: var(--t-16); line-height: var(--t-16-lh); margin: 0; max-width: 540px; margin-inline: auto; }
+
+.channel-tiles{
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;
+  width: 100%;
+}
+.tile{
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 24px 22px;
+  display: flex; flex-direction: column; gap: 14px;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+  position: relative;
+}
+.tile:hover{ border-color: var(--brand-soft); box-shadow: var(--e1); }
+.tile--email   { background: var(--surface); }
+.tile--whatsapp{ background: var(--surface); }
+.tile--upload  { background: var(--bg-primary); border-style: dashed; }
+.tile__icon{
+  width: 44px; height: 44px;
+  border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.tile--email   .tile__icon{ background: var(--bg-secondary); color: var(--brand-deep); }
+.tile--whatsapp .tile__icon{ background: var(--success-wash); color: var(--success); }
+.tile--upload  .tile__icon{ background: var(--bg-secondary); color: var(--brand); border: 1px solid var(--brand-soft); }
+.tile__title{ font-size: var(--t-14); font-weight: 700; color: var(--text); }
+.tile__sub{ font-size: var(--t-12); color: var(--text-muted); margin-top: 2px; line-height: 18px; }
+.tile__value{
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: var(--t-12);
+  color: var(--text);
+  margin-top: auto;
+}
+.tile__value code{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 0; padding: 0; }
+.tile__btn{
+  background: transparent; color: var(--brand); font-weight: 600; font-size: var(--t-12);
+  padding: 4px 8px; border-radius: 4px; flex-shrink: 0;
+}
+.tile__btn:hover{ background: var(--bg-secondary); }
+.tile__qr{
+  position: absolute;
+  bottom: 64px;
+  right: 22px;
+  width: 120px; height: 120px;
+  background:
+    conic-gradient(from 0deg, #111 0deg 12deg, #fff 12deg 22deg, #111 22deg 34deg, #fff 34deg 48deg, #111 48deg 60deg, #fff 60deg 80deg, #111 80deg 100deg, #fff 100deg 110deg, #111 110deg 130deg, #fff 130deg 150deg, #111 150deg 170deg, #fff 170deg 200deg, #111 200deg 222deg, #fff 222deg 240deg, #111 240deg 260deg, #fff 260deg 290deg, #111 290deg 310deg, #fff 310deg 330deg, #111 330deg 360deg);
+  border: 6px solid var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--e2);
+  z-index: 5;
+}
+.tile__upload-btn{
+  width: 100%; padding: 12px;
+  background: var(--brand); color: var(--on-brand); font-weight: 600; font-size: var(--t-14);
+  border-radius: 8px;
+  margin-top: auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.tile__upload-btn:hover{ background: var(--brand-deep); }
+.tile__hint{ font-size: var(--t-11); color: var(--text-muted); margin-top: 8px; text-align: center; }
+
+/* "How it works" — subordinated */
+.howitworks{
+  display: flex; align-items: stretch; gap: 0;
+  width: 100%;
+  margin-top: 8px;
+}
+.howitworks__step{
+  flex: 1;
+  padding: 14px 16px;
+  text-align: center;
+}
+.howitworks__connector{
+  display: flex; align-items: center;
+  flex: 0 0 40px;
+  position: relative;
+}
+.howitworks__connector::before{
+  content: ""; display: block;
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, var(--stroke) 0%, var(--brand-soft) 50%, var(--stroke) 100%);
+}
+.howitworks__connector::after{
+  content: "→";
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  padding: 0 6px;
+  color: var(--brand-soft);
+  font-size: var(--t-12);
+}
+.howitworks__num{ font-size: var(--t-11); color: var(--brand); font-weight: 700; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
+.howitworks__title{ font-size: var(--t-12); font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.howitworks__sub{ font-size: var(--t-12); color: var(--text-muted); line-height: 18px; }
+
+/* Detail two-pane */
+.detail{ flex:1; min-height:0; display:flex; flex-direction:column; background: var(--surface); }
+.detail__head{ display:flex; align-items:center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--stroke); flex-shrink: 0; }
+.detail__title{ font-size: var(--t-16); line-height:var(--t-16-lh); letter-spacing:-.16px; font-weight:600; color: var(--text); display:flex; align-items:center; gap:8px; }
+.detail__rail{ flex:1; display:flex; align-items:center; justify-content:center; }
+.detail__split{ flex:1; min-height:0; display:grid; grid-template-columns: 1fr 1fr; }
+.detail__single{ flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.detail__work{ overflow-y: auto; padding: 24px 28px; display:flex; flex-direction:column; gap: 20px; }
+.work__section-title{ font-size: var(--t-16); line-height:var(--t-16-lh); letter-spacing:-.18px; font-weight:600; color: var(--text); margin: 0; }
+.work__section-sub{ font-size: var(--t-12); color: var(--text-muted); margin: 0; }
+
+/* Approved-state card */
+.approved{ display:flex; align-items:center; gap: 16px; padding: 24px; background: var(--success-wash); border:1px solid var(--success-edge); border-radius: var(--radius-card); }
+.approved__icon{ width:48px; height:48px; border-radius:50%; background: var(--success); color: var(--on-brand); display:inline-flex; align-items:center; justify-content:center; }
+
+/* Pager (N of M) */
+.pager{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; background: var(--surface); border:1px solid var(--stroke); border-radius: var(--radius); font-size: var(--t-12); }
+.pager__btn{ width:24px; height:24px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; color: var(--text-muted); }
+.pager__btn:hover{ background: var(--bg-primary); color: var(--text); }
+
+/* Vendor master "add" inline */
+.inline-add{ font-size: var(--t-11); color: var(--brand); padding: 2px 6px; border-radius: 4px; background: var(--bg-secondary); }
+
+/* ============================================================ */
+/* v2 — Router model. Thin orientation strip + native panes.    */
+/* ============================================================ */
+
+/* Orientation strip (40px max). Sits above split. */
+.strip{
+  display: flex; align-items: center; gap: 14px;
+  height: 40px; padding: 0 var(--gutter);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--stroke);
+  flex-shrink: 0;
+}
+.strip__back{
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--brand); font-weight: 600; font-size: var(--t-14);
+  padding: 4px 8px; margin-left: -8px; border-radius: 6px;
+  cursor: pointer;
+}
+.strip__back:hover{ background: var(--bg-secondary); }
+.strip__divider{ width: 1px; height: 16px; background: var(--card-stroke); }
+.strip__pos{ font-size: var(--t-12); color: var(--text-muted); }
+.strip__pos strong{ color: var(--text); font-weight: 600; }
+.strip__source{
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 99px;
+  background: var(--bg-secondary); color: var(--brand);
+  border: 1px solid var(--brand-soft);
+  font-size: var(--t-11); font-weight: 600;
+}
+.strip__right{ margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.strip__pager{
+  display: inline-flex; align-items: center; gap: 0;
+  background: var(--surface); border: 1px solid var(--stroke);
+  border-radius: 6px; overflow: hidden;
+}
+.strip__pager button{
+  width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+}
+.strip__pager button:hover:not(:disabled){ background: var(--bg-secondary); color: var(--brand); }
+.strip__pager button:disabled{ opacity: .35; cursor: not-allowed; }
+.strip__pager span{ font-size: var(--t-12); padding: 0 8px; color: var(--text-muted); border-left:1px solid var(--stroke); border-right:1px solid var(--stroke); line-height:24px; }
+
+/* Disambiguation banner — one-action moment, not a phase */
+.disambig{
+  background: var(--warning-wash);
+  border-bottom: 1px solid var(--warning-edge);
+  padding: 14px var(--gutter);
+  display: flex; align-items: center; gap: 16px;
+  flex-shrink: 0;
+}
+.disambig__icon{
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--surface); color: var(--warning);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; border: 1px solid var(--warning-edge);
+}
+.disambig__title{ font-size: var(--t-12); font-weight: 600; color: var(--text); }
+.disambig__sub{ font-size: var(--t-12); color: var(--text-muted); margin-top: 2px; }
+.disambig__actions{ margin-left: auto; display: flex; gap: 8px; }
+
+/* Native pane container */
+.native{
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  overflow: hidden;
+}
+.native__header{
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-bottom: 1px solid var(--stroke);
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.native__title{ font-size: var(--t-16); line-height:var(--t-16-lh); letter-spacing:-.16px; font-weight:600; color: var(--text); margin: 0; }
+.native__sub{ font-size: var(--t-12); color: var(--text-muted); margin-top: 2px; }
+.native__body{
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.native__footer{
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px; border-top: 1px solid var(--stroke);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+/* Row-level overflow kebab on tables (visible on hover) */
+.kebab-wrap{ display: inline-flex; }
+/* The reference keeps the row kebab visible at all times — it is a fixed
+   68px column with the control centred in it, not a hover affordance. The
+   previous hover-gating is gone. */
+.kebab-btn{
+  width: 32px; height: 33px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius); border: none; background: none;
+  color: var(--text-muted);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.kebab-btn:hover,
+.kebab-btn.is-open{ background: var(--interactive); color: var(--brand-deep); }
+
+/* Menu lives in a portal at document.body level — fixed positioning, no clipping */
+.kebab-menu{
+  background: var(--surface); border: 1px solid var(--card-stroke);
+  border-radius: 8px; padding: 4px;
+  min-width: 240px;
+  box-shadow: var(--e2);
+}
+.kebab-item{
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 4px; font-size: var(--t-14);
+  color: var(--text); cursor: pointer; white-space: nowrap;
+}
+.kebab-item:hover{ background: var(--bg-secondary); color: var(--brand); }
+.kebab-item.danger{ color: var(--danger); }
+.kebab-item.danger:hover{ background: var(--danger-wash); color: var(--danger); }
+.kebab-divider{ height: 1px; background: var(--stroke); margin: 4px 0; }
+
+/* JV-convert slide-in panel */
+.jvc-backdrop{
+  position: fixed; inset: 0; background: rgba(20,24,40,.32);
+  z-index: 70; display: flex; justify-content: flex-end;
+}
+.jvc{
+  width: 560px; height: 100%;
+  background: var(--surface);
+  box-shadow: var(--e3);
+  display: flex; flex-direction: column;
+  opacity: 1;
+  transform: translateX(0);
+}
+.jvc--wide{ width: 720px; }
+.jvc__head{ padding: 16px 20px; border-bottom: 1px solid var(--stroke); display: flex; align-items: center; gap: 12px; }
+.jvc__head-icon{
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--brand);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.jvc__title{ font-size: var(--t-16); line-height:var(--t-16-lh); font-weight: 600; flex: 1; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jvc__body{ flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.jvc__foot{ padding: 12px 20px; border-top: 1px solid var(--stroke); display: flex; gap: 8px; justify-content: flex-end; }
+.jvc__src{
+  padding: 12px 14px; background: var(--bg-secondary); border-radius: 6px;
+  border: 1px solid var(--brand-soft);
+  font-size: var(--t-12); color: var(--brand-deep);
+  display: flex; align-items: center; gap: 10px;
+}
+
+/* Consequence chip — used in conversion panel header band */
+.conseq-chip{
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--bg-secondary);
+  color: var(--brand-deep);
+  border: 1px solid var(--brand-soft);
+  font-size: var(--t-11); font-weight: 600;
+}
+
+/* Mapping table — three columns: source / target / status */
+.map-table{
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.map-row{
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 120px;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--stroke);
+  align-items: flex-start;
+}
+.map-row:last-child{ border-bottom: 0; }
+.map-row--head{
+  background: var(--bg-primary);
+  font-size: var(--t-11);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 14px;
+}
+.map-row--needs{
+  background: linear-gradient(90deg, transparent 0%, rgba(255,247,237,0.5) 100%);
+}
+.map-row--new{
+  background: linear-gradient(90deg, transparent 0%, rgba(246,247,255,0.5) 100%);
+}
+.map-cell{ font-size: var(--t-12); min-width: 0; }
+.map-cell--source{ color: var(--text-muted); }
+.map-cell--source > div:first-child{ color: var(--text); }
+.map-cell--target{ color: var(--text); }
+.map-cell--status{ text-align: right; padding-top: 2px; }
+
+/* Line builder — used for JV→typed conversions */
+.line-builder{
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 4px;
+}
+.lb-row{
+  display: grid;
+  grid-template-columns: 1.6fr 1.2fr 0.7fr 0.5fr 0.7fr 32px;
+  gap: 6px;
+  align-items: center;
+  padding: 4px;
+}
+.lb-row--head{
+  font-size: var(--t-10);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0 4px 6px;
+}
+.lb-row--head .num{ text-align: right; }
+
+/* Pre-flight check line */
+.preflight{
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--stroke);
+  margin-bottom: 6px;
+  background: var(--surface);
+}
+.preflight--ok   { border-color: var(--success-edge); background: var(--success-wash); }
+.preflight--warn { border-color: var(--warning-edge);    background: var(--warning-wash); }
+.preflight--info { border-color: var(--brand-soft);   background: var(--bg-secondary); }
+.preflight__icon{
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.preflight--ok   .preflight__icon{ background: var(--success); color: var(--on-brand); }
+.preflight--warn .preflight__icon{ background: var(--warning);    color: var(--on-brand); }
+.preflight--info .preflight__icon{ background: var(--brand);   color: var(--on-brand); }
+
+/* Convert picker — small popover anchored to button */
+.convert-picker{
+  background: var(--surface);
+  border: 1px solid var(--card-stroke);
+  border-radius: 10px;
+  box-shadow: var(--e2);
+  padding: 6px;
+  overflow: hidden;
+}
+.convert-picker__head{
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px 6px;
+  font-size: var(--t-11); font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.convert-picker__opt{
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.convert-picker__opt:hover{ background: var(--bg-secondary); }
+.convert-picker__sub{
+  font-size: var(--t-11);
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding-left: 22px;
+}
+.convert-picker__badge{
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: var(--t-10); font-weight: 600;
+  background: var(--warning-wash);
+  color: var(--warning);
+  border: 1px solid var(--warning-edge);
+  border-radius: 99px;
+  margin-left: 4px;
+}
+
+/* Lineage chip + header */
+.lineage-chip{
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--bg-secondary);
+  color: var(--brand);
+  border: 1px solid var(--brand-soft);
+  font-size: var(--t-11); font-weight: 600;
+  white-space: nowrap;
+}
+.lineage-header{
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(90deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+  border-bottom: 1px solid var(--stroke);
+  font-size: var(--t-14);
+  color: var(--text-muted);
+}
+.lineage-header strong{ color: var(--text); font-weight: 600; }
+
+/* AR row dedup styles */
+.tr-skipped td{ color: var(--text-muted); opacity: 0.65; }
+.tr-skipped:hover td{ background: var(--bg-primary); }
+.tr-converted td{ text-decoration: line-through; color: var(--text-muted); }
+.tr-converted:hover td{ background: var(--bg-primary); }
+.tr-converted .lineage-chip{ text-decoration: none; }
+
+/* Snackbar (Undo after JV conversion) */
+.snack{
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--chrome); color: var(--chrome-text); padding: 12px 16px; border-radius: var(--radius-card);
+  box-shadow: var(--e3);
+  display: flex; align-items: center; gap: 16px;
+  font-size: var(--t-14); z-index: 80;
+  min-width: 360px;
+}
+.snack__undo{ color: var(--brand-soft); font-weight: 600; cursor: pointer; }
+.snack__undo:hover{ color: var(--on-brand); }
+.snack__bar{
+  position: absolute; bottom: 0; left: 0; height: 2px;
+  background: var(--brand-soft); border-bottom-left-radius: var(--radius-card);
+  animation: snackProgress 10s linear forwards;
+}
+@keyframes snackProgress { from { width: 100%; } to { width: 0; } }
+
+/* Simple toast (no undo, no progress) */
+.toast{
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--chrome); color: var(--chrome-text); padding: 10px 16px;
+  border-radius: 8px; box-shadow: var(--e3);
+  font-size: var(--t-14); z-index: 90;
+  animation: toastIn var(--dur) var(--ease);
+  max-width: 480px;
+}
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Approved card embedded inside native pane */
+.approved-inline{
+  display: flex; align-items: center; gap: 14px;
+  padding: 20px 24px;
+  background: var(--success-wash);
+  border: 1px solid var(--success-edge);
+  border-radius: var(--radius-card);
+  flex-shrink: 0;
+}
+
+/* Drill-in chrome inside the native pane (e.g., one invoice row in AR grid) */
+.drill__head{
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--stroke);
+}
+.drill__back{
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--brand); font-weight: 600; font-size: var(--t-14);
+  cursor: pointer;
+}
+.drill__back:hover{ text-decoration: underline; }

@@ -1,0 +1,236 @@
+.root {
+  padding: 8px 22px 20px;
+  overflow: hidden;
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  /* Flat, not a gradient: the page ground, like the reference upload well. */
+  background: var(--pi-page);
+}
+.scene {
+  height: 156px;
+  position: relative;
+  width: min(340px, 100%);
+  margin: 0 auto;
+  isolation: isolate;
+}
+.halo {
+  position: absolute;
+  inset: 20px 12px;
+  border: 1px solid var(--pi-line);
+  border-radius: 50%;
+  transform: rotate(-10deg);
+  z-index: -1;
+}
+.halo::after {
+  content: "";
+  position: absolute;
+  inset: 15px;
+  border: 1px dashed var(--pi-line-2);
+  border-radius: 50%;
+}
+.source {
+  position: absolute;
+  left: 26px;
+  top: 30px;
+  width: 67px;
+  height: 86px;
+  transform: rotate(-9deg);
+}
+.sheet,
+.backSheet {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+}
+.backSheet {
+  transform: translate(-7px, -4px) rotate(-8deg);
+  background: var(--pi-fill);
+}
+.sheet {
+  padding: 11px;
+  color: var(--pi-faint);
+}
+.sheet i {
+  display: block;
+  margin-top: 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--pi-fill-2);
+}
+.sheet i + i {
+  margin-top: 4px;
+  width: 70%;
+}
+.sheet > span {
+  display: block;
+  font-size: 5px;
+  letter-spacing: 0.7px;
+  margin-top: 8px;
+}
+.destination {
+  position: absolute;
+  right: 27px;
+  top: 46px;
+  width: 66px;
+  height: 62px;
+  border: 1px solid var(--pi-btn-primary-edge);
+  border-radius: 12px;
+  background: var(--pi-btn-fill);
+  display: grid;
+  place-items: center;
+  color: hsl(var(--primary-foreground));
+  box-shadow: var(--shadow-contact);
+  transition:
+    background-color var(--dur-med) var(--ease-enter),
+    border-color var(--dur-med) var(--ease-enter);
+}
+.badge {
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  width: 23px;
+  height: 23px;
+  border: 3px solid var(--pi-page);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: hsl(var(--primary-foreground));
+  background: var(--pi-warning-dot);
+}
+.root[data-success="true"] .badge {
+  background: var(--pi-success-dot);
+}
+.root[data-success="true"] .destination {
+  background: var(--pi-success-dot);
+  border-color: var(--pi-success-line);
+}
+.route {
+  position: absolute;
+  left: 36%;
+  right: 33%;
+  top: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--pi-line-strong);
+}
+.route > span {
+  height: 3px;
+  width: 3px;
+  background: var(--pi-line-strong);
+  border-radius: 50%;
+}
+.traveling {
+  position: absolute;
+  top: 58px;
+  left: 28%;
+  padding: 6px;
+  border: 1px solid var(--pi-line-2);
+  background: var(--pi-surface-panel);
+  color: var(--pi-brand);
+  border-radius: 6px;
+  opacity: 0;
+}
+.root[data-active="true"] .traveling {
+  animation: transfer 1.8s cubic-bezier(0.3, 0.1, 0.4, 1) infinite;
+}
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.summary strong {
+  font-size: 24px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--pi-ink);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.summary strong > span {
+  color: var(--pi-faint);
+  font-size: 16px;
+  font-weight: 400;
+}
+.label,
+.status {
+  font-size: 11px;
+  color: var(--pi-faint);
+}
+.status {
+  text-align: right;
+}
+.track {
+  margin-top: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--pi-fill-2);
+  overflow: hidden;
+}
+.track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pi-brand);
+  transition: width var(--dur-med) var(--ease-enter);
+}
+.root[data-success="true"] .track > span {
+  background: var(--pi-success-dot);
+}
+@keyframes transfer {
+  0% {
+    opacity: 0;
+    transform: translate(-12px, 5px) rotate(-10deg) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(105px, 0) rotate(5deg) scale(0.65);
+  }
+}
+@media (max-width: 480px) {
+  .root {
+    padding-inline: 16px;
+  }
+  .summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .status {
+    text-align: left;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Short screens: the drawing gives up height so the panel under it — the
+   list of failures and its Retry buttons — stays on screen without the
+   dialog scrolling. Zoom rather than transform, so the layout shrinks too. */
+@media (max-height: 640px) {
+  .scene {
+    zoom: 0.7;
+  }
+  .root {
+    padding-bottom: 16px;
+  }
+}

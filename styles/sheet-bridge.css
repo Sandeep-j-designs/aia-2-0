@@ -1,0 +1,554 @@
+/* ── Sheet bridge: Precision Indigo for the AP / AR entry sheets ───────────
+   public/{ap,ar}/sheet.css are generated (and AP is re-pulled from upstream by
+   scripts/sync-ap-sheet.cjs), so they are never edited by hand. This file
+   re-skins them from outside instead:
+   1. the sheets' own tokens are re-pointed at --pi-* (so light and dark both
+      follow the app theme), and
+   2. the handful of literal colours the sheets carry are overridden.
+   Every selector is prefixed with `html`, which adds one type to the sheet's
+   own `.ap-sheet …` selector so these win regardless of load order. Layout,
+   sizes that drive engine geometry, and behaviour are left alone. */
+
+/* ── 1. tokens ──────────────────────────────────────────────────────────── */
+html .ap-sheet,
+html .ar-sheet {
+  --surface: var(--pi-surface-panel);
+  --bg-primary: var(--pi-head-bg);
+  --bg-secondary: var(--pi-brand-tint);
+  --stroke: var(--pi-line);
+  --hairline: var(--pi-line);
+  --interactive: var(--pi-fill-2);
+
+  --brand: var(--pi-brand);
+  --brand-deep: var(--pi-brand);
+  /* the sheets use --brand-soft as the field edge: Precision Indigo's
+     interactive border is the neutral line-2, not a brand hue */
+  --brand-soft: var(--pi-line-2);
+  --on-brand: hsl(var(--primary-foreground));
+
+  --text: var(--pi-ink);
+  --text-muted: var(--pi-body);
+  --danger: var(--pi-danger);
+  --danger-wash: var(--pi-danger-bg);
+  --danger-hairline: var(--pi-danger-line);
+  --success: var(--pi-success);
+  --warning: var(--pi-warning);
+  --warn-wash: var(--pi-warning-bg);
+  --offer-wash: var(--pi-warning-bg);
+  --offer-stroke: var(--pi-warning-line);
+  --warn-hairline: var(--pi-warning-line);
+
+  --font: var(--font-family-primary), "Open Sans", system-ui, sans-serif;
+  --radius: 6px;
+  --field-shadow: none;
+
+  /* the page canvas the white cards sit on */
+  background: var(--pi-page);
+  color: var(--pi-ink);
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+html.dark .ap-sheet,
+html.dark .ar-sheet {
+  /* primary-foreground flips to navy in dark; the lit-edge fill stays dark
+     enough for white, as the app's own primary button uses */
+  --on-brand: hsl(var(--sidebar-primary-foreground));
+}
+
+/* Inputs inside the sheets keep the sheets' own grounds: the app's global
+   `input { background-color: … !important }` would paint every borderless
+   control__input / cell__input as a slab inside its field. */
+html .ap-sheet input,
+html .ar-sheet input {
+  background-color: transparent !important;
+}
+
+/* one focus treatment: brand ring, as the app's :focus-visible */
+html .ap-sheet :focus-visible,
+html .ar-sheet :focus-visible {
+  outline-color: var(--pi-brand-vivid) !important;
+}
+
+/* ── 2. type ────────────────────────────────────────────────────────────── */
+html .ap-sheet .t-title,
+html .ar-sheet .t-title {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--pi-ink);
+}
+/* section titles become the reference overline ("VOUCHER") */
+html .ap-sheet .t-section,
+html .ar-sheet .t-section {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.055em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--pi-ink-3);
+}
+html .ap-sheet .t-label,
+html .ar-sheet .t-label {
+  font-size: 12px;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html .ap-sheet .t-value,
+html .ar-sheet .t-value {
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--pi-ink);
+}
+html .ap-sheet .t-cell,
+html .ar-sheet .t-cell {
+  font-size: 13px;
+  color: var(--pi-ink);
+}
+html .ap-sheet .control__input,
+html .ap-sheet .control__select,
+html .ap-sheet .cell__input,
+html .ap-sheet .cell__select,
+html .ar-sheet .control__input,
+html .ar-sheet .control__select,
+html .ar-sheet .cell__input,
+html .ar-sheet .cell__select {
+  color: var(--pi-ink);
+}
+html .ap-sheet .control__input::placeholder,
+html .ap-sheet .cell__input::placeholder,
+html .ar-sheet .control__input::placeholder,
+html .ar-sheet .cell__input::placeholder {
+  color: var(--pi-faint);
+}
+
+/* ── 3. buttons ─────────────────────────────────────────────────────────── */
+html .ap-sheet .btn,
+html .ar-sheet .btn {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+/* neutral secondary: surface, line-2, contact shadow */
+html .ap-sheet .btn--outline,
+html .ar-sheet .btn--outline {
+  border-color: var(--pi-line-2);
+  color: var(--pi-ink);
+  box-shadow: var(--shadow-contact);
+}
+html .ap-sheet .btn--outline:hover,
+html .ar-sheet .btn--outline:hover {
+  background: var(--pi-surface-panel);
+  border-color: var(--pi-line-strong);
+}
+/* lit-edge primary */
+html .ap-sheet .btn--solid,
+html .ar-sheet .btn--solid,
+html .ap-sheet .hsnbtn--yes,
+html .ar-sheet .hsnbtn--yes {
+  background: var(--pi-btn-fill);
+  border: 1px solid var(--pi-btn-primary-edge);
+  color: var(--on-brand);
+}
+html .ap-sheet .btn--solid:hover:not(:disabled),
+html .ar-sheet .btn--solid:hover:not(:disabled),
+html .ap-sheet .hsnbtn--yes:hover,
+html .ar-sheet .hsnbtn--yes:hover {
+  background: var(--pi-btn-fill-hover);
+  border-color: var(--pi-btn-primary-edge);
+  color: var(--on-brand);
+}
+html .ap-sheet .btn--danger:hover,
+html .ar-sheet .btn--danger:hover,
+html .ap-sheet .bulkbar__icon--danger:hover,
+html .ar-sheet .bulkbar__icon--danger:hover {
+  background: var(--pi-danger-bg);
+}
+html .ap-sheet .link,
+html .ar-sheet .link {
+  font-weight: 500;
+  text-underline-offset: 3px;
+}
+
+/* ── 4. form: cards on the canvas, fields ───────────────────────────────── */
+html .ap-sheet .card,
+html .ar-sheet .card {
+  background: var(--pi-surface-panel);
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-contact);
+}
+html .ap-sheet .control,
+html .ap-sheet .cell,
+html .ar-sheet .control,
+html .ar-sheet .cell {
+  border-color: var(--pi-line-2);
+  border-radius: 6px;
+  background-color: var(--pi-surface-panel);
+}
+html .ap-sheet .control:hover,
+html .ap-sheet .cell:hover,
+html .ar-sheet .control:hover,
+html .ar-sheet .cell:hover {
+  border-color: var(--pi-line-strong);
+}
+html .ap-sheet .control:focus-within,
+html .ap-sheet .cell:focus-within,
+html .ap-sheet .split__value:focus,
+html .ap-sheet .bulkbar__fld:focus-within,
+html .ar-sheet .control:focus-within,
+html .ar-sheet .cell:focus-within,
+html .ar-sheet .split__value:focus,
+html .ar-sheet .bulkbar__fld:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+/* extracted: a brand edge on white, not a tinted slab */
+html .ap-sheet .control.is-extracted,
+html .ap-sheet .cell.is-extracted,
+html .ar-sheet .control.is-extracted,
+html .ar-sheet .cell.is-extracted {
+  background-color: var(--pi-surface-panel);
+  border-color: var(--pi-brand-border);
+}
+/* proposal-to-create and prediction keep their own states */
+html .ap-sheet .control.control--offer,
+html .ar-sheet .control.control--offer {
+  background-color: var(--pi-warning-bg);
+  border-color: var(--pi-warning-line);
+}
+html .ap-sheet .cell--pred,
+html .ar-sheet .cell--pred {
+  background-color: var(--pi-brand-tint);
+  border-color: var(--pi-brand-border);
+}
+html .ap-sheet .cell--new,
+html .ar-sheet .cell--new {
+  border-color: var(--pi-warning-dot);
+}
+html .ap-sheet .cell--error,
+html .ar-sheet .cell--error,
+html .ap-sheet .field.is-invalid .control,
+html .ar-sheet .field.is-invalid .control,
+html .ap-sheet .tcell.is-invalid .cell,
+html .ar-sheet .tcell.is-invalid .cell {
+  border-color: var(--pi-danger);
+}
+html .ap-sheet .cell--error,
+html .ar-sheet .cell--error {
+  background-color: var(--pi-danger-bg);
+}
+html .ap-sheet .switch[aria-checked="true"],
+html .ar-sheet .switch[aria-checked="true"] {
+  background: var(--pi-brand-vivid);
+}
+
+/* mode tabs: underline tabs, 2px brand rule, ink when active */
+html .ap-sheet .segmented button,
+html .ar-sheet .segmented button {
+  font-size: 14px;
+  color: var(--pi-body);
+}
+html .ap-sheet .segmented button[aria-pressed="true"],
+html .ar-sheet .segmented button[aria-pressed="true"] {
+  font-weight: 500;
+  color: var(--pi-ink);
+  border-bottom-color: var(--pi-brand);
+}
+html .ap-sheet .modebar,
+html .ar-sheet .modebar {
+  border-bottom-color: var(--pi-line);
+}
+/* "Field configuration" reads as the reference's neutral Configure button */
+html .ap-sheet .fcbtn,
+html .ar-sheet .fcbtn {
+  height: 32px;
+  padding: 0 12px;
+  gap: 8px;
+  border: 1px solid var(--pi-line-2);
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html .ap-sheet .fcbtn:hover,
+html .ar-sheet .fcbtn:hover {
+  border-color: var(--pi-line-strong);
+  color: var(--pi-ink);
+}
+
+/* summary / banners */
+html .ap-sheet .sugsum,
+html .ar-sheet .sugsum {
+  background: var(--pi-surface-panel);
+  border-color: var(--pi-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-contact);
+}
+html .ap-sheet .sugsum__go,
+html .ar-sheet .sugsum__go {
+  border-color: var(--pi-line-2);
+  color: var(--pi-ink);
+  font-weight: 500;
+  box-shadow: var(--shadow-contact);
+}
+html .ap-sheet .sugsum__go:hover,
+html .ar-sheet .sugsum__go:hover {
+  background: var(--pi-surface-panel);
+  border-color: var(--pi-line-strong);
+}
+html .ap-sheet .suggrp__n,
+html .ar-sheet .suggrp__n {
+  background: var(--pi-fill);
+  color: var(--pi-body);
+  font-weight: 500;
+}
+html .ap-sheet .suggrp__sep,
+html .ar-sheet .suggrp__sep {
+  color: var(--pi-line-2);
+}
+html .ap-sheet .errgrp__n,
+html .ar-sheet .errgrp__n {
+  background: var(--pi-danger-bg);
+  color: var(--pi-danger);
+}
+html .ap-sheet .errgrp__sep,
+html .ar-sheet .errgrp__sep {
+  color: var(--pi-danger-line);
+}
+html .ap-sheet .banner,
+html .ar-sheet .banner {
+  border-color: var(--pi-brand-border);
+  background: var(--pi-brand-tint);
+}
+html .ap-sheet .banner--warn,
+html .ar-sheet .banner--warn,
+html .ap-sheet .nmd__near,
+html .ar-sheet .nmd__near {
+  background: var(--pi-warning-bg);
+  border-color: var(--pi-warning-line);
+}
+
+/* pills: semantic grounds */
+html .ap-sheet .pill--ok,
+html .ar-sheet .pill--ok,
+html .ap-sheet .ccc__pct.is-done,
+html .ar-sheet .ccc__pct.is-done {
+  background: var(--pi-success-bg);
+  color: var(--pi-success);
+}
+html .ap-sheet .pill--warn,
+html .ar-sheet .pill--warn,
+html .ap-sheet .predtag--new,
+html .ar-sheet .predtag--new {
+  background: var(--pi-warning-bg);
+  color: var(--pi-warning);
+}
+html .ap-sheet .predtag--error,
+html .ar-sheet .predtag--error,
+html .ap-sheet .ccc__pct.is-over,
+html .ar-sheet .ccc__pct.is-over {
+  background: var(--pi-danger-bg);
+  color: var(--pi-danger);
+}
+html .ap-sheet .kindtoggle[data-kind="service"],
+html .ar-sheet .kindtoggle[data-kind="service"] {
+  background: var(--pi-teal);
+}
+
+/* ── 5. engine tables: head strip, hairline rows, no vertical rules ─────── */
+html .ap-sheet .table-scroll,
+html .ar-sheet .table-scroll {
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-surface-panel);
+}
+html .ap-sheet .tcell,
+html .ar-sheet .tcell {
+  border-color: var(--pi-line);
+  border-left-color: transparent;
+}
+html .ap-sheet .tcell--last,
+html .ar-sheet .tcell--last {
+  border-right-color: transparent;
+}
+html .ap-sheet .trow--head .tcell,
+html .ar-sheet .trow--head .tcell {
+  background: var(--pi-head-bg);
+  border-bottom: 1px solid var(--pi-line);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html .ap-sheet .trow.is-selected .tcell,
+html .ar-sheet .trow.is-selected .tcell {
+  background: var(--pi-brand-tint);
+}
+html .ap-sheet .trow--empty,
+html .ar-sheet .trow--empty {
+  border-color: transparent;
+}
+
+/* ── 6. menus, tooltips, dialogs ────────────────────────────────────────── */
+html .ap-sheet .menu,
+html .ar-sheet .menu {
+  border-color: var(--pi-line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-2);
+}
+html .ap-sheet .bd-tip,
+html .ar-sheet .bd-tip {
+  background: var(--pi-ink);
+  color: var(--pi-page);
+  border-radius: 4px;
+  box-shadow: var(--shadow-1);
+}
+html .ap-sheet dialog,
+html .ar-sheet dialog {
+  border: 1px solid var(--pi-line) !important;
+  border-radius: 16px !important;
+  background: var(--pi-surface-panel);
+  color: var(--pi-ink);
+  box-shadow: var(--shadow-2) !important;
+  overflow: hidden;
+}
+html .ap-sheet .sheet__head,
+html .ar-sheet .sheet__head {
+  padding: 24px 24px 20px;
+  background: var(--pi-head-bg);
+  border-bottom-color: var(--pi-line);
+}
+html .ap-sheet .sheet__head h2,
+html .ar-sheet .sheet__head h2 {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+html .ap-sheet .sheet__body,
+html .ar-sheet .sheet__body {
+  padding: 24px 24px;
+}
+html .ap-sheet .sheet__foot,
+html .ar-sheet .sheet__foot {
+  padding-inline: 24px;
+  background: var(--pi-surface-panel);
+}
+html .ap-sheet .devflags select,
+html .ar-sheet .devflags select {
+  background: var(--pi-surface-panel);
+}
+
+/* AP source viewer matches the shared white document canvas. */
+html .ap-sheet .doc-pane.is-loaded,
+html.dark .ap-sheet .doc-pane.is-loaded {
+  --stage-ink: #202b3d;
+  --stage-body: #526077;
+  --stage-line: #e2e6ed;
+  --stage-fill: #f1f3f7;
+  --text: var(--stage-ink);
+  --text-muted: var(--stage-body);
+  --stroke: var(--stage-line);
+  --bg-secondary: var(--stage-fill);
+  --surface: #ffffff;
+  background: #ffffff;
+  border-color: var(--stage-line);
+  border-radius: 12px;
+  color: var(--stage-ink);
+}
+html .ap-sheet .doc-pane.is-loaded .preview__bar {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+html .ap-sheet .doc-pane.is-loaded .preview__name {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--stage-body);
+}
+html .ap-sheet .doc-pane.is-loaded .preview__body {
+  background: transparent;
+}
+html .ap-sheet .doc-pane.is-loaded .preview__body::-webkit-scrollbar-thumb {
+  background: var(--stage-line);
+  border-color: transparent;
+}
+html .ap-sheet .doc-pane.is-loaded .vbtn:hover:not(:disabled),
+html .ap-sheet .doc-pane.is-loaded .vbtn--level[aria-expanded="true"] {
+  background: var(--stage-fill);
+  color: var(--stage-ink);
+}
+/* the menu a viewer control opens is a normal surface again */
+html .ap-sheet .doc-pane.is-loaded .menu {
+  --surface: var(--pi-surface-panel);
+  --text: var(--pi-ink);
+  --text-muted: var(--pi-body);
+  --stroke: var(--pi-line);
+  --bg-secondary: var(--pi-row-hover);
+  color: var(--pi-ink);
+}
+/* the empty drop pane, before a file is loaded */
+html .ap-sheet .doc-pane:not(.is-loaded) {
+  background: var(--pi-surface-panel);
+  border: 1px dashed var(--pi-line-2);
+  border-radius: 12px;
+}
+html .ap-sheet .doc-pane.is-dropping {
+  background: var(--pi-brand-tint);
+  border-color: var(--pi-brand);
+}
+html .ap-sheet .splitter:hover::after,
+html .ap-sheet .is-resizing .splitter::after,
+html .ar-sheet .splitter:hover::after,
+html .ar-sheet .is-resizing .splitter::after {
+  background-color: var(--pi-brand-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html .ap-sheet *,
+  html .ar-sheet * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* The paper is white in both themes, so the ink printed on it is the paper's
+   own (the sheet's original muted grey), not the stage's or the theme's. */
+html .ap-sheet .doc-pane.is-loaded .preview__page {
+  --text: #1e1e1e;
+  --text-muted: #707070;
+}
+
+/* totals breakdown: money in the display cut, grand total in ink, ruled */
+html .ap-sheet .bd-fig,
+html .ar-sheet .bd-fig {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+}
+html .ap-sheet .bd-fig--grand,
+html .ar-sheet .bd-fig--grand {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+html .ap-sheet .bd-lbl--grand,
+html .ar-sheet .bd-lbl--grand {
+  font-weight: 500;
+}
+html .ap-sheet .breakdown,
+html .ar-sheet .breakdown {
+  background: var(--pi-surface-panel);
+  border-color: var(--pi-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-contact);
+}
+
+/* One ring per field. A wrapper that draws focus itself (.control, .cell,
+   the picker's search row, the bulk bar's fields, the HSN cell) is the field;
+   the input/select inside it does not draw a second box. */
+html :is(.ap-sheet, .ar-sheet)
+  :is(.control, .cell, .cselp__find, .bulkbar__fld, .hsn, .split__value, .nmd__ctl)
+  :is(input, select, textarea):is(:focus, :focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}

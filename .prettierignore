@@ -1,0 +1,19 @@
+# The original single-file prototype, preserved byte-for-byte for side-by-side
+# comparison. Never reformat it. Deleted at handoff along with this file.
+_reference/
+
+# The bills review sheet and the three assets generated from it by
+# scripts/build-ap-sheet.cjs. index.html is a vendored single-file app whose own
+# formatting is load-bearing for diffing against the AP prototype, and the
+# generated files are overwritten on every build — formatting either is noise.
+public/ap/
+
+# Next build output.
+.next/
+.next-prd-check/
+
+# Fragments spliced verbatim into public/ap/index.html by scripts/sync-ap-sheet.cjs.
+# Not standalone files — toast.css is injected mid-stylesheet and the .js ones
+# mid-script, and the sync matches them by exact text. Reformatting churns the
+# splice for no benefit.
+scripts/ap-integration/

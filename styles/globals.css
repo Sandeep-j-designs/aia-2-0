@@ -1,0 +1,892 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Legacy type tokens (Tailwind text-xs/sm/base/lg…, text-h*, text-body-*),
+   re-pointed onto the one scale defined under "Typography" below, so every
+   call-site lands on a rung. Names kept so call-sites upgrade in place. */
+@layer base {
+  :root {
+    --font-family-primary: "Open Sans", system-ui, -apple-system, sans-serif;
+    --text-title-1-size: 36px;
+    --text-title-1-line-height: 44px;
+    --text-title-1-letter-spacing: -0.02em;
+    --text-title-2-size: 36px;
+    --text-title-2-line-height: 44px;
+    --text-title-2-letter-spacing: -0.02em;
+    --text-title-3-size: 36px;
+    --text-title-3-line-height: 44px;
+    --text-title-3-letter-spacing: -0.02em;
+    --text-h1-size: 36px;
+    --text-h1-line-height: 44px;
+    --text-h1-letter-spacing: -0.02em;
+    --text-h2-size: 28px;
+    --text-h2-line-height: 36px;
+    --text-h2-letter-spacing: -0.02em;
+    --text-h3-size: 28px;
+    --text-h3-line-height: 36px;
+    --text-h3-letter-spacing: -0.3px;
+    --text-h4-size: 28px;
+    --text-h4-line-height: 36px;
+    --text-h4-letter-spacing: -0.02em;
+    --text-h5-size: 22px;
+    --text-h5-line-height: 28px;
+    --text-h5-letter-spacing: -0.01em;
+    --text-h6-size: 18px;
+    --text-h6-line-height: 28px;
+    --text-h6-letter-spacing: 0px;
+    --text-label-1-size: 16px;
+    --text-label-1-line-height: 24px;
+    --text-label-1-letter-spacing: 0px;
+    --text-label-2-size: 13px;
+    --text-label-2-line-height: 20px;
+    --text-label-2-letter-spacing: 0px;
+    --text-label-3-size: 12px;
+    --text-label-3-line-height: 16px;
+    --text-label-3-letter-spacing: 0px;
+    --text-body-1-size: 16px;
+    --text-body-1-line-height: 24px;
+    --text-body-1-letter-spacing: 0px;
+    --text-body-2-size: 14px;
+    --text-body-2-line-height: 20px;
+    --text-body-2-letter-spacing: 0px;
+    --text-body-3-size: 14px;
+    --text-body-3-line-height: 20px;
+    --text-body-3-letter-spacing: 0px;
+    --text-body-4-size: 12px;
+    --text-body-4-line-height: 16px;
+    --text-body-4-letter-spacing: 0px;
+    --text-caption-1-size: 12px;
+    --text-caption-1-line-height: 16px;
+    --text-caption-1-letter-spacing: 0px;
+    --text-caption-2-size: 11px;
+    --text-caption-2-line-height: 16px;
+    --text-caption-2-letter-spacing: 0px;
+    --font-weight-thin: 100;
+    --font-weight-extralight: 200;
+    --font-weight-light: 300;
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+    --font-weight-black: 900;
+  }
+  body {
+    @apply text-body-3;
+    font-family: var(--font-family-primary);
+  }
+}
+
+/* Bloocks palette and semantic aliases. Exact source hex values; HSL channels
+   preserve existing Tailwind opacity utilities. */
+@layer base {
+  :root {
+    --palette-blue-50: #f6f7ff;
+    --palette-blue-50-hsl: 233.333333 100% 98.235294%;
+    --palette-blue-100: #e2e5fb;
+    --palette-blue-100-hsl: 232.8 75.757576% 93.529412%;
+    --palette-blue-200: #bac3f4;
+    --palette-blue-200-hsl: 230.689655 72.5% 84.313725%;
+    --palette-blue-300: #7e8ee7;
+    --palette-blue-300-hsl: 230.857143 68.627451% 70%;
+    --palette-blue-400: #465ed5;
+    --palette-blue-400-hsl: 229.93007 62.995595% 55.490196%;
+    --palette-blue-500: #3146b0;
+    --palette-blue-500-hsl: 230.07874 56.444444% 44.117647%;
+    --palette-blue-600: #344593;
+    --palette-blue-600-hsl: 229.263158 47.738693% 39.019608%;
+    --palette-blue-700: #35437e;
+    --palette-blue-700-hsl: 228.493151 40.782123% 35.098039%;
+    --palette-blue-800: #333f66;
+    --palette-blue-800-hsl: 225.882353 33.333333% 30%;
+    --palette-blue-900: #303850;
+    --palette-blue-900-hsl: 225 25% 25.098039%;
+    --palette-blue-950: #21263c;
+    --palette-blue-950-hsl: 228.888889 29.032258% 18.235294%;
+    --palette-green-50: #efffef;
+    --palette-green-50-hsl: 120 100% 96.862745%;
+    --palette-green-100: #ccf1cb;
+    --palette-green-100-hsl: 118.421053 57.575758% 87.058824%;
+    --palette-green-200: #a3e1a3;
+    --palette-green-200-hsl: 120 50.819672% 76.078431%;
+    --palette-green-300: #74ce73;
+    --palette-green-300-hsl: 119.340659 48.148148% 62.941176%;
+    --palette-green-400: #3eb83c;
+    --palette-green-400-hsl: 119.032258 50.819672% 47.843137%;
+    --palette-green-500: #03a000;
+    --palette-green-500-hsl: 118.875 100% 31.372549%;
+    --palette-green-600: #038501;
+    --palette-green-600-hsl: 119.090909 98.507463% 26.27451%;
+    --palette-green-700: #036a02;
+    --palette-green-700-hsl: 119.423077 96.296296% 21.176471%;
+    --palette-green-800: #044e02;
+    --palette-green-800-hsl: 118.421053 95% 15.686275%;
+    --palette-green-900: #043003;
+    --palette-green-900-hsl: 118.666667 88.235294% 10%;
+    --palette-green-950: #041804;
+    --palette-green-950-hsl: 120 71.428571% 5.490196%;
+    --palette-red-50: #ffefef;
+    --palette-red-50-hsl: 0 100% 96.862745%;
+    --palette-red-100: #ffcfcf;
+    --palette-red-100-hsl: 0 100% 90.588235%;
+    --palette-red-200: #fea9a9;
+    --palette-red-200-hsl: 0 97.701149% 82.941176%;
+    --palette-red-300: #fe7f7f;
+    --palette-red-300-hsl: 0 98.449612% 74.705882%;
+    --palette-red-400: #fe4d4d;
+    --palette-red-400-hsl: 0 98.882682% 64.901961%;
+    --palette-red-500: #fd1717;
+    --palette-red-500-hsl: 0 98.290598% 54.117647%;
+    --palette-red-600: #d21313;
+    --palette-red-600-hsl: 0 83.406114% 44.901961%;
+    --palette-red-700: #a80f0f;
+    --palette-red-700-hsl: 0 83.606557% 35.882353%;
+    --palette-red-800: #7d0c0c;
+    --palette-red-800-hsl: 0 82.481752% 26.862745%;
+    --palette-red-900: #4e0707;
+    --palette-red-900-hsl: 0 83.529412% 16.666667%;
+    --palette-red-950: #280404;
+    --palette-red-950-hsl: 0 81.818182% 8.627451%;
+    --palette-amber-50: #fffaf1;
+    --palette-amber-50-hsl: 38.571429 100% 97.254902%;
+    --palette-amber-100: #ffefc9;
+    --palette-amber-100-hsl: 42.222222 100% 89.411765%;
+    --palette-amber-200: #ffe09e;
+    --palette-amber-200-hsl: 40.824742 100% 80.980392%;
+    --palette-amber-300: #ffce6e;
+    --palette-amber-300-hsl: 39.724138 100% 71.568627%;
+    --palette-amber-400: #ffb830;
+    --palette-amber-400-hsl: 39.42029 100% 59.411765%;
+    --palette-amber-500: #ffa800;
+    --palette-amber-500-hsl: 39.529412 100% 50%;
+    --palette-amber-600: #d48c00;
+    --palette-amber-600-hsl: 39.622642 100% 41.568627%;
+    --palette-amber-700: #a86f00;
+    --palette-amber-700-hsl: 39.642857 100% 32.941176%;
+    --palette-amber-800: #7d5300;
+    --palette-amber-800-hsl: 39.84 100% 24.509804%;
+    --palette-amber-900: #523700;
+    --palette-amber-900-hsl: 40.243902 100% 16.078431%;
+    --palette-amber-950: #3d2800;
+    --palette-amber-950-hsl: 39.344262 100% 11.960784%;
+    --palette-neutral-50: #efefef;
+    --palette-neutral-50-hsl: 0 0% 93.72549%;
+    --palette-neutral-100: #e0e0e0;
+    --palette-neutral-100-hsl: 0 0% 87.843137%;
+    --palette-neutral-200: #c4c4c4;
+    --palette-neutral-200-hsl: 0 0% 76.862745%;
+    --palette-neutral-300: #a8a8a8;
+    --palette-neutral-300-hsl: 0 0% 65.882353%;
+    --palette-neutral-400: #8c8c8c;
+    --palette-neutral-400-hsl: 0 0% 54.901961%;
+    --palette-neutral-500: #707070;
+    --palette-neutral-500-hsl: 0 0% 43.921569%;
+    --palette-neutral-600: #545454;
+    --palette-neutral-600-hsl: 0 0% 32.941176%;
+    --palette-neutral-700: #383838;
+    --palette-neutral-700-hsl: 0 0% 21.960784%;
+    --palette-neutral-800: #242424;
+    --palette-neutral-800-hsl: 0 0% 14.117647%;
+    --palette-neutral-900: #121212;
+    --palette-neutral-900-hsl: 0 0% 7.058824%;
+    --palette-neutral-950: #080808;
+    --palette-neutral-950-hsl: 0 0% 3.137255%;
+    --palette-neutral-0: #ffffff;
+    --palette-neutral-0-hsl: 0 0% 100%;
+    --palette-neutral-1000: #000000;
+    --palette-neutral-1000-hsl: 0 0% 0%;
+    /* ── Precision Indigo (from ai-accountant-redesign: src/index.css +
+       src/workbench.css, the "workbench" light register) ───────────────
+       Cool-slate canvas, white panels, alpha-ink hairlines (flattened to
+       opaque equivalents here because this codebase reads tokens through
+       hsl()), one brand voltage: indigo. Semantic colour is reserved for
+       state. Production's shadcn names keep working; --pi-* are the raw
+       design-system values for new code. */
+    --background: 0 0% 100.0%; /* #ffffff */
+    --foreground: 214.8 38.3% 15.9%; /* #192638 */
+    --card: 0 0% 100.0%; /* #ffffff */
+    --card-foreground: 214.8 38.3% 15.9%; /* #192638 */
+    --popover: 0 0% 100.0%; /* #ffffff */
+    --popover-foreground: 214.8 38.3% 15.9%; /* #192638 */
+    --popover-border: 216.0 15.2% 93.5%; /* #eceef1 */
+    --muted: 217.5 30.8% 94.9%; /* #eef1f6 */
+    --muted-foreground: 216.4 14.4% 44.9%; /* #626f83 */
+    --secondary: 217.5 30.8% 94.9%; /* #eef1f6 */
+    --secondary-foreground: 215.7 18.4% 39.4%; /* #526177 */
+    --accent: 222.9 63.6% 95.7%; /* #edf1fb */
+    --accent-foreground: 225.8 54.0% 46.1%; /* #3654b5 */
+    --border: 216.0 15.2% 93.5%; /* #eceef1 */
+    --input: 220.0 3.5% 83.3%; /* #d3d4d6 */
+    --input-hover: 225.0 3.3% 76.1%; /* #c0c1c4 */
+    --ring: 229.8 49.2% 50.6%; /* #4358bf */
+    --primary: 225.8 54.0% 46.1%; /* #3654b5 */
+    --primary-hover: 226.1 54.5% 38.8%; /* #2d4699 */
+    --primary-active: 225.6 55.8% 33.7%; /* #263d86 */
+    --primary-foreground: 0 0% 100.0%; /* #ffffff */
+    --destructive: 0.0 73.9% 95.5%; /* #fcebeb */
+    --destructive-foreground: 0.0 73.7% 41.8%; /* #b91c1c */
+    --danger-action: 0.0 72.2% 50.6%; /* #dc2626 */
+    --neutral-gray: 216.0 15.2% 93.5%; /* #eceef1 */
+    --section: 200.0 27.3% 97.8%; /* #f8fafb */
+    --panel-border: 216.0 15.2% 93.5%; /* #eceef1 */
+    --green: 140.0 45.5% 93.5%; /* #e7f6ec */
+    --green-foreground: 143.0 78.1% 26.9%; /* #0f7a38 */
+    --green-border: 140.5 44.0% 80.4%; /* #b7e3c6 */
+    --warning-background: 36.0 93.8% 93.7%; /* #fef2e0 */
+    --warning-foreground: 31.1 100.0% 32.9%; /* #a85700 */
+    --warning-border: 36.7 75.0% 81.2%; /* #f3d7ab */
+    --surface: 214.8 38.3% 15.9%; /* #192638 */
+    --surface-muted: 214.1 32.7% 22.2%; /* #26364b */
+    --surface-stroke: 214.3 28.8% 28.6%; /* #34465e */
+    --surface-foreground-muted: 213.8 25.5% 70.0%; /* #9fb0c6 */
+    --surface-badge: 225.8 54.0% 46.1%; /* #3654b5 */
+    --sidebar-background: 215.4 40.2% 19.0%; /* #1d2d44 */
+    --sidebar-foreground: 215.6 28.1% 77.6%; /* #b6c3d6 */
+    --sidebar-primary: 225.8 54.0% 46.1%; /* #3654b5 */
+    --sidebar-primary-foreground: 0 0% 100.0%; /* #ffffff */
+    --sidebar-accent: 217.5 30.8% 94.9%; /* #eef1f6 */
+    --sidebar-accent-foreground: 214.8 38.3% 15.9%; /* #192638 */
+    --sidebar-border: 216.0 15.2% 93.5%; /* #eceef1 */
+    --sidebar-ring: 229.8 49.2% 50.6%; /* #4358bf */
+    --badge-information: 222.9 63.6% 95.7%; /* #edf1fb */
+    --badge-information-foreground: 225.8 54.0% 46.1%; /* #3654b5 */
+    --badge-positive: 140.0 45.5% 93.5%; /* #e7f6ec */
+    --badge-positive-foreground: 143.0 78.1% 26.9%; /* #0f7a38 */
+    --badge-notice: 36.0 93.8% 93.7%; /* #fef2e0 */
+    --badge-notice-foreground: 31.1 100.0% 32.9%; /* #a85700 */
+    --badge-negative: 0.0 73.9% 95.5%; /* #fcebeb */
+    --badge-negative-foreground: 0.0 73.7% 41.8%; /* #b91c1c */
+    --badge-neutral: 217.5 30.8% 94.9%; /* #eef1f6 */
+    --badge-neutral-foreground: 215.7 18.4% 39.4%; /* #526177 */
+    --topnav-text: 214.8 38.3% 15.9%; /* #192638 */
+    --topnav-avatar-text: 0 0% 100.0%; /* #ffffff */
+    --status-success-icon: 142.1 76.2% 36.3%; /* #16a34a */
+    --status-warning-icon: 35.9 100.0% 43.9%; /* #e08600 */
+    --status-error-icon: 0.0 72.2% 50.6%; /* #dc2626 */
+    --media-dialog: 225.0 35.3% 6.7%; /* #0b0e17 */
+    --brand-vivid-hsl: 229.8 49.2% 50.6%; /* #4358bf */
+    --page-hsl: 210.0 20.0% 96.1%; /* #f3f5f7 */
+    --ink-hsl: 214.8 38.3% 15.9%; /* #192638 */
+    --pi-page: #f3f5f7;
+    --pi-surface-panel: #ffffff;
+    --pi-sunken: #edf0f4;
+    --pi-fill: #eef1f6;
+    --pi-fill-2: #e2e5ee;
+    --pi-row-hover: #f1f5fa;
+    --pi-head-bg: #f8fafb;
+    --pi-ink: #192638;
+    --pi-ink-2: #26364b;
+    --pi-ink-3: #606b80;
+    --pi-body: #526177;
+    --pi-faint: #626f83;
+    --pi-line: #eceef1;
+    --pi-line-2: #d3d4d6;
+    --pi-line-strong: #c0c1c4;
+    --pi-rule-ledger: #bbbcbf;
+    --pi-brand: #3654b5;
+    --pi-brand-hover: #2d4699;
+    --pi-brand-active: #263d86;
+    --pi-brand-tint: #edf1fb;
+    --pi-brand-border: #c4cfee;
+    --pi-brand-vivid: #4358bf;
+    --pi-btn-primary-edge: #6478d2;
+    --pi-success: #0f7a38;
+    --pi-success-dot: #16a34a;
+    --pi-success-bg: #e7f6ec;
+    --pi-success-line: #b7e3c6;
+    --pi-warning: #a85700;
+    --pi-warning-dot: #e08600;
+    --pi-warning-bg: #fef2e0;
+    --pi-warning-line: #f3d7ab;
+    --pi-danger: #b91c1c;
+    --pi-danger-dot: #dc2626;
+    --pi-danger-bg: #fcebeb;
+    --pi-danger-line: #f3c2c2;
+    --pi-ai-ink: #7c3aed;
+    --pi-teal: #0f8a7d;
+    --pi-teal-tint: #e6f6f4;
+    /* Extension (4 Oct 2026): the reference system's Teal 700 (--teal-strong,
+       "pressed / text on light"). Teal is the palette's one secondary accent;
+       AI suggestions wear it, and #0f8a7d is short of AA for 12px text on
+       its own tint, so the text takes the strong step. */
+    --pi-teal-strong: #0c6e64;
+    --pi-btn-fill: #3654b5;
+    --pi-btn-fill-hover: #2d4699;
+    --pi-btn-fill-active: #263d86;
+    --pi-nav-top: #1d2d44;
+    --pi-nav-bottom: #142135;
+  }
+}
+
+@layer base {
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  :root {
+    --radius: 0.5rem;
+    --chart-magenta: 295 100% 52%; /* pink (#EB08FF) for line graph*/
+    --chart-1: 230 56% 44%;
+    --chart-2: 231 73% 84%;
+    --chart-3: 210 87% 76%;
+    --chart-4: 210 100% 40%;
+    --chart-5: 210 100% 18%;
+    --chart-6: 225 100% 20%; /* #001999 */
+    --chart-7: 220 100% 30%; /* #003399 */
+    --chart-8: 205 100% 40%; /* #004C99 */
+    --chart-9: 200 100% 40%; /* #006699 */
+    --chart-10: 190 100% 45%; /* #007F99 */
+    --chart-11: 225 100% 35%; /* #0019B2 */
+    --chart-12: 210 100% 40%; /* #0033B2 */
+    --chart-13: 200 100% 50%; /* #004CB2 */
+    --chart-14: 210 100% 45%; /* #0066B2 */
+    --chart-15: 210 100% 50%; /* #007FB2 */
+    --chart-16: 190 100% 55%; /* #00B2E5 */
+    --chart-17: 200 100% 60%; /* #0019E5 */
+    --chart-18: 210 100% 45%; /* #0033E5 */
+    --chart-19: 210 100% 50%; /* #004CE5 */
+    --chart-20: 210 100% 50%; /* #0066E5 */
+    --chart-21: 210 100% 60%; /* #007FE5 */
+    --chart-22: 210 100% 60%; /* #0099E5 */
+    --chart-23: 190 100% 65%; /* #00B2E5 */
+    --chart-24: 250 100% 40%; /* #0019FF */
+    --chart-25: 225 100% 15%; /* #0000FF */
+    --chart-26: 225 100% 18%; /* #0000E5 */
+    --chart-27: 220 100% 20%; /* #0000CC */
+    --chart-28: 210 100% 30%; /* #0000B2 */
+    --chart-29: 210 100% 30%; /* #000099 */
+    --chart-30: 210 100% 20%; /* #00007F */
+    --chart-31: 210 100% 15%; /* #000066 */
+    --chart-32: 210 100% 10%; /* #00004C */
+    --chart-33: 210 100% 8%; /* #000033 */
+    --chart-34: 225 100% 25%; /* #0033FF */
+    --chart-35: 210 100% 35%; /* #004CFF */
+    --chart-36: 210 100% 40%; /* #0066FF */
+    --chart-37: 210 100% 50%; /* #007FFF */
+    --chart-38: 210 100% 60%; /* #0099FF */
+    --chart-39: 190 100% 65%; /* #00B2FF */
+    --chart-40: 250 100% 50%; /* #1933FF */
+    --chart-41: 210 100% 55%; /* #3366FF */
+    --chart-42: 225 100% 70%; /* #4C99FF */
+    --chart-43: 200 100% 75%; /* #66CCFF */
+    --chart-44: 240 100% 80%; /* #00192F */
+    --chart-45: 210 100% 35%; /* #0044E5 */
+    --chart-46: 210 100% 25%; /* #0099E5 */
+    --chart-47: 190 100% 35%; /* #0CEAFF */
+    --chart-48: 190 100% 65%; /* #00B2FF */
+  }
+
+  .dark {
+    --background: 222.4 28.8% 11.6%; /* #151a26 */
+    --foreground: 225.0 33.3% 97.6%; /* #f7f8fb */
+    --card: 222.4 28.8% 11.6%; /* #151a26 */
+    --card-foreground: 225.0 33.3% 97.6%; /* #f7f8fb */
+    --popover: 222.5 30.8% 15.3%; /* #1b2233 */
+    --popover-foreground: 225.0 33.3% 97.6%; /* #f7f8fb */
+    --popover-border: 221.2 15.4% 20.4%; /* #2c313c */
+    --muted: 222.5 30.8% 15.3%; /* #1b2233 */
+    --muted-foreground: 223.4 13.9% 59.0%; /* #8890a5 */
+    --secondary: 222.5 30.8% 15.3%; /* #1b2233 */
+    --secondary-foreground: 223.4 17.0% 66.5%; /* #9ba3b8 */
+    --accent: 226.3 32.1% 21.4%; /* #252d48 */
+    --accent-foreground: 227.0 58.9% 72.4%; /* #8fa1e2 */
+    --border: 221.2 15.4% 20.4%; /* #2c313c */
+    --input: 221.5 8.7% 29.2%; /* #444851 */
+    --input-hover: 221.5 7.0% 36.3%; /* #565a63 */
+    --ring: 229.1 55.0% 60.8%; /* #6478d2 */
+    --primary: 227.0 58.9% 72.4%; /* #8fa1e2 */
+    --primary-hover: 227.5 63.8% 79.4%; /* #a9b7ec */
+    --primary-active: 229.1 55.0% 60.8%; /* #6478d2 */
+    --primary-foreground: 217.9 42.2% 8.8%; /* #0d1420 */
+    --destructive: 310.0 14.3% 16.5%; /* #30242e */
+    --destructive-foreground: 4.1 92.5% 68.8%; /* #f97066 */
+    --danger-action: 4.0 61.3% 47.6%; /* #c4392f */
+    --neutral-gray: 221.2 15.4% 20.4%; /* #2c313c */
+    --section: 224.2 27.5% 13.5%; /* #191e2c */
+    --panel-border: 221.2 15.4% 20.4%; /* #2c313c */
+    --green: 177.5 33.3% 14.1%; /* #18302f */
+    --green-foreground: 149.8 66.0% 51.6%; /* #32d583 */
+    --green-border: 156.6 48.8% 23.7%; /* #1f5a43 */
+    --warning-background: 32.7 12.6% 17.1%; /* #312c26 */
+    --warning-foreground: 38.9 98.2% 56.3%; /* #fdb022 */
+    --warning-border: 40.7 43.8% 25.1%; /* #5c4a24 */
+    --surface: 221.5 27.1% 18.8%; /* #232b3d */
+    --surface-muted: 221.4 24.8% 22.9%; /* #2c3549 */
+    --surface-stroke: 220.0 20.3% 29.0%; /* #3b4559 */
+    --surface-foreground-muted: 223.4 18.7% 69.6%; /* #a3abc0 */
+    --surface-badge: 228.1 36.8% 54.1%; /* #5f70b5 */
+    --sidebar-background: 219.1 39.0% 11.6%; /* #121a29 */
+    --sidebar-foreground: 215.6 28.1% 77.6%; /* #b6c3d6 */
+    --sidebar-primary: 227.0 58.9% 72.4%; /* #8fa1e2 */
+    --sidebar-primary-foreground: 0 0% 100.0%; /* #ffffff */
+    --sidebar-accent: 222.5 30.8% 15.3%; /* #1b2233 */
+    --sidebar-accent-foreground: 225.0 33.3% 97.6%; /* #f7f8fb */
+    --sidebar-border: 221.2 15.4% 20.4%; /* #2c313c */
+    --sidebar-ring: 229.1 55.0% 60.8%; /* #6478d2 */
+    --badge-information: 226.3 32.1% 21.4%; /* #252d48 */
+    --badge-information-foreground: 227.0 58.9% 72.4%; /* #8fa1e2 */
+    --badge-positive: 177.5 33.3% 14.1%; /* #18302f */
+    --badge-positive-foreground: 149.8 66.0% 51.6%; /* #32d583 */
+    --badge-notice: 32.7 12.6% 17.1%; /* #312c26 */
+    --badge-notice-foreground: 38.9 98.2% 56.3%; /* #fdb022 */
+    --badge-negative: 310.0 14.3% 16.5%; /* #30242e */
+    --badge-negative-foreground: 4.1 92.5% 68.8%; /* #f97066 */
+    --badge-neutral: 222.5 30.8% 15.3%; /* #1b2233 */
+    --badge-neutral-foreground: 223.4 17.0% 66.5%; /* #9ba3b8 */
+    --topnav-text: 225.0 33.3% 97.6%; /* #f7f8fb */
+    --topnav-avatar-text: 0 0% 100.0%; /* #ffffff */
+    --status-success-icon: 149.8 66.0% 51.6%; /* #32d583 */
+    --status-warning-icon: 38.9 98.2% 56.3%; /* #fdb022 */
+    --status-error-icon: 4.1 92.5% 68.8%; /* #f97066 */
+    --media-dialog: 225.0 35.3% 6.7%; /* #0b0e17 */
+    --brand-vivid-hsl: 229.1 55.0% 60.8%; /* #6478d2 */
+    --page-hsl: 225.0 35.3% 6.7%; /* #0b0e17 */
+    --ink-hsl: 225.0 33.3% 97.6%; /* #f7f8fb */
+    --pi-page: #0b0e17;
+    --pi-surface-panel: #151a26;
+    --pi-sunken: #1c2231;
+    --pi-fill: #1b2233;
+    --pi-fill-2: #242c3d;
+    --pi-row-hover: #192034;
+    --pi-head-bg: #191e2c;
+    --pi-ink: #f7f8fb;
+    --pi-ink-2: #cdd2e0;
+    --pi-ink-3: #8890a5;
+    --pi-body: #9ba3b8;
+    --pi-faint: #8890a5;
+    --pi-line: #2c313c;
+    --pi-line-2: #444851;
+    --pi-line-strong: #565a63;
+    --pi-rule-ledger: #5b5f68;
+    --pi-brand: #8fa1e2;
+    --pi-brand-hover: #a9b7ec;
+    --pi-brand-active: #6478d2;
+    --pi-brand-tint: #252d48;
+    --pi-brand-border: #4a5683;
+    --pi-brand-vivid: #6478d2;
+    --pi-btn-primary-edge: #5f70b5;
+    --pi-success: #32d583;
+    --pi-success-dot: #32d583;
+    --pi-success-bg: #18302f;
+    --pi-success-line: #1f5a43;
+    --pi-warning: #fdb022;
+    --pi-warning-dot: #fdb022;
+    --pi-warning-bg: #312c26;
+    --pi-warning-line: #5c4a24;
+    --pi-danger: #f97066;
+    --pi-danger-dot: #f97066;
+    --pi-danger-bg: #30242e;
+    --pi-danger-line: #5a2620;
+    --pi-ai-ink: #c4b5fd;
+    --pi-teal: #2bc0b0;
+    --pi-teal-tint: #18383a;
+    --pi-teal-strong: #2bc0b0;
+    --pi-btn-fill: #2c3c96;
+    --pi-btn-fill-hover: #3648a8;
+    --pi-btn-fill-active: #263383;
+    --pi-nav-top: #121a29;
+    --pi-nav-bottom: #0d1420;
+    color-scheme: dark;
+  }
+
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply text-foreground;
+    background: var(--pi-page);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* every button gets a subtle press: 1px down, quick exit ease */
+  button:not(:disabled):active {
+    transform: translateY(1px);
+  }
+  /* double-ring focus: a page gap, then the brand-vivid ring */
+  :focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--pi-page),
+      0 0 0 4px var(--pi-brand-vivid);
+  }
+  /* Text fields are not rung. A bordered field shows focus with its own
+     border (input:focus below, or the Input component's brand edge + soft
+     halo); a bare field inside a search row or cell is shown by its wrapper.
+     The double ring on top of either read as a second, square box. */
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
+    box-shadow: none;
+  }
+}
+
+html,
+body,
+#__next {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Scrollbars use the shared component-border and primary colors. */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--pi-line-2);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pi-line-strong);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pi-line-2) transparent;
+}
+
+.mx-scrollcontainer-open .plus-icon {
+  transform: rotate(180deg);
+  transition: all 0.2s ease-out;
+}
+
+input,
+select,
+button {
+  transition:
+    border-color var(--dur-fast) var(--ease-enter),
+    background-color var(--dur-fast) var(--ease-enter),
+    box-shadow var(--dur-fast) var(--ease-enter),
+    transform 50ms var(--ease-exit);
+}
+
+input {
+  background-color: hsl(var(--background)) !important ;
+}
+
+select:hover,
+input:hover,
+textarea:hover {
+  border-color: var(--pi-line-strong);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--pi-brand);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--pi-faint);
+}
+
+/* input:focus::placeholder,
+input:hover::placeholder {
+  color: hsl(var(--primary));
+} */
+
+html {
+  @apply overflow-y-hidden;
+}
+
+/* Size the journal against its resizable inbox pane. */
+.journal-voucher {
+  container-type: inline-size;
+}
+@container (min-width: 560px) {
+  .journal-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .journal-cost-class {
+    grid-column: span 2;
+  }
+  .journal-cost-class-select {
+    width: calc(50% - 18px);
+  }
+}
+@container (min-width: 850px) {
+  .journal-details-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Journal fields use the white input surface over the tinted details card. */
+.journal-voucher
+  :is(
+    input,
+    textarea,
+    [role="combobox"],
+    #jv-voucher-date,
+    #jv-reference-date
+  ) {
+  background-color: hsl(var(--background));
+}
+
+
+/* ── Typography (4 Oct 2026) ─────────────────────────────────────────────
+   One family: Open Sans (variable, 300–800), for text, headings and figures.
+   IBM Plex Mono only for IDs (.code). Weights: 400 text, 500 labels and
+   emphasis, 600 headings and totals; 700 only for the display figure.
+
+   The scale — every size in the prototype is one of these nine:
+     11/16  overline   caps labels only (.type-overline, .workspace-eyebrow)
+     12/16  caption    meta, hints, chips, table headers
+     13/20  small      labels, table cells, secondary text
+     14/20  body       default text, inputs, buttons
+     16/24  lead · h4  card and section titles
+     18/28  h3         panel titles
+     22/28  h2         dialog and sub-page titles
+     28/36  h1 · kpi   page titles, hero figures
+     36/44  display    one per screen at most
+   Tracking: 0 at 16 and below; tightening only above, -0.01em to -0.02em.
+   Open Sans is wider than the Plex it replaces, so it needs less negative
+   tracking, not more. */
+:root {
+  --type-overline: 11px;
+  --type-caption: 12px;
+  --type-small: 13px;
+  --type-body: 14px;
+  --type-lead: 16px;
+  --type-h3: 18px;
+  --type-h2: 22px;
+  --type-h1: 28px;
+  --type-display: 36px;
+}
+
+/* ── Spacing & radius hierarchy (4 Oct 2026) ─────────────────────────────
+   Spacing is an 8-point grid with 4 for fine-tuning: 4 · 8 · 12 · 16 · 20 ·
+   24 · 32 · 40 · 48 (2 only for hairline nudges). Inside is always tighter
+   than outside: control padding < field gap < card padding < card gap <
+   section gap < page inset.
+     control padding   8 / 12      --pad-control
+     field gap         16          --gap-field
+     card padding      16 · 20     --pad-card, --pad-card-lg
+     gap between cards 16          --gap-card
+     section padding   24          --pad-section
+     gap between sections 32       --gap-section
+     page inset        24 · 40     --inset-page
+   Radius follows the nesting, outermost largest — a child's radius is never
+   larger than its parent's:
+     xs  4   chips, badges, checkboxes, tags
+     sm  6   inputs, buttons, small controls
+     md  8   menus, popovers, inner panels and insets
+     lg  12  cards, tables, page sections
+     xl  16  dialogs and sheets
+     full    pills, avatars, dots, switches
+   (2 only for progress bars and hairline marks.) */
+:root {
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --gap-field: 16px;
+}
+
+/* ── Precision Indigo: type roles, spacing, elevation, motion ────────────
+   Ported from ai-accountant-redesign src/index.css; the type roles are
+   rebuilt on the scale above. Sentence case everywhere except
+   .type-overline. */
+:root {
+  --font-display: var(--font-family-display), "Open Sans", system-ui, sans-serif;
+  --font-mono: var(--font-family-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --gap-inline: 8px;
+  --gap-stack: 12px;
+  --pad-control: 8px 12px;
+  --pad-cell: 12px 16px;
+  --pad-card: 16px;
+  --pad-card-lg: 20px;
+  --pad-section: 24px;
+  --gap-card: 16px;
+  --gap-section: 32px;
+  --inset-page: 24px;
+
+  --dur-fast: 150ms;
+  --dur-med: 250ms;
+  --dur-roll: 600ms;
+  --ease-enter: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --shadow-contact: 0 1px 2px rgba(20, 26, 60, 0.06);
+  --shadow-1: 0 2px 8px rgba(20, 26, 60, 0.09);
+  --shadow-2: 0 8px 24px rgba(20, 26, 60, 0.15), 0 2px 8px rgba(20, 26, 60, 0.07);
+  --shadow-table: 0 3px 16px -10px rgba(37, 57, 83, 0.19);
+}
+@media (min-width: 1280px) {
+  :root {
+    --inset-page: 40px;
+  }
+}
+.dark {
+  --shadow-contact: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-table: 0 0 0 1px var(--pi-line);
+}
+
+@layer components {
+  .type-display { font-family: var(--font-display); font-size: var(--type-display); line-height: 44px; letter-spacing: -0.02em; font-weight: 700; }
+  .type-h1 { font-size: var(--type-h1); line-height: 36px; letter-spacing: -0.015em; font-weight: 600; }
+  .type-h2 { font-size: var(--type-h2); line-height: 28px; letter-spacing: -0.01em; font-weight: 600; }
+  .type-h3 { font-size: var(--type-h3); line-height: 28px; font-weight: 600; }
+  .type-h4 { font-size: var(--type-lead); line-height: 24px; font-weight: 600; }
+  .type-body-lg { font-size: var(--type-lead); line-height: 24px; font-weight: 400; }
+  .type-body { font-size: var(--type-body); line-height: 20px; font-weight: 400; }
+  .type-label { font-size: var(--type-small); line-height: 20px; font-weight: 500; }
+  .type-caption { font-size: var(--type-caption); line-height: 16px; font-weight: 400; color: var(--pi-body); }
+  .type-overline,
+  .eyebrow {
+    font-size: var(--type-overline);
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--pi-ink-3);
+  }
+  /* workbench page eyebrow ("PAYABLES WORKSPACE") */
+  .workspace-eyebrow {
+    display: block;
+    font-size: var(--type-overline);
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pi-faint);
+    margin-bottom: 4px;
+  }
+  /* workbench page title — the h1 */
+  .page-title {
+    font-size: var(--type-h1);
+    line-height: 36px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--pi-ink);
+  }
+  .fig {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .code {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -0.01em;
+  }
+  .type-kpi {
+    font-family: var(--font-display);
+    font-size: var(--type-h1);
+    line-height: 36px;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* motion vocabulary (reduced motion collapses all of it) */
+@keyframes pi-rise {
+  0% { opacity: 0; transform: translateY(12px) scale(0.99); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes pi-enter-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pi-stamp {
+  0% { opacity: 0; transform: scale(1.025); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pi-settle {
+  0% { background-color: var(--pi-brand-tint); }
+  100% { background-color: transparent; }
+}
+@keyframes pi-draw-check {
+  from { stroke-dashoffset: 16; }
+  to { stroke-dashoffset: 0; }
+}
+.animate-rise { animation: pi-rise 0.28s cubic-bezier(0.22, 0.72, 0.28, 1) both; }
+.enter-up { animation: pi-enter-up 0.34s cubic-bezier(0.22, 0.7, 0.3, 1) both; }
+.animate-stamp { animation: pi-stamp 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-settle { animation: pi-settle 1.2s var(--ease-enter) both; }
+.draw-check path {
+  stroke-dasharray: 16;
+  animation: pi-draw-check 200ms var(--ease-enter) 0.02s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Workbench navigation (ai-accountant-redesign src/workbench.css) ──────
+   Ink navigation on a navy gradient; the content canvas stays slate. These
+   values are the reference's own and are deliberately theme-independent:
+   the rail is dark in both registers. */
+.workbench-sidebar {
+  --nav-ink: #edf3ff;
+  --nav-body: #b6c3d6;
+  --nav-faint: #97a9c2;
+  --nav-line: #ffffff12;
+  --nav-hover: #ffffff0a;
+  --nav-active-bg: #d6e4ff16;
+  --nav-active-edge: #d6e4ff15;
+  --nav-active-ink: #eef4ff;
+  --nav-active-rail: #a9bffb;
+  background: linear-gradient(175deg, #1d2d44, #142135 80%);
+  color: var(--nav-body);
+}
+.dark .workbench-sidebar {
+  background: linear-gradient(175deg, #121a29, #0d1420 80%);
+}
+.workbench-sidebar :focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--nav-active-rail);
+  outline-offset: -3px;
+}
+
+/* Source documents and viewer controls use a white canvas in both themes. */
+.source-stage,
+.dark .source-stage {
+  background: #ffffff;
+  --foreground: 222 28% 18%;
+  --secondary-foreground: 218 16% 38%;
+  --muted-foreground: 218 14% 44%;
+  --border: 220 18% 89%;
+  --neutral-gray: 220 18% 89%;
+  --background: 0 0% 100%;
+  --accent: 220 25% 96%;
+  --section: 220 25% 98%;
+  --primary: 232 47% 47%;
+  --pi-line: #e2e6ed;
+  --pi-ink: #202b3d;
+  --pi-body: #526077;
+  --pi-faint: #626f83;
+  --pi-fill: #f1f3f7;
+  color: #202b3d;
+}

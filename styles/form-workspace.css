@@ -1,0 +1,629 @@
+/* Shared form language. Uses the workspace's theme tokens in both themes. */
+.form-journey button:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 3px;
+}
+html :is(.ap-sheet, .ar-sheet) .form {
+  gap: 24px;
+}
+html :is(.ap-sheet, .ar-sheet) .card {
+  border: 1px solid var(--pi-line);
+  background: var(--pi-surface-panel);
+  border-radius: 12px;
+  padding: 24px;
+  gap: 24px 24px;
+  box-shadow: 0 2px 5px #18244a03;
+}
+html :is(.ap-sheet, .ar-sheet) .card > h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  scroll-margin-top: 20px;
+}
+html :is(.ap-sheet, .ar-sheet) .card > h2::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  background: var(--pi-brand);
+  border-radius: 4px;
+  opacity: 0.65;
+}
+html :is(.ap-sheet, .ar-sheet) .card > h2:not(:first-child) {
+  border-top: 1px solid var(--pi-line);
+  padding-top: 24px;
+  margin-top: 2px;
+}
+html :is(.ap-sheet, .ar-sheet) .card .control {
+  min-height: 42px;
+  border-radius: 8px;
+  background: var(--pi-surface-panel);
+  box-shadow: 0 1px 2px #18244a04;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+html :is(.ap-sheet, .ar-sheet) .card .control:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet) .t-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+html :is(.ap-sheet, .ar-sheet) .req {
+  margin-right: 4px;
+}
+html :is(.ap-sheet, .ar-sheet) .modebar {
+  padding: 0 2px;
+}
+html :is(.ap-sheet, .ar-sheet) .block {
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--pi-surface-panel);
+  scroll-margin-top: 20px;
+}
+html :is(.ap-sheet, .ar-sheet) .sugsum {
+  border-radius: 12px;
+  border: 1px solid var(--pi-brand-border);
+  padding: 20px;
+  background: var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet) .errsum {
+  border-radius: 12px;
+  padding: 20px;
+}
+html :is(.ap-sheet, .ar-sheet) dialog {
+  border-radius: 16px;
+  box-shadow: 0 24px 80px #111b3433;
+  max-height: calc(100dvh - 48px);
+}
+html :is(.ap-sheet, .ar-sheet) dialog::backdrop {
+  background: #101a304d;
+  backdrop-filter: blur(3px);
+}
+.modern-field {
+  gap: 8px;
+}
+.modern-field > label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+.modern-field input:not([type="checkbox"]),
+.modern-field textarea,
+.modern-field button[role="combobox"] {
+  border-radius: 8px;
+  min-height: 40px;
+  box-shadow: 0 1px 2px #18244a04;
+}
+.modern-field input:focus-visible,
+.modern-field textarea:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+}
+.modern-field-card {
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 6px #18244a03;
+  scroll-margin-top: 24px;
+}
+.modern-field-card > h2 {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+}
+.form-journey {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 760px);
+  gap: 32px;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1060px;
+}
+.form-journey__rail {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  padding-top: 8px;
+}
+.form-journey__eyebrow {
+  color: var(--pi-faint);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  margin-bottom: 20px;
+}
+.form-journey__rail nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-journey__rail nav button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--pi-body);
+}
+.form-journey__rail nav button:hover,
+.form-journey__rail nav button[aria-current] {
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+.form-journey__rail nav button span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 50%;
+  font-size: 12px;
+  background: var(--pi-surface-panel);
+}
+.form-journey__note {
+  margin: 20px 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--pi-line);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--pi-faint);
+}
+.form-journey__content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.form-journey__intro h2 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+.form-journey__intro p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pi-body);
+  margin-top: 8px;
+}
+.form-journey__intro {
+  padding: 4px 0 8px;
+}
+.form-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.form-starters button {
+  font-size: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--pi-line-2);
+  background: var(--pi-surface-panel);
+  border-radius: 6px;
+  color: var(--pi-body);
+}
+.form-starters button[aria-pressed="true"] {
+  border-color: var(--pi-brand);
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+@media (max-width: 1050px) {
+  .form-journey {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    max-width: 760px;
+  }
+  .form-journey__rail {
+    position: static;
+    padding: 0;
+  }
+  .form-journey__rail nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .form-journey__rail nav button {
+    white-space: nowrap;
+  }
+  .form-journey__eyebrow,
+  .form-journey__note {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .modern-field-card {
+    padding: 20px;
+  }
+  html :is(.ap-sheet, .ar-sheet) .card {
+    padding: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modern-field *,
+  html :is(.ap-sheet, .ar-sheet) .control {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Document review: compact records with secondary detail on demand. */
+.record-overview {
+  color: var(--pi-ink);
+}
+.record-overview__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--pi-line);
+}
+.record-overview__top > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-brand);
+}
+.record-overview__top button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--pi-body);
+  padding: 4px;
+  border-radius: 4px;
+}
+.record-overview__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px 0 20px;
+}
+.record-overview__label {
+  font-size: 12px;
+  color: var(--pi-faint);
+}
+.record-overview__amount {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+  font-family: var(--font-family-display);
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.record-overview__amount > span {
+  font-family: var(--font-family-primary);
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--pi-faint);
+  border: 1px solid var(--pi-line);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.record-overview__review {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--pi-brand);
+  padding: 8px 0;
+}
+.record-overview__review.has-issues {
+  color: var(--pi-danger);
+}
+.record-overview__nav {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--pi-line);
+}
+.record-overview__nav button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--pi-faint);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.record-overview__nav button[aria-current] {
+  color: var(--pi-brand);
+  border-bottom-color: var(--pi-brand);
+}
+.record-overview button:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 3px;
+}
+html :is(.ap-sheet, .ar-sheet) .form {
+  background: var(--pi-surface-panel);
+  padding: 24px 24px 36px;
+  gap: 24px;
+}
+html :is(.ap-sheet, .ar-sheet) .form__narrow {
+  max-width: none;
+}
+html :is(.ap-sheet, .ar-sheet) .card.review-record {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record > h2 {
+  margin: 0 0 12px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.015em;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record > h2::before {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record > h2::after {
+  content: "Required fields marked *";
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet) .review-record__rows {
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  padding: 0 16px;
+  overflow: visible;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .field {
+  display: grid;
+  grid-template-columns: minmax(110px, 30%) minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 48px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .field:last-child {
+  border-bottom: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .t-label {
+  font-size: 12px;
+  color: var(--pi-body);
+  line-height: 1.5;
+  font-weight: 400;
+  min-height: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .control {
+  min-height: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 8px;
+  box-shadow: none;
+  background: transparent;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .control .t-value {
+  font-size: 12px;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .control:hover {
+  background: var(--pi-head-bg);
+  border-color: var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .control:focus-within {
+  background: var(--pi-surface-panel);
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .control.control--offer {
+  border: 1px dashed var(--pi-warning-line);
+  background: var(--pi-warning-bg);
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .field.is-invalid .control {
+  border-color: var(--pi-danger);
+  background: var(--pi-danger-bg);
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .field__error {
+  grid-column: 2;
+  padding: 0 8px 4px;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .pencil {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+html :is(.ap-sheet, .ar-sheet) .review-record .field:hover .pencil,
+html :is(.ap-sheet, .ar-sheet) .review-record .field:focus-within .pencil {
+  opacity: 1;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure {
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  margin-top: 12px;
+  overflow: visible;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 47px;
+  padding: 12px 16px;
+  list-style: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .review-disclosure
+  > summary::-webkit-details-marker {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure > summary > span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure > summary > small {
+  font-size: 12px;
+  color: var(--pi-faint);
+  margin-left: auto;
+  text-align: right;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure > summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-right: 1.5px solid var(--pi-faint);
+  border-bottom: 1.5px solid var(--pi-faint);
+  transform: rotate(-45deg);
+  margin-left: 8px;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure[open] > summary {
+  background: var(--pi-head-bg);
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure[open] > summary::after {
+  transform: rotate(45deg);
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure > summary:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure__body {
+  padding: 0 16px;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure .card__group {
+  padding: 12px 0;
+}
+html :is(.ap-sheet, .ar-sheet) .review-disclosure .card__group > .control {
+  border-color: var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet) .block {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+html :is(.ap-sheet, .ar-sheet) .block > .t-section {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  margin-bottom: 12px;
+}
+html :is(.ap-sheet, .ar-sheet) .sugsum {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--pi-head-bg);
+  border-color: var(--pi-line);
+}
+html :is(.ap-sheet, .ar-sheet) .sugsum__lede {
+  font-size: 12px;
+  line-height: 1.6;
+}
+html :is(.ap-sheet, .ar-sheet) .modebar {
+  order: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .segmented {
+  background: var(--pi-head-bg);
+  border-color: var(--pi-line);
+  border-radius: 6px;
+}
+html :is(.ap-sheet, .ar-sheet) .modebar .fcbtn {
+  font-size: 12px;
+}
+html :is(.ap-sheet, .ar-sheet) .addl {
+  border-radius: 8px;
+  background: var(--pi-head-bg);
+}
+html :is(.ap-sheet, .ar-sheet) .closing {
+  gap: 20px;
+}
+@container form (max-width:420px) {
+  html :is(.ap-sheet, .ar-sheet) .review-record .field {
+    grid-template-columns: minmax(100px, 32%) minmax(0, 1fr);
+    gap: 4px 8px;
+  }
+  html :is(.ap-sheet, .ar-sheet) .review-disclosure > summary > small {
+    display: none;
+  }
+  .record-overview__amount {
+    font-size: 22px;
+  }
+  .record-overview__amount > span {
+    display: none;
+  }
+  .record-overview__nav {
+    gap: 16px;
+  }
+}
+html :is(.ap-sheet, .ar-sheet) .review-suggestions {
+  border: 1px solid var(--pi-brand-border);
+  border-radius: 8px;
+  background: var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet) .review-suggestions[hidden] {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .review-suggestions > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--pi-brand);
+  font-size: 12px;
+  font-weight: 500;
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .review-suggestions
+  > summary::-webkit-details-marker {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .review-suggestions > summary::after {
+  content: "Review →";
+  font-size: 12px;
+  font-weight: 400;
+}
+html :is(.ap-sheet, .ar-sheet) .review-suggestions[open] > summary::after {
+  content: "Collapse ↑";
+}
+html :is(.ap-sheet, .ar-sheet) .review-suggestions .sugsum {
+  border: 0;
+  border-top: 1px solid var(--pi-brand-border);
+  border-radius: 0 0 8px 8px;
+  background: var(--pi-surface-panel);
+}
+.record-overview__summary {
+  padding: 20px 0 12px;
+}
+.record-overview__top {
+  padding-bottom: 12px;
+}
+html :is(.ap-sheet, .ar-sheet) .form {
+  gap: 20px;
+}

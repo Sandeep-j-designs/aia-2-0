@@ -1,0 +1,33 @@
+/* The Tost component from Figma ("Karbon — AI Accountant", node 21859:147791).
+   One dark ground in every state — the status is carried by the icon circle,
+   not by recolouring the whole surface. The old toast turned green for ok and
+   red for err, which made a routine confirmation the loudest thing on screen
+   and left no room for a title and a subtitle to be told apart. */
+.toast{
+  display:flex;align-items:flex-start;gap:8px;padding:12px;
+  border-radius:6px;background:#21263c;border:1px solid #303850;
+  color:#fff;box-shadow:0 2px 11.8px rgba(0,0,0,.1),0 4px 9.2px rgba(0,0,0,.08);
+  animation:rise .2s ease;max-width:344px
+}
+/* 21px circle, ~10px glyph, per the component. */
+.toast__icon{
+  flex:none;display:grid;place-items:center;width:21px;height:21px;
+  border-radius:99px;background:#303850;color:#21263c
+}
+.toast__icon svg{width:10px;height:10px}
+.toast--ok  .toast__icon{background:#59c795}
+.toast--err .toast__icon{background:#ff8682}
+.toast--warn .toast__icon{background:#ffa800}
+.toast__body{display:flex;flex-direction:column;gap:4px;min-width:0}
+/* Label-2 Semi Bold and Label-3 Regular from the file's type scale. */
+.toast__ttl{font-size:14px;line-height:20px;font-weight:600;letter-spacing:-.16px}
+.toast__sub{font-size:12px;line-height:16px;font-weight:400;letter-spacing:-.12px}
+/* The way back out. A chip on the secondary dark ground, as the component
+   draws it — the old underlined text sat inside the sentence it undid. */
+.toast__act{
+  flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:4px;
+  padding:4px;border:none;border-radius:6px;background:#303850;
+  font:inherit;font-size:12px;line-height:16px;letter-spacing:-.12px;
+  color:#efefef;cursor:pointer
+}
+.toast__act:hover{background:#3a4360}

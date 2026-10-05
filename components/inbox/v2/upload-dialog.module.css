@@ -1,0 +1,315 @@
+/*
+  The drop zone is the one part of the panel that can give up height, so it is
+  what absorbs a short screen: full size down to a 720px-tall viewport, then it
+  shrinks with the viewport so the rest — tips open included — still fits
+  inside the dialog's 90vh without a scrollbar. 330px is everything else in the
+  panel with the tips open; the floor is where the compact artwork below stops
+  fitting.
+*/
+.dropZone {
+  display: flex;
+  min-height: clamp(150px, calc(90vh - 330px), 238px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: pointer;
+  /* reference .upload-target: a dashed line-2 well on the page ground */
+  border: 1px dashed var(--pi-line-2);
+  border-radius: 12px;
+  background: var(--pi-page);
+  transition:
+    background-color var(--dur-fast) var(--ease-enter),
+    border-color var(--dur-fast) var(--ease-enter);
+}
+.dropZone:hover {
+  border-color: var(--pi-line-strong);
+}
+.dragging,
+.dragging:hover {
+  background-color: var(--pi-brand-tint);
+  border-color: var(--pi-brand);
+}
+/* Keyboard focus only: a click on the zone focuses its input too, and that
+   should not draw a ring. */
+.dropZone:has(input:focus-visible) {
+  outline: 2px solid var(--pi-brand-vivid);
+  outline-offset: 3px;
+}
+.artwork {
+  position: relative;
+  width: 92px;
+  height: 82px;
+  margin-bottom: 16px;
+}
+.paper,
+.paperBack {
+  position: absolute;
+  top: 3px;
+  left: 17px;
+  width: 52px;
+  height: 65px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+}
+.paperBack {
+  transform: rotate(-15deg) translate(-5px, 0);
+  background: var(--pi-fill);
+}
+.paper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px;
+  transform: rotate(7deg);
+  color: var(--pi-faint);
+}
+.paper i {
+  width: 26px;
+  height: 3px;
+  background: var(--pi-fill-2);
+  border-radius: 2px;
+}
+.paper i:last-child {
+  width: 18px;
+}
+.uploadBadge {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--pi-btn-fill);
+  border: 1px solid var(--pi-btn-primary-edge);
+  outline: 3px solid var(--pi-page);
+  color: hsl(var(--primary-foreground));
+  box-shadow: var(--shadow-contact);
+  transition: transform var(--dur-fast) var(--ease-enter);
+}
+.dropZone:hover .uploadBadge,
+.dragging .uploadBadge {
+  transform: translateY(-3px);
+}
+.dropTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+.browse {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--pi-faint);
+}
+.browse > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--pi-brand);
+  font-weight: 500;
+}
+.formats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 20px;
+}
+.formats > span {
+  border: 1px solid var(--pi-line);
+  background: var(--pi-surface-panel);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+.formats .limit {
+  margin-left: 4px;
+  padding-left: 12px;
+  border: 0;
+  border-left: 1px solid var(--pi-line-2);
+  border-radius: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--pi-faint);
+}
+.guidelines {
+  padding: 16px 20px;
+  background: var(--pi-head-bg);
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+}
+.guidelinesTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+.guidelinesTitle svg {
+  color: var(--pi-faint);
+}
+/* The title is the disclosure's summary: the whole row toggles it. */
+summary.guidelinesTitle {
+  cursor: pointer;
+  list-style: none;
+  border-radius: 6px;
+}
+summary.guidelinesTitle::-webkit-details-marker {
+  display: none;
+}
+summary.guidelinesTitle:focus-visible {
+  outline: 2px solid var(--pi-brand-vivid);
+  outline-offset: 4px;
+}
+.guidelinesChevron {
+  margin-left: auto;
+  transition: transform var(--dur-fast) var(--ease-enter);
+}
+details[open] > summary .guidelinesChevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .guidelinesChevron {
+    transition: none;
+  }
+}
+.tips {
+  column-count: 2;
+  column-gap: 20px;
+  margin-top: 16px;
+}
+.tip {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--pi-body);
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+.tip:last-child {
+  margin-bottom: 0;
+}
+.tipDot {
+  width: 4px;
+  height: 4px;
+  flex-shrink: 0;
+  margin-top: 8px;
+  background: var(--pi-line-strong);
+  border-radius: 50%;
+}
+/*
+  The other two channels, on one line.
+
+  A footnote, not a section: this dialog is for the upload you already came
+  here to do, and the whole panel has to clear a laptop viewport without
+  scrolling. Written as two stacked cards with icon tiles and descriptions it
+  ran to 137px — taller than the guidelines above it — to say two things the
+  reader can act on later. Ruled off and set on a single wrapping row it is
+  about 30px, and the drop zone stays the tallest thing in the dialog.
+*/
+.channels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pi-line);
+}
+.channelsTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+.channel {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--pi-faint);
+}
+.channel svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--pi-faint);
+}
+/* The address is the thing being copied, so it does not get to wrap. */
+.channel code {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  color: var(--pi-ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/*
+  The rule between the two channels. It only reads as a separator while they
+  are side by side, so it is dropped once the row wraps and the two sit on
+  lines of their own — a stray vertical tick at the start of a line separates
+  nothing.
+*/
+.channelDivider {
+  width: 1px;
+  height: 12px;
+  flex-shrink: 0;
+  background: var(--pi-line-2);
+}
+@media (max-width: 560px) {
+  .channelDivider {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .tips {
+    column-count: 1;
+  }
+  .tip {
+    margin-bottom: 8px;
+  }
+  .dropZone {
+    padding-inline: 16px;
+  }
+}
+/* Short screens (a 1366×768 or 1280×720 laptop at 125% scaling): the artwork
+   and spacing tighten so the drop zone can shrink without clipping its text. */
+@media (max-height: 640px) {
+  .dropZone {
+    padding-block: 16px;
+  }
+  .artwork {
+    transform: scale(0.7);
+    transform-origin: 50% 0;
+    margin-bottom: -12px;
+  }
+  .formats {
+    margin-top: 12px;
+  }
+}
+/* Shorter still, the picture goes: the headline and the browse link are what
+   the zone needs to say. */
+@media (max-height: 540px) {
+  .artwork {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dropZone,
+  .uploadBadge {
+    transition: none;
+  }
+}
