@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 /**
  * The bill form's review layer, after the Finops review form (Oct 2026).
@@ -9,8 +9,6 @@ import { Check, ChevronRight } from "lucide-react";
  * the sheets behind their ›, the items table and the totals card. This reads
  * the live form and states where it stands:
  *
- *   - the header: bill total, draft label, "N of M resolved" with its bar,
- *     and "N to review ›" (opens Needs you) or "Ready to approve"
  *   - each row's status mark (data-tone), each › its pending count, each
  *     sheet its pill
  *   - the Needs you sheet: every open check, with the way to it
@@ -167,7 +165,6 @@ export function BillReview({
   kind?: "ap" | "ar";
 }) {
   const [items, setItems] = useState<Item[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
 
   // the live form → checks, marks, counts and pills
   useEffect(() => {
@@ -285,7 +282,6 @@ export function BillReview({
         adjTotal: number;
         grand: number;
       };
-      setTotal(p.grand);
       const set = (k: string, v: string) => {
         const node = root.querySelector<HTMLElement>(`[data-total="${k}"]`);
         if (node && node.textContent !== v) node.textContent = v;
@@ -310,7 +306,6 @@ export function BillReview({
 
   // Needs you, rendered into its sheet
   const open = items.filter((i) => i.tone !== "ok");
-  const done = items.length - open.length;
   const needsHost = root.querySelector<HTMLElement>(
     "#cr-sheet-needs .cr-needs"
   );
@@ -331,61 +326,11 @@ export function BillReview({
     });
   };
 
+  // No header of its own: the total, draft state and review progress all
+  // repeat what the form already shows further down. What is left is the
+  // Needs-you list, rendered into its sheet.
   return (
-    <div className="cr-header">
-      <p className="cr-kicker">
-        {kind === "ar" ? "Invoice total" : "Bill total"}
-        <span className="cr-kicker-note">Read from the source</span>
-      </p>
-      <div className="cr-heading-row">
-        <div className="cr-total">
-          <strong>{total === null ? "—" : money(total)}</strong>
-          <span className="cr-draft">
-            <i aria-hidden="true" />
-            Draft · not in books
-          </span>
-        </div>
-        <div className="cr-progress">
-          <span>
-            <b>
-              {done} of {items.length}
-            </b>{" "}
-            resolved
-          </span>
-          {open.length ? (
-            <button
-              type="button"
-              className="cr-open"
-              onClick={() =>
-                root
-                  .querySelector<HTMLDialogElement>("#cr-sheet-needs")
-                  ?.showModal()
-              }
-            >
-              {open.length} to review
-              <ChevronRight size={14} aria-hidden="true" />
-            </button>
-          ) : (
-            <span className="cr-ready">
-              <Check size={14} aria-hidden="true" />
-              Ready to approve
-            </span>
-          )}
-          <progress
-            className="sr-only"
-            aria-label="Review completion"
-            value={done}
-            max={items.length || 1}
-          />
-          <div className="cr-bar" aria-hidden="true">
-            <i
-              style={{
-                transform: `scaleX(${items.length ? done / items.length : 1})`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
+    <>
       {needsHost &&
         createPortal(
           open.length ? (
@@ -417,6 +362,6 @@ export function BillReview({
           ),
           needsHost
         )}
-    </div>
+    </>
   );
 }

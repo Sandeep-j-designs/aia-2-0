@@ -85,8 +85,10 @@ export const day = (value?: string) =>
  * Precision Indigo draws no vertical rules — columns are held apart by the
  * 16px cell padding, as in the Inbox and the reference Bills register.
  */
+// White of its own: a table wider than the page overflows its region, and the
+// overflow would otherwise show the slate canvas behind the rows.
 export const TABLE_CLASS =
-  "table-fixed border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line";
+  "table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line";
 /**
  * The head strip: `pi-head-bg` with one hairline under it. Sticky against the
  * table card's single scrollport. Sticky header bookends should paint
@@ -328,11 +330,7 @@ export const UnderlineTabs = ({
   >
     <TabsList className="h-auto gap-6 rounded-none bg-transparent p-0">
       {tabs.map((entry) => (
-        <TabsTrigger
-          key={entry.id}
-          value={entry.id}
-          className={UNDERLINE_TAB}
-        >
+        <TabsTrigger key={entry.id} value={entry.id} className={UNDERLINE_TAB}>
           {entry.label}
           <CountPill>{entry.count}</CountPill>
         </TabsTrigger>

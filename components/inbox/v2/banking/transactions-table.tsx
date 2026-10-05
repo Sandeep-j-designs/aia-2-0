@@ -448,10 +448,8 @@ const TransactionsTable = ({
   };
 
   return (
-    <div
-      ref={resize.gridRef}
-      className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-none"
-    >
+    // No scroll of its own: the page scroller owns both axes.
+    <div ref={resize.gridRef} className="min-w-0 flex-1">
       <Table style={{ width: resize.tableWidth }} className={TABLE_CLASS}>
         <TableHeader className={HEADER_CLASS}>
           <TableRow>

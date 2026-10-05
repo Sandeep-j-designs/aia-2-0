@@ -525,7 +525,12 @@ const Register = ({
       : tabRows(id, items).length;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    // The page's one scroller, both axes: heading, table and pager scroll as
+    // a page, and the table header sticks at the top of the content area.
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none">
+      {/* Heading and toolbar, pinned against the horizontal scroll so a
+          widened table slides under them alone. */}
+      <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
       <div className="shrink-0 px-[var(--inset-page)] pt-6">
         {/*
           Create opens the register's own voucher form, blank. Upload is a
@@ -698,10 +703,11 @@ const Register = ({
           <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
         )}
       </div>
+      </div>
 
-      {/* Precision Indigo table card: one white card that owns the scroll,
-          with the pager inside it. */}
-      <div className="relative mx-[var(--inset-page)] mb-6 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-pi-line bg-background shadow-table">
+      {/* The table, edge to edge: no card and no scroll of its own. The
+          pager follows the last row. */}
+      <div className="flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background">
         {batchTab ? (
           <UploadedInvoicesTable
             company={company}
@@ -713,8 +719,8 @@ const Register = ({
           />
         ) : (
           <>
-            <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-              <Table className="border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line">
+            <div className="min-w-0 flex-1">
+              <Table className="border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line">
                 <TableHeader className={HEADER_CLASS}>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="h-11 w-12 px-4 py-0 align-middle">
@@ -855,7 +861,7 @@ const Register = ({
             </div>
 
             {/* The Inbox footer: rows per page, then the page controls. */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
+            <div className="sticky left-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
               <div className="flex items-center gap-2">
                 <span className={cn(T.cell, "text-foreground")}>
                   Rows per page:

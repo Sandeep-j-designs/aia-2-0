@@ -52,6 +52,8 @@ import {
   SELECTED_EDGE,
   SummaryCard,
   SummaryGrid,
+  PAGE_CHROME,
+  PAGE_SCROLLER,
   TABLE_SHELL,
   cellGround,
 } from "@/components/inbox/v2/chart-of-accounts/master-parts";
@@ -298,7 +300,10 @@ const ItemsList = ({ company, rows, onCreate, onEdit, notify }: Props) => {
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+    // The column-resize hook measures its element's width and horizontal
+    // scroll, and the page scroller is now the element that has both.
+    <div ref={resize.gridRef} className={PAGE_SCROLLER}>
+      <div className={PAGE_CHROME}>
       <MasterHeading
         eyebrow="Inventory workspace"
         title="Inventory Masters"
@@ -385,12 +390,10 @@ const ItemsList = ({ company, rows, onCreate, onEdit, notify }: Props) => {
           />
         </div>
       </MasterToolbar>
+      </div>
 
       <div className={TABLE_SHELL}>
-        <div
-          ref={resize.gridRef}
-          className="min-h-0 min-w-0 flex-1 overflow-auto"
-        >
+        <div className="min-w-0 flex-1">
           <Table
             style={{ width: resize.tableWidth }}
             className={MASTER_TABLE_CLASS}
@@ -569,13 +572,16 @@ const ItemsList = ({ company, rows, onCreate, onEdit, notify }: Props) => {
           )}
         </div>
 
-        <Pager
-          page={page}
-          pageSize={pageSize}
-          total={visible.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+        {/* At the end of the table, held still against sideways scroll. */}
+        <div className="sticky left-0 shrink-0">
+          <Pager
+            page={page}
+            pageSize={pageSize}
+            total={visible.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
       </div>
       {/* PROTOTYPE: production deletes straight from the menu; the designer
           asked for a confirmation first. */}

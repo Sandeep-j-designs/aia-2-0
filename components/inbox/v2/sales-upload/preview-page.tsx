@@ -621,7 +621,16 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-pi-page">
+    // Not scrolling itself: the positioning context the selection bar hangs
+    // off, so the bar neither scrolls nor clips with the page.
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-pi-page">
+      {/* The page's one scroller, both axes: header, table and pager scroll
+        as a page and the table header sticks at the top of the content area.
+        Not positioned, so the absolute selection bar inside resolves against
+        the wrapper above. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none">
+      {/* Pinned against horizontal scroll so only the table slides. */}
+      <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
       <FlowHeader
         title="Preview"
         fileName={batch.originalFileName}
@@ -718,14 +727,17 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
           Valid Rows
         </span>
       </div>
+      </div>
 
-      {/* The positioning context the selection bar hangs off. */}
-      <div className="relative mx-[var(--inset-page)] mb-6 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-pi-line bg-background shadow-table">
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Edge to edge, no card. It no longer scrolls — the page does — but
+          still carries the resize ref, since its width is the space the
+          columns are sized to. */}
         <div
           ref={resize.gridRef}
           role="region"
           aria-label="Preview rows"
-          className="min-h-0 min-w-0 flex-1 overflow-auto"
+          className="flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background"
         >
           <Table
             style={{ width: resize.tableWidth }}
@@ -870,7 +882,7 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
         </div>
 
         {selected.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-16 z-30 flex justify-center px-4">
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
             <BulkActionBar
               className="pointer-events-auto"
               selectedCount={selected.length}
@@ -881,7 +893,8 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
           </div>
         )}
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
+        {/* At the end of the table, pinned against horizontal scroll. */}
+        <div className="sticky left-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
           <div className="flex items-center gap-2">
             <span className={cn(T.cell, "text-foreground")}>
               Rows per page:
@@ -948,6 +961,7 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
             </PageButton>
           </div>
         </div>
+      </div>
       </div>
 
       <PageDialog

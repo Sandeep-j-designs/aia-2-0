@@ -57,8 +57,8 @@ const MonthView = ({ rows }: Props) => {
   const months = rows.filter((r) => r.month !== "total");
   const total = rows.find((r) => r.month === "total");
   return (
-    <TableCard className="min-h-[320px]">
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-none">
+    <TableCard>
+      <div className="min-w-0 flex-1">
         <BreakdownTable
           lead={{ group: "GSTR-2B", label: "Month", width: 130 }}
           groups={GROUPS}

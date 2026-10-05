@@ -3,7 +3,7 @@ import type { Gstr2bVendorViewTableData } from "@/types/pages/inbox/gst";
 import { EmptyBlock, Pager } from "@/components/inbox/v2/banking/table-parts";
 import { T } from "@/components/inbox/v2/ui";
 import { cn } from "@/lib/utils";
-import { TableCard } from "@/components/inbox/v2/banking/page-parts";
+import { Pinned, TableCard } from "@/components/inbox/v2/banking/page-parts";
 import BreakdownTable, { type BreakdownGroup } from "./breakdown-table";
 
 /**
@@ -62,44 +62,48 @@ const VendorView = ({ rows, searching, onOpenVendor }: Props) => {
   const pageRows = rows.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
-    <TableCard className="min-h-[320px]">
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-none">
-        <BreakdownTable
-          lead={{ group: "Vendor Name/GSTIN", width: 280 }}
-          groups={GROUPS}
-          rows={pageRows}
-          rowKey={(r) => r.gstin}
-          tall
-          renderLead={(r) => (
-            <span className="flex min-w-0 flex-col">
-              <span
-                className="truncate font-medium text-pi-ink"
-                title={r.vendorName}
-              >
-                {r.vendorName}
+    <>
+      <TableCard>
+        <div className="min-w-0 flex-1">
+          <BreakdownTable
+            lead={{ group: "Vendor Name/GSTIN", width: 280 }}
+            groups={GROUPS}
+            rows={pageRows}
+            rowKey={(r) => r.gstin}
+            tall
+            renderLead={(r) => (
+              <span className="flex min-w-0 flex-col">
+                <span
+                  className="truncate font-medium text-pi-ink"
+                  title={r.vendorName}
+                >
+                  {r.vendorName}
+                </span>
+                <span className={cn(T.sub, "code truncate")}>{r.gstin}</span>
               </span>
-              <span className={cn(T.sub, "code truncate")}>{r.gstin}</span>
-            </span>
-          )}
-          onRowClick={(r) => onOpenVendor(r.gstin)}
-          rowTitle="Open this vendor's invoices"
-          minWidth={1100}
-        />
-        {!rows.length && (
-          <EmptyBlock
-            title={searching ? "No vendors match your search" : "No vendors"}
-            body={searching ? "Try a vendor name or GSTIN." : undefined}
+            )}
+            onRowClick={(r) => onOpenVendor(r.gstin)}
+            rowTitle="Open this vendor's invoices"
+            minWidth={1100}
           />
-        )}
-      </div>
-      <Pager
-        page={page}
-        pageSize={pageSize}
-        total={rows.length}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-      />
-    </TableCard>
+          {!rows.length && (
+            <EmptyBlock
+              title={searching ? "No vendors match your search" : "No vendors"}
+              body={searching ? "Try a vendor name or GSTIN." : undefined}
+            />
+          )}
+        </div>
+      </TableCard>
+      <Pinned>
+        <Pager
+          page={page}
+          pageSize={pageSize}
+          total={rows.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      </Pinned>
+    </>
   );
 };
 

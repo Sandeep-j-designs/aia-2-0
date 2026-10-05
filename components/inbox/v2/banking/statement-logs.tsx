@@ -53,7 +53,9 @@ import {
   resolveStatementStatus,
 } from "./statement-parts";
 import {
+  PAGE_SCROLL,
   PageHead,
+  Pinned,
   ROW_GROUND,
   TOOLBAR,
   TableCard,
@@ -239,50 +241,49 @@ const StatementLogs = ({
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHead
-        eyebrow={ledger ? ledger.ledgerName : "Banking"}
-        back={{
-          label: ledger ? `Back to ${ledger.ledgerName}` : "Back to Banking",
-          onClick: onBack,
-        }}
-        title="Statement Logs"
-      />
+    <div className={PAGE_SCROLL}>
+      <Pinned>
+        <PageHead
+          eyebrow={ledger ? ledger.ledgerName : "Banking"}
+          back={{
+            label: ledger ? `Back to ${ledger.ledgerName}` : "Back to Banking",
+            onClick: onBack,
+          }}
+          title="Statement Logs"
+        />
 
-      <div className={TOOLBAR}>
-        <SearchBox
-          label="Search statements by file name"
-          placeholder="File name..."
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(0);
-          }}
-        />
-        <ToolbarRule />
-        <QuickFilter
-          label="Status"
-          options={STATUS_OPTIONS}
-          selected={statuses}
-          onChange={(next) => {
-            setStatuses(next);
-            setPage(0);
-          }}
-        />
-        <span className="flex-1" />
-        {anyFilter && (
-          <Button variant="ghost" onClick={reset}>
-            <Undo2 className="h-3 w-3" />
-            Reset Filters
-          </Button>
-        )}
-      </div>
+        <div className={TOOLBAR}>
+          <SearchBox
+            label="Search statements by file name"
+            placeholder="File name..."
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(0);
+            }}
+          />
+          <ToolbarRule />
+          <QuickFilter
+            label="Status"
+            options={STATUS_OPTIONS}
+            selected={statuses}
+            onChange={(next) => {
+              setStatuses(next);
+              setPage(0);
+            }}
+          />
+          <span className="flex-1" />
+          {anyFilter && (
+            <Button variant="ghost" onClick={reset}>
+              <Undo2 className="h-3 w-3" />
+              Reset Filters
+            </Button>
+          )}
+        </div>
+      </Pinned>
 
       <TableCard>
-        <div
-          ref={resize.gridRef}
-          className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-none"
-        >
+        <div ref={resize.gridRef} className="min-w-0 flex-1">
           <Table style={{ width: resize.tableWidth }} className={TABLE_CLASS}>
             <TableHeader className={HEADER_CLASS}>
               <TableRow>
@@ -411,7 +412,9 @@ const StatementLogs = ({
             />
           )}
         </div>
+      </TableCard>
 
+      <Pinned>
         <Pager
           page={page}
           pageSize={pageSize}
@@ -419,7 +422,7 @@ const StatementLogs = ({
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
-      </TableCard>
+      </Pinned>
 
       <DeleteStatementDialog
         statement={deleting}

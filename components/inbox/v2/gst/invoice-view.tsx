@@ -74,6 +74,7 @@ import {
 import { AmountText, T } from "@/components/inbox/v2/ui";
 import {
   ROW_GROUND,
+  Pinned,
   TableCard,
 } from "@/components/inbox/v2/banking/page-parts";
 import LinkModal from "./link-modal";
@@ -526,9 +527,11 @@ const InvoiceView = ({
   const SINGLE = new Set<ColumnKey>(["srNo", "matchType"]);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    // A fragment, not a column: the strips and the pager pin against the
+    // page's horizontal scroll, and a sticky box cannot leave its parent.
+    <>
       {/* Tax difference and ITC strips. */}
-      <div className="flex shrink-0 flex-wrap gap-3 px-[var(--inset-page)] pb-4">
+      <Pinned className="flex flex-wrap gap-3 px-[var(--inset-page)] pb-4">
         <div className="min-w-[520px] flex-[3] overflow-hidden rounded-lg border border-pi-line bg-background shadow-contact">
           <Table className="border-separate border-spacing-0 [&_th]:border-b [&_th]:border-pi-line">
             <TableHeader className="bg-pi-head-bg [&_tr]:shadow-none">
@@ -641,10 +644,10 @@ const InvoiceView = ({
             </TableBody>
           </Table>
         </div>
-      </div>
+      </Pinned>
 
       {chips.length > 0 && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 px-[var(--inset-page)] pb-4">
+        <Pinned className="flex flex-wrap items-center gap-2 px-[var(--inset-page)] pb-4">
           {chips.map((chip) => (
             <FilterChip
               key={chip.id}
@@ -662,11 +665,11 @@ const InvoiceView = ({
             <Undo2 className="h-3 w-3" />
             Reset Filters
           </Button>
-        </div>
+        </Pinned>
       )}
 
-      <TableCard className="min-h-[360px]">
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-none">
+      <TableCard>
+        <div className="min-w-0 flex-1">
           <Table
             className={TABLE_CLASS}
             style={{ width: TABLE_WIDTH, minWidth: "100%" }}
@@ -846,7 +849,9 @@ const InvoiceView = ({
             />
           )}
         </div>
+      </TableCard>
 
+      <Pinned>
         <Pager
           page={shownPage}
           pageSize={pageSize}
@@ -854,7 +859,7 @@ const InvoiceView = ({
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
-      </TableCard>
+      </Pinned>
 
       <LinkModal
         base={linking}
@@ -875,7 +880,7 @@ const InvoiceView = ({
           notify("Remark saved successfully", "success");
         }}
       />
-    </div>
+    </>
   );
 };
 

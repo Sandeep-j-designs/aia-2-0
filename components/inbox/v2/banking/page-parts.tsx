@@ -87,8 +87,42 @@ export const ToolbarRule = () => (
 );
 
 /**
- * The white table card: the one scrollport (its child) and the pager inside
- * it, on the slate canvas with the page gutter.
+ * The page's one scroller, both axes. Heading, table and pager scroll as a
+ * page, and the table header's `sticky top-0` resolves against this box, so it
+ * stops at the top of the content area. Not positioned: an absolute overlay
+ * (a selection bar) hangs off a `relative` wrapper outside it, so it neither
+ * scrolls nor clips.
+ */
+export const PAGE_SCROLL =
+  "flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none";
+
+/**
+ * Holds still against the page's horizontal scroll while a widened table
+ * slides under it: the heading, KPIs, toolbars and the pager. It has to be a
+ * direct child of the scroller (or of a `contents` wrapper), since a sticky box
+ * cannot leave its containing block. Kept on its own compositor layer so it
+ * stays painted in place during asynchronous horizontal scrolling.
+ */
+export const Pinned = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={cn(
+      "sticky left-0 shrink-0 [transform:translateZ(0)]",
+      className
+    )}
+  >
+    {children}
+  </div>
+);
+
+/**
+ * The table region: edge to edge and white, no card. It does not scroll — the
+ * page does — and the pager sits after it in a `Pinned` block, outside it.
  */
 export const TableCard = ({
   children,
@@ -99,7 +133,7 @@ export const TableCard = ({
 }) => (
   <div
     className={cn(
-      "relative mx-[var(--inset-page)] mb-6 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-pi-line bg-background shadow-table",
+      "flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background",
       className
     )}
   >

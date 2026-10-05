@@ -607,7 +607,12 @@ const BillRegister = ({
     !!pageRows.length && pageRows.every((x) => selected.includes(x.id));
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    // The page's one scroller, both axes: heading, table and pager scroll as
+    // a page, and the table header and bookends stick against it.
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none">
+      {/* Heading and toolbar, pinned against the horizontal scroll so a
+          widened table slides under them alone. */}
+      <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
       <div className="shrink-0 px-[var(--inset-page)] pt-6">
         <PageTopBar
           className="flex-wrap gap-2 pb-4"
@@ -829,11 +834,11 @@ const BillRegister = ({
           <Keyboard className="size-3.5" aria-hidden />
         </button>
       </div>
+      </div>
 
-      {/* Precision Indigo table card: one white card that owns the two-axis
-          scroll (so the sticky header and bookends resolve against a single
-          scrollport), with the pager inside it. */}
-      <div className="relative mx-[var(--inset-page)] mb-6 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-pi-line bg-background shadow-table">
+      {/* The table, edge to edge: no card and no scroll of its own — the
+          page above owns both axes. The pager follows the last row. */}
+      <div className="flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background">
       {uploadsTab ? (
         <BillUploadsTable
           packets={shownPackets}
@@ -859,12 +864,12 @@ const BillRegister = ({
             tabIndex={0}
             aria-activedescendant={grid.activeDescendant}
             onKeyDown={grid.onGridKeyDown}
-            className="min-h-0 min-w-0 flex-1 overflow-auto focus-visible:outline-none"
+            className="min-w-0 flex-1 focus-visible:outline-none"
           >
             <Table
               role="none"
               style={{ width: resize.tableWidth }}
-              className={TABLE_CLASS}
+              className={cn(TABLE_CLASS, "bg-background")}
             >
               <TableHeader role="rowgroup" className={HEADER_CLASS}>
                 <TableRow role="row" aria-rowindex={1}>
@@ -1159,7 +1164,7 @@ const BillRegister = ({
             )}
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
+          <div className="sticky left-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
             <div className="flex items-center gap-2">
               <span className={cn(T.cell, "text-foreground")}>
                 Rows per page:

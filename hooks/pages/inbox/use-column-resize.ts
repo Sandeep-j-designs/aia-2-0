@@ -8,6 +8,19 @@ import {
   type ColumnSizes,
 } from "@/components/inbox/v2/table-sizing";
 
+/**
+ * The element whose horizontal scroll a drag has to follow: the measured box
+ * itself if it scrolls, otherwise the nearest ancestor that does. Tables sit in
+ * a page that scrolls on both axes, so the box measured for width is usually
+ * not the one that moves sideways.
+ */
+const scrollerOf = (el: HTMLElement | null) => {
+  for (let node = el; node; node = node.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowX)) return node;
+  }
+  return null;
+};
+
 type UseColumnResizeArgs = {
   /** The columns on screen, in order. */
   shown: string[];
@@ -100,7 +113,8 @@ export const useColumnResize = ({
     const before = widths;
     const frozen = { ...widths, ...colWidths };
     const startX = event.clientX;
-    const startScroll = element.current?.scrollLeft || 0;
+    const scroller = scrollerOf(element.current);
+    const startScroll = scroller?.scrollLeft || 0;
     const oldCursor = document.body.style.cursor;
     const oldSelect = document.body.style.userSelect;
     let frame = 0;
@@ -118,7 +132,7 @@ export const useColumnResize = ({
         frozen[column] +
           e.clientX -
           startX +
-          (element.current?.scrollLeft || 0) -
+          (scroller?.scrollLeft || 0) -
           startScroll,
         sizes
       );

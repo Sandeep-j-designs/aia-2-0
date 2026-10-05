@@ -1815,3 +1815,62 @@ html :is(.ap-sheet, .ar-sheet) .cr-table,
 html :is(.ap-sheet, .ar-sheet) .cr-sheet--wide .cr-table {
   min-width: 1092px;
 }
+
+/* ── document review layout: flush form, one resizer ─────────────────────
+   The form side fills its pane to the edges in white, as the JV form does;
+   the page grey stays on the preview side only, around the document card.
+   The splitter is the grey/white edge itself: a hairline with a slim pill,
+   brand on hover and drag. The React panels (AR native, JV) draw the same
+   thing in components/inbox/v2/pane-resizer.tsx. `html body` so this
+   outranks the engines' own sheet.css and the bridge. */
+html body .ap-sheet .workspace {
+  max-width: none;
+  align-items: stretch;
+}
+html body .ap-sheet .form {
+  margin: -20px -20px -20px 0;
+}
+html body .ap-sheet .splitter {
+  flex: 0 0 12px;
+  z-index: 2;
+  /* centre the 12px hit zone on the form's left edge (16px workspace gap) */
+  margin: -20px -22px 0 0;
+  top: 0;
+  height: calc(var(--pane-h) + 40px);
+}
+html body .ap-sheet .splitter::before {
+  width: 1px;
+  border-radius: 0;
+  background: var(--pi-line);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+html body .ap-sheet .splitter::after {
+  width: 4px;
+  height: 28px;
+  border-radius: 99px;
+  background-color: var(--pi-line-strong);
+  background-image: none;
+  transition: height 0.15s ease, background-color 0.15s ease;
+}
+html body .ap-sheet .splitter:hover::before,
+html body .ap-sheet .splitter:focus-visible::before,
+html body .ap-sheet .is-resizing .splitter::before {
+  background: var(--pi-brand);
+  box-shadow: 1px 0 0 var(--pi-brand);
+}
+html body .ap-sheet .splitter:hover::after,
+html body .ap-sheet .splitter:focus-visible::after,
+html body .ap-sheet .is-resizing .splitter::after {
+  height: 40px;
+  background-color: var(--pi-brand);
+  box-shadow: none;
+}
+html body .ar-sheet .workspace {
+  max-width: none;
+  min-height: 100%;
+  align-items: stretch;
+  padding: 0;
+}
+html body .ar-sheet .form {
+  flex: 1 1 auto;
+}

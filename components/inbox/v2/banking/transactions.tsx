@@ -30,7 +30,9 @@ import {
 } from "./table-parts";
 import {
   PAGE_TITLE,
+  PAGE_SCROLL,
   PageHead,
+  Pinned,
   TOOLBAR,
   TableCard,
   ToolbarRule,
@@ -390,169 +392,179 @@ const Transactions = ({
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHead
-        eyebrow="Banking"
-        back={{ label: "Back to Banking", onClick: onBack }}
-        title={
-          <div className="-ml-2 min-w-0">
-            <ComboBox
-              title="Select Bank Ledger"
-              options={ledgers
-                .filter((l) => !isCashLedger(l))
-                .map((l) => ({ value: l.id, label: l.ledgerName }))}
-              selectedValue={ledger.id}
-              onChange={(value) => onSwitch(String(value))}
-              isMultiSelect={false}
-              hideClearButton
-              formatTriggerLabel={(label) => `${label} - Transactions`}
-              triggerClassName="h-auto w-auto min-w-[180px] max-w-full rounded-sm border-none bg-transparent px-2 py-0.5 shadow-none hover:bg-pi-fill"
-              singleTriggerContentClassName={PAGE_TITLE}
-            />
-          </div>
-        }
-        actions={
-          <>
-            {onReady && (
-              <Button variant="secondary" onClick={sync}>
-                <RefreshCw className="h-4 w-4" />
-                Sync
-              </Button>
-            )}
-            <Button variant="secondary" onClick={onLogs}>
-              <Eye className="h-4 w-4" />
-              Statement Logs
-            </Button>
-            <Button onClick={onUpload}>
-              <Upload className="h-4 w-4" />
-              Upload Statement
-            </Button>
-          </>
-        }
-      />
+      <div className={PAGE_SCROLL}>
+        <Pinned>
+          <PageHead
+            eyebrow="Banking"
+            back={{ label: "Back to Banking", onClick: onBack }}
+            title={
+              <div className="-ml-2 min-w-0">
+                <ComboBox
+                  title="Select Bank Ledger"
+                  options={ledgers
+                    .filter((l) => !isCashLedger(l))
+                    .map((l) => ({ value: l.id, label: l.ledgerName }))}
+                  selectedValue={ledger.id}
+                  onChange={(value) => onSwitch(String(value))}
+                  isMultiSelect={false}
+                  hideClearButton
+                  formatTriggerLabel={(label) => `${label} - Transactions`}
+                  triggerClassName="h-auto w-auto min-w-[180px] max-w-full rounded-sm border-none bg-transparent px-2 py-0.5 shadow-none hover:bg-pi-fill"
+                  singleTriggerContentClassName={PAGE_TITLE}
+                />
+              </div>
+            }
+            actions={
+              <>
+                {onReady && (
+                  <Button variant="secondary" onClick={sync}>
+                    <RefreshCw className="h-4 w-4" />
+                    Sync
+                  </Button>
+                )}
+                <Button variant="secondary" onClick={onLogs}>
+                  <Eye className="h-4 w-4" />
+                  Statement Logs
+                </Button>
+                <Button onClick={onUpload}>
+                  <Upload className="h-4 w-4" />
+                  Upload Statement
+                </Button>
+              </>
+            }
+          />
 
-      <UnderlineTabs
-        tabs={[
-          { id: "review", label: "Needs Review", count: review.length },
-          { id: "ready", label: "Accounting Ready", count: ready.length },
-        ]}
-        value={tab}
-        onChange={(next) => {
-          setTab(next as Tab);
-          setAiOnly(false);
-          setHideSynced(false);
-          setStaged({});
-          firstPage();
-        }}
-      />
+          <UnderlineTabs
+            tabs={[
+              { id: "review", label: "Needs Review", count: review.length },
+              { id: "ready", label: "Accounting Ready", count: ready.length },
+            ]}
+            value={tab}
+            onChange={(next) => {
+              setTab(next as Tab);
+              setAiOnly(false);
+              setHideSynced(false);
+              setStaged({});
+              firstPage();
+            }}
+          />
 
-      <div className={TOOLBAR}>
-        <SearchBox
-          label="Search transactions"
-          placeholder="Search..."
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            firstPage();
-          }}
-        />
-        <ToolbarRule />
-        <QuickFilter
-          label="Type"
-          options={TYPE_OPTIONS}
-          selected={types}
-          onChange={(next) => {
-            setTypes(next);
-            firstPage();
-          }}
-        />
-        <DateFilter
-          label="Date"
-          value={dates}
-          onChange={(next) => {
-            setDates(next);
-            firstPage();
-          }}
-        />
-        <Tooltip
-          side="bottom"
-          message={
-            onReady
-              ? "Hide transactions that have already been synced."
-              : "Display transactions with complete data to review before marking as accounting-ready."
-          }
-        >
-          <Label className="ml-2 flex cursor-pointer items-center gap-2 whitespace-nowrap">
-            <Switch
-              checked={onReady ? hideSynced : aiOnly}
-              onCheckedChange={(checked) => {
-                if (onReady) setHideSynced(checked);
-                else setAiOnly(checked);
+          <div className={TOOLBAR}>
+            <SearchBox
+              label="Search transactions"
+              placeholder="Search..."
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
                 firstPage();
               }}
             />
-            <span className={cn(T.cell, "text-pi-body")}>
-              {onReady
-                ? "Hide Synced Transactions"
-                : "Show AI Categorised Transactions"}
-            </span>
-          </Label>
-        </Tooltip>
-        <span className="flex-1" />
-        {anyFilter && (
-          <Button variant="ghost" onClick={reset}>
-            <Undo2 className="h-3 w-3" />
-            Reset Filters
-          </Button>
-        )}
-        <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
+            <ToolbarRule />
+            <QuickFilter
+              label="Type"
+              options={TYPE_OPTIONS}
+              selected={types}
+              onChange={(next) => {
+                setTypes(next);
+                firstPage();
+              }}
+            />
+            <DateFilter
+              label="Date"
+              value={dates}
+              onChange={(next) => {
+                setDates(next);
+                firstPage();
+              }}
+            />
+            <Tooltip
+              side="bottom"
+              message={
+                onReady
+                  ? "Hide transactions that have already been synced."
+                  : "Display transactions with complete data to review before marking as accounting-ready."
+              }
+            >
+              <Label className="ml-2 flex cursor-pointer items-center gap-2 whitespace-nowrap">
+                <Switch
+                  checked={onReady ? hideSynced : aiOnly}
+                  onCheckedChange={(checked) => {
+                    if (onReady) setHideSynced(checked);
+                    else setAiOnly(checked);
+                    firstPage();
+                  }}
+                />
+                <span className={cn(T.cell, "text-pi-body")}>
+                  {onReady
+                    ? "Hide Synced Transactions"
+                    : "Show AI Categorised Transactions"}
+                </span>
+              </Label>
+            </Tooltip>
+            <span className="flex-1" />
+            {anyFilter && (
+              <Button variant="ghost" onClick={reset}>
+                <Undo2 className="h-3 w-3" />
+                Reset Filters
+              </Button>
+            )}
+            <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
+          </div>
+        </Pinned>
+
+        <TableCard>
+          <TransactionsTable
+            company={company}
+            rows={pageRows}
+            ready={onReady}
+            selected={selected}
+            onSelectedChange={setSelected}
+            sort={sort}
+            onSort={(key) => {
+              setSort((current) => nextSort(current, key));
+              firstPage();
+            }}
+            sortable={SORTABLE}
+            filterFor={filterFor}
+            filterActive={filterActive}
+            onOpen={(txn) => setOpenId(txn.bankLineUuid)}
+            onUpdate={(txn, change, message) => {
+              bankingActions.updateTransaction(
+                company,
+                txn.bankLineUuid,
+                change
+              );
+              notify(message);
+            }}
+            onToggleReady={toggleReady}
+            onUnbuilt={onUnbuilt}
+            empty={
+              anyFilter || aiOnly || hideSynced
+                ? { title: "No transactions match your filters" }
+                : {
+                    title:
+                      "No transactions found, upload statements to see transactions here",
+                  }
+            }
+          />
+        </TableCard>
+
+        <Pinned>
+          <Pager
+            page={page}
+            pageSize={pageSize}
+            total={rows.length}
+            onPageChange={(next) => {
+              setPage(next);
+              setSelected([]);
+            }}
+            onPageSizeChange={setPageSize}
+          />
+        </Pinned>
       </div>
 
-      <TableCard>
-        <TransactionsTable
-          company={company}
-          rows={pageRows}
-          ready={onReady}
-          selected={selected}
-          onSelectedChange={setSelected}
-          sort={sort}
-          onSort={(key) => {
-            setSort((current) => nextSort(current, key));
-            firstPage();
-          }}
-          sortable={SORTABLE}
-          filterFor={filterFor}
-          filterActive={filterActive}
-          onOpen={(txn) => setOpenId(txn.bankLineUuid)}
-          onUpdate={(txn, change, message) => {
-            bankingActions.updateTransaction(company, txn.bankLineUuid, change);
-            notify(message);
-          }}
-          onToggleReady={toggleReady}
-          onUnbuilt={onUnbuilt}
-          empty={
-            anyFilter || aiOnly || hideSynced
-              ? { title: "No transactions match your filters" }
-              : {
-                  title:
-                    "No transactions found, upload statements to see transactions here",
-                }
-          }
-        />
-
-        <Pager
-          page={page}
-          pageSize={pageSize}
-          total={rows.length}
-          onPageChange={(next) => {
-            setPage(next);
-            setSelected([]);
-          }}
-          onPageSizeChange={setPageSize}
-        />
-      </TableCard>
-
       {selected.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-30 flex justify-center px-4">
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
           <BulkActionBar
             className="pointer-events-auto"
             selectedCount={selected.length}

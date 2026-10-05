@@ -191,13 +191,33 @@ export const MasterToolbar = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-/** The white table card: the two-axis scrollport, with the pager inside. */
-export const TABLE_SHELL =
-  "relative mx-[var(--inset-page)] mb-6 flex min-h-[360px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-pi-line bg-background shadow-table";
+/**
+ * The scroller a master screen renders in: its root column, both axes. The
+ * heading, summary and toolbar scroll away as a page, the table header sticks
+ * at the top of the content area, and a widened table scrolls sideways here.
+ * Not positioned, so nothing absolute inside it hangs off the scroller.
+ */
+export const PAGE_SCROLLER =
+  "flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none";
 
-/** The table's own classes: fixed layout, hairline row dividers only. */
+/**
+ * Everything above the table, pinned against the horizontal scroll so only
+ * the table slides when it is wider than the page. Kept on its own compositor
+ * layer so it stays painted in place during asynchronous scrolling.
+ */
+export const PAGE_CHROME = "sticky left-0 shrink-0 [transform:translateZ(0)]";
+
+/**
+ * The table region: edge to edge under one hairline, no card and no scroll of
+ * its own. It fills the rest of the page so an empty state has room.
+ */
+export const TABLE_SHELL =
+  "flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background";
+
+/** The table's own classes: fixed layout, hairline row dividers only. Its own
+ *  white ground, because a widened table runs past the region's right edge. */
 export const MASTER_TABLE_CLASS =
-  "table-fixed border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line";
+  "table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line";
 
 /** The head strip: sticky, opaque, one hairline under it. */
 export const MASTER_HEADER_CLASS =

@@ -59,6 +59,8 @@ import {
   SummaryCard,
   SummaryGrid,
   SyncChip,
+  PAGE_CHROME,
+  PAGE_SCROLLER,
   TABLE_SHELL,
   cellGround,
   syncStateOf,
@@ -367,7 +369,10 @@ const LedgerTree = ({
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+    // The column-resize hook measures its element's width and horizontal
+    // scroll, and the page scroller is now the element that has both.
+    <div ref={resize.gridRef} className={PAGE_SCROLLER}>
+      <div className={PAGE_CHROME}>
       <MasterHeading
         eyebrow="Accounting workspace"
         title="Chart of Accounts"
@@ -438,12 +443,10 @@ const LedgerTree = ({
           onChange={setSearch}
         />
       </MasterToolbar>
+      </div>
 
       <div className={TABLE_SHELL}>
-        <div
-          ref={resize.gridRef}
-          className="min-h-0 min-w-0 flex-1 overflow-auto"
-        >
+        <div className="min-w-0 flex-1">
           <Table
             aria-label="Chart of Accounts"
             style={{ width: resize.tableWidth }}

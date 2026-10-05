@@ -22,7 +22,7 @@ import {
 } from "@/config/pages/inbox/mock-parties";
 import type { PrintedLine } from "@/types/pages/inbox";
 import { cn } from "@/lib/utils";
-import { T } from "./ui";
+import { StatusPill, T } from "./ui";
 import { companyOf, fileUrl, Item } from "./store";
 import s from "./preview.module.css";
 
@@ -119,21 +119,26 @@ export default function Preview({ item }: { item: Item }) {
   };
 
   return (
+    // The AP sheet's viewer, as sheet-bridge.css styles it (.doc-pane,
+    // .preview__bar): a white card on the page canvas with a 20px gutter, the
+    // name, status and tools in a bar inside it. Copied so every route shows
+    // one viewer.
     <div
       data-guide-id="inbox-preview"
-      className="source-stage flex h-full min-h-0 flex-col px-6 py-5"
+      className="flex h-full min-h-0 flex-col bg-pi-page p-5"
     >
       <div
         ref={card}
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        className="source-stage flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#e2e6ed]"
       >
-        <header className="mb-3 flex shrink-0 items-center gap-3 rounded-[5px] bg-pi-fill px-3 py-2">
+        <header className="flex shrink-0 items-center gap-3 px-4 py-3">
           <h2
-            className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-pi-faint"
+            className="min-w-0 flex-[0_1_auto] truncate text-[11px] font-semibold uppercase leading-4 tracking-[0.1em] text-pi-body"
             title={item.file.name}
           >
             {item.file.name}
           </h2>
+          <StatusPill status={item.status} className="mr-auto shrink-0" />
           <div className="flex shrink-0 items-center gap-0.5">
             <ViewerAction
               label="Zoom out"

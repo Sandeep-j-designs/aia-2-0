@@ -44,6 +44,8 @@ import {
   KpiRow,
   PageHead,
   TOOLBAR,
+  PAGE_SCROLL,
+  Pinned,
   TableCard,
 } from "@/components/inbox/v2/banking/page-parts";
 import InvoiceView from "./invoice-view";
@@ -174,49 +176,51 @@ const GstReconciliation = ({
   const toReview = probable + missingPr + atRiskCount;
 
   return (
-    // The page scrolls as a whole when the KPI row, strips and table card
-    // outgrow a short window; the table card keeps its own scrollport.
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-      <PageHead
-        eyebrow="Compliance"
-        title="GSTR-2B"
-        actions={
-          <>
-            <label className="flex items-center gap-2">
-              <span className={T.label}>GSTIN</span>
-              <span className="w-[200px] [&_button]:font-mono [&_button]:text-[13px]">
-                <ComboBox<string>
-                  title="Select GSTIN"
-                  options={gstinOptions}
-                  selectedValue={gstin}
-                  onChange={(value) =>
-                    setGstin(Array.isArray(value) ? value[0] : value)
-                  }
-                  isMultiSelect={false}
-                  hideClearButton
-                  actionLabel="Add New GSTIN"
-                  actionIcon={Plus}
-                  onAction={() => onUnbuilt("Adding a GSTIN")}
-                  wrapperClassName="w-[--radix-popover-trigger-width] p-1"
-                />
-              </span>
-            </label>
-            <div className="flex items-center gap-2">
-              <span className={T.label}>GSTR Period</span>
-              <PeriodPicker value={period} onChange={setPeriod} />
-            </div>
-            {hasData && (
-              <Button onClick={() => setSheetOpen(true)}>
-                <FolderSync className="h-3.5 w-3.5" aria-hidden />
-                New Reconciliation
-              </Button>
-            )}
-          </>
-        }
-      />
+    // One scroller for the whole page: heading, KPIs, strips, table and pager
+    // scroll together and the table header sticks at the top.
+    <div className={PAGE_SCROLL}>
+      <Pinned>
+        <PageHead
+          eyebrow="Compliance"
+          title="GSTR-2B"
+          actions={
+            <>
+              <label className="flex items-center gap-2">
+                <span className={T.label}>GSTIN</span>
+                <span className="w-[200px] [&_button]:font-mono [&_button]:text-[13px]">
+                  <ComboBox<string>
+                    title="Select GSTIN"
+                    options={gstinOptions}
+                    selectedValue={gstin}
+                    onChange={(value) =>
+                      setGstin(Array.isArray(value) ? value[0] : value)
+                    }
+                    isMultiSelect={false}
+                    hideClearButton
+                    actionLabel="Add New GSTIN"
+                    actionIcon={Plus}
+                    onAction={() => onUnbuilt("Adding a GSTIN")}
+                    wrapperClassName="w-[--radix-popover-trigger-width] p-1"
+                  />
+                </span>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className={T.label}>GSTR Period</span>
+                <PeriodPicker value={period} onChange={setPeriod} />
+              </div>
+              {hasData && (
+                <Button onClick={() => setSheetOpen(true)}>
+                  <FolderSync className="h-3.5 w-3.5" aria-hidden />
+                  New Reconciliation
+                </Button>
+              )}
+            </>
+          }
+        />
+      </Pinned>
 
       {!hasData ? (
-        <TableCard className="min-h-[400px] justify-center">
+        <TableCard className="justify-center">
           <EmptyState
             icon={FileSpreadsheet}
             title="No reconciliation for this period"
@@ -236,62 +240,64 @@ const GstReconciliation = ({
         </TableCard>
       ) : (
         <>
-          <KpiRow>
-            <KpiCard
-              icon={CircleCheck}
-              label="Matched"
-              value={matched}
-              unit={matched === 1 ? "invoice" : "invoices"}
-              meta={`of ${twoBTotal?.gstr2bCount ?? 0} GSTR-2B invoices`}
+          <Pinned>
+            <KpiRow>
+              <KpiCard
+                icon={CircleCheck}
+                label="Matched"
+                value={matched}
+                unit={matched === 1 ? "invoice" : "invoices"}
+                meta={`of ${twoBTotal?.gstr2bCount ?? 0} GSTR-2B invoices`}
+              />
+              <KpiCard
+                icon={NeedsYou}
+                label="To review"
+                value={toReview}
+                unit={toReview === 1 ? "invoice" : "invoices"}
+                meta={`${probable} probable · ${missingPr} missing in PR · ${atRiskCount} missing in 2B`}
+              />
+              <KpiCard
+                icon={AlertTriangle}
+                label="ITC at risk"
+                value={<AmountText value={atRisk} />}
+                tone={atRisk > 0 ? "danger" : undefined}
+                meta={
+                  atRiskCount
+                    ? `Tax on ${atRiskCount} PR invoice${atRiskCount === 1 ? "" : "s"} not in 2B`
+                    : "Every PR invoice is in 2B"
+                }
+              />
+            </KpiRow>
+            <ResultTabs
+              value={tab}
+              onChange={(next) => onNavigate({ tab: next as GstTab })}
+              tabs={GST_RECON_TABS.map((t) => ({
+                id: t.value,
+                label: t.label,
+                count:
+                  t.value === "month"
+                    ? monthRows.length - 1
+                    : t.value === "vendor"
+                      ? vendorRows.length
+                      : t.value === "invoice"
+                        ? invoiceCount
+                        : undefined,
+              }))}
             />
-            <KpiCard
-              icon={NeedsYou}
-              label="To review"
-              value={toReview}
-              unit={toReview === 1 ? "invoice" : "invoices"}
-              meta={`${probable} probable · ${missingPr} missing in PR · ${atRiskCount} missing in 2B`}
-            />
-            <KpiCard
-              icon={AlertTriangle}
-              label="ITC at risk"
-              value={<AmountText value={atRisk} />}
-              tone={atRisk > 0 ? "danger" : undefined}
-              meta={
-                atRiskCount
-                  ? `Tax on ${atRiskCount} PR invoice${atRiskCount === 1 ? "" : "s"} not in 2B`
-                  : "Every PR invoice is in 2B"
-              }
-            />
-          </KpiRow>
-          <ResultTabs
-            value={tab}
-            onChange={(next) => onNavigate({ tab: next as GstTab })}
-            tabs={GST_RECON_TABS.map((t) => ({
-              id: t.value,
-              label: t.label,
-              count:
-                t.value === "month"
-                  ? monthRows.length - 1
-                  : t.value === "vendor"
-                    ? vendorRows.length
-                    : t.value === "invoice"
-                      ? invoiceCount
-                      : undefined,
-            }))}
-          />
-          <div className={TOOLBAR}>
-            <SearchBox
-              value={search}
-              onChange={setSearch}
-              placeholder="Search..."
-              label="Search vendor name, GSTIN or invoice no"
-            />
-            <span className="flex-1" />
-            <Button variant="outline" onClick={exportResults}>
-              <Download className="h-3.5 w-3.5" aria-hidden />
-              Export Results
-            </Button>
-          </div>
+            <div className={TOOLBAR}>
+              <SearchBox
+                value={search}
+                onChange={setSearch}
+                placeholder="Search..."
+                label="Search vendor name, GSTIN or invoice no"
+              />
+              <span className="flex-1" />
+              <Button variant="outline" onClick={exportResults}>
+                <Download className="h-3.5 w-3.5" aria-hidden />
+                Export Results
+              </Button>
+            </div>
+          </Pinned>
 
           {tab === "summary" && (
             <SummaryView

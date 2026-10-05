@@ -84,9 +84,10 @@ const BillUploadsTable = ({
   );
 
   return (
-    // The register draws the card around this; the table is its scrollport.
-    <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-      <Table className="min-w-[880px] table-fixed border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line">
+    // No scroll of its own: the register page scrolls both axes, and the
+    // header sticks against it.
+    <div className="min-w-0 flex-1">
+      <Table className="min-w-[880px] table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line">
         <TableHeader className="sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none">
           <TableRow className="hover:bg-transparent">
             <TableHead className={cn(head, "pl-5")}>File</TableHead>

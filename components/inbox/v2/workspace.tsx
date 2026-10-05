@@ -60,7 +60,6 @@ import {
 import FileIcon from "@/components/inbox/common/file-icon";
 import JournalVoucher from "@/components/inbox/journal";
 import {
-  ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
@@ -71,6 +70,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import SidebarLayout from "@/components/sidebar-layout";
+import { PaneResizer } from "./pane-resizer";
 // Aliased: `Sheet` in this file already means the AP spreadsheet component.
 import {
   Sheet as Drawer,
@@ -770,6 +770,9 @@ export default function Workspace() {
   } | null>(null);
   const resizeCleanup = useRef<(() => void) | null>(null);
   const gridElement = useRef<HTMLDivElement | null>(null);
+  // The page scroller around the list; it owns the horizontal scroll that a
+  // column resize has to account for.
+  const scrollerElement = useRef<HTMLDivElement | null>(null);
   useEffect(() => () => resizeCleanup.current?.(), []);
   const visible =
     visibilityByCompany[state.company] ?? defaultColumns(state.company);
@@ -984,7 +987,7 @@ export default function Workspace() {
     const before = widths;
     const frozen = { ...widths, ...colWidths };
     const startX = event.clientX;
-    const startScroll = gridElement.current?.scrollLeft || 0;
+    const startScroll = scrollerElement.current?.scrollLeft || 0;
     const oldCursor = document.body.style.cursor;
     const oldSelect = document.body.style.userSelect;
     let frame = 0;
@@ -1002,7 +1005,7 @@ export default function Workspace() {
         frozen[column] +
           e.clientX -
           startX +
-          (gridElement.current?.scrollLeft || 0) -
+          (scrollerElement.current?.scrollLeft || 0) -
           startScroll
       );
       if (!frame) frame = requestAnimationFrame(publish);
@@ -3209,30 +3212,37 @@ export default function Workspace() {
                   {matched && (
                     <RecordBanner
                       tone="warning"
-                      title="Duplicate invoice detected"
+                      title="This invoice is already in your books"
                       label="Approval blocked"
                       action={
-                        <Button
-                          variant="outline"
+                        /* The match as a ledger reference: its voucher number
+                           in the ID face and its date, so the reader can
+                           judge the match before opening it. */
+                        <button
+                          type="button"
                           onClick={() =>
                             void router.push(
                               detailHref(matched.id, "voucher=1")
                             )
                           }
+                          className="group inline-flex h-9 items-center gap-2.5 rounded-sm border border-pi-line-2 bg-background pl-3 pr-2 text-[13px] text-pi-body shadow-contact transition-[border-color,color] duration-150 hover:border-pi-line-strong hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          View {matched.form.voucherNo}
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
+                          <span className="code text-[12px] font-medium text-pi-ink">
+                            {matched.form.voucherNo}
+                          </span>
+                          <span aria-hidden className="h-3.5 w-px bg-pi-line-2" />
+                          <span className="tabular-nums">
+                            {fmtDate(matched.form.date)}
+                          </span>
+                          <ChevronRight
+                            className="size-3.5 text-pi-faint transition-transform duration-150 group-hover:translate-x-0.5"
+                            aria-hidden
+                          />
+                        </button>
                       }
                     >
-                      <span className="font-medium text-foreground">
-                        {item.form.party} · {item.form.invoiceNo}
-                      </span>{" "}
-                      matches an existing voucher.
-                      <span className="block">
-                        Review the match, or correct the vendor or invoice
-                        number below.
-                      </span>
+                      Same vendor and invoice number as a posted voucher.
+                      Change either one to approve.
                     </RecordBanner>
                   )}
                   {item.softRef && (
@@ -3321,15 +3331,15 @@ export default function Workspace() {
                       className="min-h-0 flex-1"
                     >
                       <ResizablePanel
-                        defaultSize={32}
+                        defaultSize={36}
                         minSize={18}
                         className="min-w-0"
                       >
                         <Preview item={item} />
                       </ResizablePanel>
-                      <ResizableHandle withHandle />
+                      <PaneResizer />
                       <ResizablePanel
-                        defaultSize={68}
+                        defaultSize={64}
                         minSize={40}
                         className="min-w-0"
                       >
@@ -3368,16 +3378,16 @@ export default function Workspace() {
                       className="min-h-0 flex-1"
                     >
                       <ResizablePanel
-                        defaultSize={32}
+                        defaultSize={36}
                         minSize={18}
                         className="min-w-0"
                       >
                         <Preview item={item} />
                       </ResizablePanel>
-                      <ResizableHandle withHandle />
+                      <PaneResizer />
                       <ResizablePanel
                         data-guide-id="inbox-fields"
-                        defaultSize={68}
+                        defaultSize={64}
                         minSize={40}
                         className="flex min-w-0 flex-col"
                       >
@@ -3631,8 +3641,18 @@ export default function Workspace() {
                   canvas; the table lives in one white card that owns the
                   scroll (both axes, so the sticky header and bookends still
                   resolve against a single scrollport) with the pager inside. */}
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                  <div className="shrink-0 px-[var(--inset-page)] pt-6">
+              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+                {/* The page's one scroller, both axes: heading, table and
+                  pager scroll as a page and the header sticks at the top of
+                  the content area. The heading and pager are pinned with
+                  `sticky left-0` so a widened table slides under them alone.
+                  Not positioned, so the floating selection bar (absolute
+                  against the wrapper above) neither scrolls nor clips. */}
+                <div
+                  ref={scrollerElement}
+                  className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none"
+                >
+                  <div className="sticky left-0 shrink-0 px-[var(--inset-page)] pt-6 [transform:translateZ(0)]">
                     <PageTopBar
                       className="shrink-0 flex-wrap gap-2 pb-4"
                       title={
@@ -4133,25 +4153,13 @@ export default function Workspace() {
                       </button>
                     </div>
                   </div>
-              <div className="relative mx-[var(--inset-page)] mb-6 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-pi-line bg-background shadow-table">
-                {/* The page's scroller, and the only one on this view. It used to
-                  sit on the table region alone, which pinned the title, tabs and
-                  filter strip in place and scrolled the rows underneath them —
-                  a grid inside a page rather than a page. Moved up here the
-                  whole column scrolls, and the table header's `sticky top-0`
-                  now resolves against this box, so the header rides up with the
-                  rows and stops at the top of the content area.
-
-                  Both axes, deliberately: a sticky header cannot survive an
-                  `overflow-x` ancestor of its own — the x scroller would become
-                  the scrollport the header sticks to — so the horizontal scroll
-                  a widened table needs has to live on this same element. The
-                  controls below stay pinned horizontally. Disable native
-                  overscroll as well: containment alone still allows the native
-                  edge bounce to expose blank space during trackpad scrolling. */}
+                {/* The table region. It no longer scrolls: the page scroller
+                  above owns both axes, so the sticky header resolves against
+                  the content area rather than a card. */}
                 <div
                   className={cn(
-                    "flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none",
+                    // Edge to edge, no card: white from the hairline down.
+                    "flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background",
                     /*
                       Picks up where the dialog left off: the table rises into
                       place instead of being there the instant the modal is
@@ -4214,7 +4222,7 @@ export default function Workspace() {
                       // The rows and cells below re-declare their roles because
                       // role="none" here drops the implicit ones with it.
                       role="none"
-                      className="table-fixed border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line"
+                      className="table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line"
                     >
                       <TableHeader
                         role="rowgroup"
@@ -4979,6 +4987,7 @@ export default function Workspace() {
                     />
                   </div>
                 )}
+              <div className="sticky left-0 shrink-0">
               <Footer>
                 <div className="flex items-center gap-2">
                   <span className={cn(T.cell, "text-foreground")}>
@@ -5052,6 +5061,7 @@ export default function Workspace() {
                   </PageButton>
                 </div>
               </Footer>
+              </div>
               </div>
               </div>
             </>
@@ -6248,16 +6258,20 @@ export default function Workspace() {
      screen: the company is fixed for the length of a cohort, a sync cannot run
      against a record being edited, and the way out is the back arrow the page
      bar already has. The list view keeps the bar via SidebarLayout below. */
-  // Precision Indigo keeps the workbench shell around the review cockpit
-  // (ai-accountant-redesign: the bill detail sits inside the rail and top
-  // bar), with the document named in the breadcrumb.
+  // No sidebar either: the review form takes the whole window in every
+  // module. Same main/content nesting as SidebarLayout, so the detail view
+  // lays out exactly as it did inside the shell.
+  if (fullScreen)
+    return (
+      <div className="flex h-screen w-full overflow-hidden bg-pi-page">
+        <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-pi-page">
+          <div className="min-w-0 flex-1 overflow-hidden">{content}</div>
+        </main>
+        {syncModals}
+      </div>
+    );
   return (
     <SidebarLayout
-      crumbs={
-        fullScreen && item
-          ? [item.created ? moduleNames[item.route] : "Inbox", item.file.name]
-          : undefined
-      }
       inboxCount={
         books.filter((x) => !x.created && x.status === "Needs Review").length
       }
@@ -6320,11 +6334,11 @@ const BlockedReason = ({
 /** The switch's loading state beside the document it is re-reading. */
 const RouteSwitchPanel = ({ item }: { item: Item }) => (
   <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
-    <ResizablePanel defaultSize={32} minSize={18} className="min-w-0">
+    <ResizablePanel defaultSize={36} minSize={18} className="min-w-0">
       <Preview item={item} />
     </ResizablePanel>
-    <ResizableHandle withHandle />
-    <ResizablePanel defaultSize={68} minSize={40} className="min-w-0">
+    <PaneResizer />
+    <ResizablePanel defaultSize={64} minSize={40} className="min-w-0">
       <RouteSwitchLoader item={item} />
     </ResizablePanel>
   </ResizablePanelGroup>
@@ -6420,6 +6434,16 @@ const BULK_FIELDS: BulkField[] = [
   "Voucher Type",
   "Ledger",
 ];
+
+/** A voucher date as the duplicate notice's reference chip shows it: 4 Sep 2026. */
+const fmtDate = (value: string) =>
+  value && !Number.isNaN(Date.parse(value))
+    ? new Date(value).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : value || "—";
 
 /**
  * Publishes its own height as --inbox-footer-h.

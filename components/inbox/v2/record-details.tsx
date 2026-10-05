@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, Copy, FileText, Lock, ShieldCheck } from "@/components/icons";
+import { Check, Copy, FileText, ShieldCheck } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Item, routeNames } from "./store";
 
@@ -29,6 +29,7 @@ export function RecordBanner({
   title: string;
   children: React.ReactNode;
   action?: React.ReactNode;
+  /** Read to screen readers only; the disabled Approve says it in its tooltip. */
   label: string;
 }) {
   const success = tone === "success";
@@ -37,44 +38,33 @@ export function RecordBanner({
     <section
       aria-label={title}
       /*
-        The banner is the first thing under the header bar, and the bar has a
-        border of its own — without the top margin the card's own border landed
-        on it and the two read as one collided edge.
+        A compact card on the page canvas, clear of the header row above and
+        the panes below (16px each way, the page's 20px gutter at the sides).
+        One row: the tinted mark carries the tone, the title says what
+        happened, the line under it says what to do, and the action sits
+        right. The tint stays in the mark — a fully tinted band read as an
+        alarm and collided with the form under it.
       */
-      className="mx-5 my-3 flex shrink-0 flex-wrap items-center gap-4 rounded-lg border border-pi-line bg-pi-surface-panel px-5 py-4 shadow-contact"
+      className="mx-5 my-4 flex shrink-0 items-center gap-3 rounded-lg border border-pi-line bg-pi-surface-panel py-3 pl-3 pr-4 shadow-contact"
     >
       <span
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
+          "flex size-8 shrink-0 items-center justify-center rounded-md",
           success
             ? "bg-pi-success-bg text-pi-success"
             : "bg-pi-warning-bg text-pi-warning"
         )}
       >
-        <Icon className="h-[18px] w-[18px]" aria-hidden />
+        <Icon className="size-4" aria-hidden />
       </span>
-      <div className="min-w-0 flex-1 basis-80">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h2 className="text-[14px] font-medium tracking-[-0.01em] text-pi-ink">
-            {title}
-          </h2>
-          {/* A dot-chip: the meaning lives in the 7px dot, the label stays
-              body ink, and the lock says the state is held. */}
-          <span className="inline-flex items-center gap-2 rounded-full bg-pi-fill px-2 py-0.5 text-[12px] leading-4 text-pi-body">
-            <span
-              aria-hidden
-              className={cn(
-                "size-[7px] flex-none rounded-full",
-                success ? "bg-pi-success-dot" : "bg-pi-warning-dot"
-              )}
-            />
-            {label}
-            <Lock className="size-3 text-pi-faint" aria-hidden />
-          </span>
-        </div>
-        <div className="mt-1 text-[12px] leading-5 text-pi-body">
+      <div className="min-w-0 flex-1">
+        <h2 className="truncate text-[14px] font-medium leading-5 tracking-[-0.01em] text-pi-ink">
+          {title}
+          <span className="sr-only"> ({label})</span>
+        </h2>
+        <p className="truncate text-[13px] leading-5 text-pi-body">
           {children}
-        </div>
+        </p>
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </section>

@@ -52,7 +52,9 @@ import {
   DotChip,
   KpiCard,
   KpiRow,
+  PAGE_SCROLL,
   PageHead,
+  Pinned,
   ROW_GROUND,
   TOOLBAR,
   TableCard,
@@ -267,109 +269,112 @@ const BankList = ({
   const unmapped = accounts.filter((l) => !l.accountType || !l.bankName).length;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHead
-        eyebrow="Banking"
-        title="Bank accounts"
-        actions={
-          <>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="More actions">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => onLogs()}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Statement Logs
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button onClick={() => onUpload()}>
-              <Upload className="h-4 w-4" />
-              Upload Statement
+    <div className={PAGE_SCROLL}>
+      <Pinned>
+        <PageHead
+          eyebrow="Banking"
+          title="Bank accounts"
+          actions={
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="More actions"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => onLogs()}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Statement Logs
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={() => onUpload()}>
+                <Upload className="h-4 w-4" />
+                Upload Statement
+              </Button>
+            </>
+          }
+        />
+
+        <KpiRow>
+          <KpiCard
+            icon={ArrowLeftRight}
+            label="Unreconciled"
+            value={unreconciled}
+            unit={unreconciled === 1 ? "transaction" : "transactions"}
+            meta={
+              waiting
+                ? `Across ${waiting} account${waiting === 1 ? "" : "s"}`
+                : "Every account is reconciled"
+            }
+          />
+          <KpiCard
+            icon={Landmark}
+            label="Bank and card accounts"
+            value={accounts.length}
+            unit={accounts.length === 1 ? "account" : "accounts"}
+            meta={`${ledgers.length - accounts.length} cash ledger${ledgers.length - accounts.length === 1 ? "" : "s"} alongside`}
+          />
+          <KpiCard
+            icon={CircleAlert}
+            label="Not mapped"
+            value={unmapped}
+            unit={unmapped === 1 ? "account" : "accounts"}
+            meta={
+              unmapped
+                ? "Set the account type and bank to upload"
+                : "Every account is mapped"
+            }
+          />
+        </KpiRow>
+
+        <div className={cn(TOOLBAR, "pt-0")}>
+          <SearchBox
+            label="Search ledgers"
+            placeholder="Search ledgers..."
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(0);
+            }}
+          />
+          <ToolbarRule />
+          <QuickFilter
+            label="Account Type"
+            options={typeOptions}
+            selected={types}
+            onChange={(next) => {
+              setTypes(next);
+              setPage(0);
+            }}
+          />
+          <QuickFilter
+            label="Bank"
+            options={bankOptions}
+            selected={banks}
+            onChange={(next) => {
+              setBanks(next);
+              setPage(0);
+            }}
+          />
+          <span className="flex-1" />
+          {anyFilter && (
+            <Button variant="ghost" onClick={reset}>
+              <Undo2 className="h-3 w-3" />
+              Reset Filters
             </Button>
-          </>
-        }
-      />
-
-      <KpiRow>
-        <KpiCard
-          icon={ArrowLeftRight}
-          label="Unreconciled"
-          value={unreconciled}
-          unit={unreconciled === 1 ? "transaction" : "transactions"}
-          meta={
-            waiting
-              ? `Across ${waiting} account${waiting === 1 ? "" : "s"}`
-              : "Every account is reconciled"
-          }
-        />
-        <KpiCard
-          icon={Landmark}
-          label="Bank and card accounts"
-          value={accounts.length}
-          unit={accounts.length === 1 ? "account" : "accounts"}
-          meta={`${ledgers.length - accounts.length} cash ledger${ledgers.length - accounts.length === 1 ? "" : "s"} alongside`}
-        />
-        <KpiCard
-          icon={CircleAlert}
-          label="Not mapped"
-          value={unmapped}
-          unit={unmapped === 1 ? "account" : "accounts"}
-          meta={
-            unmapped
-              ? "Set the account type and bank to upload"
-              : "Every account is mapped"
-          }
-        />
-      </KpiRow>
-
-      <div className={cn(TOOLBAR, "pt-0")}>
-        <SearchBox
-          label="Search ledgers"
-          placeholder="Search ledgers..."
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(0);
-          }}
-        />
-        <ToolbarRule />
-        <QuickFilter
-          label="Account Type"
-          options={typeOptions}
-          selected={types}
-          onChange={(next) => {
-            setTypes(next);
-            setPage(0);
-          }}
-        />
-        <QuickFilter
-          label="Bank"
-          options={bankOptions}
-          selected={banks}
-          onChange={(next) => {
-            setBanks(next);
-            setPage(0);
-          }}
-        />
-        <span className="flex-1" />
-        {anyFilter && (
-          <Button variant="ghost" onClick={reset}>
-            <Undo2 className="h-3 w-3" />
-            Reset Filters
-          </Button>
-        )}
-        <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
-      </div>
+          )}
+          <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
+        </div>
+      </Pinned>
 
       <TableCard>
-        <div
-          ref={resize.gridRef}
-          className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-none"
-        >
+        <div ref={resize.gridRef} className="min-w-0 flex-1">
           <Table style={{ width: resize.tableWidth }} className={TABLE_CLASS}>
             <TableHeader className={HEADER_CLASS}>
               <TableRow>
@@ -507,7 +512,9 @@ const BankList = ({
             />
           )}
         </div>
+      </TableCard>
 
+      <Pinned>
         <Pager
           page={page}
           pageSize={pageSize}
@@ -515,7 +522,7 @@ const BankList = ({
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
-      </TableCard>
+      </Pinned>
     </div>
   );
 };

@@ -122,15 +122,18 @@ const MappingPage = ({ entry, onPreview, onExit, notify }: Props) => {
   const headerRows = Array.from({ length: 5 }, (_, i) => String(i + 1));
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-pi-page">
+    // The page's one scroller, both axes: the header and controls scroll
+    // away and the table header sticks at the top of the content area.
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none bg-pi-page">
+      {/* Pinned against horizontal scroll so only the table slides. */}
+      <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
       <FlowHeader
         title="Map Fields"
         fileName={batch.originalFileName}
         onClose={() => onExit("uploads")}
         step={1}
       />
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <div className="flex h-full min-h-0 w-full flex-col gap-4 px-[var(--inset-page)] pb-6">
+        <div className="flex w-full flex-col gap-4 px-[var(--inset-page)] pb-4">
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Item Mode | Accounting Mode — production's two-segment toggle. */}
@@ -316,8 +319,11 @@ const MappingPage = ({ entry, onPreview, onExit, notify }: Props) => {
               <span>• {missing.join(", ")}.</span>
             </Notice>
           )}
+        </div>
+      </div>
 
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-pi-line bg-background shadow-table">
+          {/* Edge to edge, no card: white from the hairline down. */}
+          <div className="flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background">
             <Table className="table-fixed border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line [&_tr:last-child_td]:border-b-0">
               <colgroup>
                 <col className="w-[30%]" />
@@ -468,8 +474,6 @@ const MappingPage = ({ entry, onPreview, onExit, notify }: Props) => {
               </TableBody>
             </Table>
           </div>
-        </div>
-      </div>
 
       <PageDialog
         title="Save Mapping Template"

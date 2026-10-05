@@ -12,7 +12,7 @@
   overflow: auto;
   scrollbar-gutter: stable;
   background: transparent;
-  padding: 4px 0 20px;
+  padding: 20px;
   text-align: center;
 }
 .body::-webkit-scrollbar {
@@ -23,7 +23,7 @@
   background: transparent;
 }
 .body::-webkit-scrollbar-thumb {
-  background: #ffffff26;
+  background: #e2e6ed;
   border-radius: 99px;
   border: 4px solid transparent;
 }
