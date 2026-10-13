@@ -1,5 +1,11 @@
 import React from "react";
-import { Check, Copy, FileText, ShieldCheck } from "@/components/icons";
+import {
+  Check,
+  Copy,
+  FileText,
+  ShieldCheck,
+  type IconComponent,
+} from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { GodownAllocation, Item, routeNames } from "./store";
 import {
@@ -37,8 +43,11 @@ export function RecordBanner({
   children,
   action,
   label,
+  icon,
 }: {
   tone: "success" | "warning";
+  /** The mark's glyph, when the tone's default (tick / copy) does not fit. */
+  icon?: IconComponent;
   title: string;
   children: React.ReactNode;
   action?: React.ReactNode;
@@ -46,7 +55,7 @@ export function RecordBanner({
   label: string;
 }) {
   const success = tone === "success";
-  const Icon = success ? Check : Copy;
+  const Icon = icon ?? (success ? Check : Copy);
   return (
     <section
       aria-label={title}

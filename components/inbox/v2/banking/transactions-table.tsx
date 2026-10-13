@@ -29,6 +29,7 @@ import type {
   BankTransaction,
   TallyVoucherPaymentType,
 } from "@/types/pages/inbox/banking";
+import type { MatchSuggestion } from "@/types/pages/inbox/bank-automation";
 import EditableCell from "@/components/inbox/v2/editable-cell";
 import {
   ACTIONS_WIDTH,
@@ -229,6 +230,10 @@ type Props = {
   empty: React.ComponentProps<typeof EmptyBlock>;
   /** The active company — its ledgers and GST registrations fill the pickers. */
   company: string;
+  /** The AI's open match for a line, if it has one (13 Oct 2026). */
+  matchFor?: (txn: BankTransaction) => MatchSuggestion | undefined;
+  /** The bank rule that coded a line, as its citation. */
+  ruleNoteFor?: (txn: BankTransaction) => string | undefined;
 };
 
 const TransactionsTable = ({
@@ -247,6 +252,8 @@ const TransactionsTable = ({
   onUnbuilt,
   empty,
   company,
+  matchFor,
+  ruleNoteFor,
 }: Props) => {
   const gstRegistrations = gstRegistrationsOf(company);
   const shown: TxnColumn[] = [
@@ -317,18 +324,46 @@ const TransactionsTable = ({
             {txn.voucherNo || "—"}
           </span>
         );
-      case "description":
+      case "description": {
+        // A match the AI proposes sits under the narration, marked as the
+        // AI's decision; once accepted it reads as a plain link, unmarked.
+        const match = matchFor?.(txn);
         return (
-          <Tooltip message={txn.description} side="bottom" align="start">
-            <span className="block truncate">{txn.description}</span>
-          </Tooltip>
+          <span className="flex min-w-0 flex-col">
+            <Tooltip message={txn.description} side="bottom" align="start">
+              <span className="block truncate">{txn.description}</span>
+            </Tooltip>
+            {match ? (
+              <span className="flex min-w-0 items-center gap-1 text-[12px] font-normal leading-4 text-pi-body">
+                <AiMark size={10} reason={match.evidence} />
+                <span className="truncate" title={`Match: ${match.headline}`}>
+                  Match: {match.headline}
+                </span>
+              </span>
+            ) : txn.matchNote ? (
+              <span className="truncate text-[12px] font-normal leading-4 text-pi-faint">
+                Linked: {txn.matchNote}
+              </span>
+            ) : null}
+          </span>
         );
+      }
       case "type": {
-        const ai = txn.categorisedBy === "ai" && !!txn.paymentType;
+        // One mark per decision: an open match is the decision on this
+        // line, so its mark is on the match line, not here.
+        const ai =
+          txn.categorisedBy === "ai" && !!txn.paymentType && !matchFor?.(txn);
         return (
           <span className="flex min-w-0 items-center gap-1">
             <span className="inline-flex w-3.5 flex-none justify-center">
-              {ai ? <AiMark reason="categorised from this payee and narration" /> : null}
+              {ai ? (
+                <AiMark
+                  reason={
+                    ruleNoteFor?.(txn) ??
+                    "categorised from this payee and narration"
+                  }
+                />
+              ) : null}
             </span>
             <span className="min-w-0 flex-1">
               <EditableCell

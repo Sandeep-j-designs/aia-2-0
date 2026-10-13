@@ -123,6 +123,7 @@ export const LEDGER_GROUPS: LedgerOptionGroup[] = [
       "Zoho Corporation Pvt Ltd",
       "Amazon Web Services India Pvt Ltd",
       "Prestige Estates Projects Ltd",
+      "Sri Lakshmi Traders",
     ],
   },
   {
@@ -134,6 +135,7 @@ export const LEDGER_GROUPS: LedgerOptionGroup[] = [
       "Reliance Retail Ltd",
       "Kumar Enterprises",
       "Infra Buildcon Pvt Ltd",
+      "Hotel Mayura Group",
     ],
   },
   {
@@ -203,6 +205,17 @@ type Row = [
 ];
 
 const HDFC_ROWS: Row[] = [
+  // The Davanagere plant's BESCOM meter, coded by hand every month: the
+  // third repeat is what raises the rule suggestion (13 Oct 2026).
+  [
+    "2026-07-24",
+    "NACH-DR-BESCOM-DVG-88213",
+    17986,
+    "D",
+    "s",
+    "Electricity Charges",
+    "PMT/0962",
+  ],
   [
     "2026-08-01",
     "RENT AUG 2026 - PRESTIGE ESTATES - NEFT",
@@ -284,6 +297,15 @@ const HDFC_ROWS: Row[] = [
     "r",
     "Electricity Charges",
     "PMT/0995",
+  ],
+  [
+    "2026-08-24",
+    "NACH-DR-BESCOM-DVG-88213",
+    18240,
+    "D",
+    "r",
+    "Electricity Charges",
+    "PMT/0996",
   ],
   [
     "2026-08-29",
@@ -420,6 +442,7 @@ const HDFC_ROWS: Row[] = [
     "a",
     "Travelling Expenses",
   ],
+  ["2026-09-21", "NEFT CR-HOTEL MAYURA GROUP-HRC/26-27/0104", 252000, "C", "n"],
   [
     "2026-09-22",
     "NEFT CR-YESB0000012-VARDHMAN PACKAGING-CREDIT NOTE CN-44",
@@ -428,6 +451,7 @@ const HDFC_ROWS: Row[] = [
     "n",
   ],
   ["2026-09-23", "UPI/DR/625002211903/BLINKIT/Office pantry", 3264, "D", "n"],
+  ["2026-09-24", "NACH-DR-BESCOM-DVG-88213", 19115, "D", "n"],
   [
     "2026-09-24",
     "NEFT DR-SBIN0004433-BLUEDART EXPRESS LTD-SEP",
@@ -444,6 +468,8 @@ const HDFC_ROWS: Row[] = [
     "C",
     "n",
   ],
+  ["2026-09-26", "NACH-DR-BESCOM-DVG-88247", 6420, "D", "n"],
+  ["2026-09-27", "IMPS-SRI LAKSHMI TRADERS-P2A-625211903344", 42480, "D", "n"],
   [
     "2026-09-28",
     "RTGS CR-SBIN0000300-TATA PROJECTS LTD-INV 2026-125",
@@ -887,6 +913,7 @@ const ACME_LEDGER_GROUPS: LedgerOptionGroup[] = [
       "Thermax Ltd",
       "Kirloskar Brothers Ltd",
       "Cummins India Ltd",
+      "Tata Motors Ltd",
     ],
   },
   {
@@ -901,6 +928,7 @@ const ACME_LEDGER_GROUPS: LedgerOptionGroup[] = [
     heading: "Duties & Taxes",
     options: ["TDS Payable", "Input CGST", "Input SGST", "Input IGST"],
   },
+  { heading: "Loans & Advances (Asset)", options: ["TDS Receivable"] },
   { heading: "Bank Accounts", options: ["SBI Current A/c - 3987"] },
   { heading: "Cash-in-Hand", options: ["Cash"] },
 ];
@@ -1238,6 +1266,10 @@ const ACME_SBI_ROWS: Row[] = [
     undefined,
     "contra",
   ],
+  // Net of TDS: Tata Motors keeps 2% of the taxable value under 194C.
+  ["2026-10-06", "NEFT-TATA MOTORS-SPW/26-27/118", 580000, "C", "n"],
+  // One payment for two invoices, with no numbers in the narration.
+  ["2026-10-08", "NEFT CR-CUMMINS INDIA LTD-OCT PAYMENT", 236000, "C", "n"],
 ];
 
 const ACME_TRANSACTIONS: BankTransaction[] = ACME_SBI_ROWS.map((row) =>

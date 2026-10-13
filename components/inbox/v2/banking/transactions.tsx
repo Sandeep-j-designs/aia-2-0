@@ -20,6 +20,19 @@ import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import { Tooltip } from "@/components/common/tooltip";
 import { cn } from "@/lib/utils";
 import { bankingActions, isCashLedger } from "@/hooks/pages/inbox/use-banking";
+import {
+  bankMatchActions,
+  candidatesFor,
+  rupees,
+  useBankMatches,
+} from "@/hooks/pages/inbox/use-bank-matches";
+import {
+  bankRuleActions,
+  ruleCitation,
+  ruleFor,
+  useBankRules,
+} from "@/hooks/pages/inbox/use-bank-rules";
+import { actor } from "@/components/inbox/v2/store";
 import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import { gstRegistrationsOf } from "@/config/pages/inbox/mock-banking";
 import type {
@@ -54,6 +67,7 @@ import TransactionsTable, {
   type TxnColumn,
 } from "./transactions-table";
 import TransactionSheet from "./transaction-sheet";
+import RulePrompt from "./rule-prompt";
 
 /**
  * One bank ledger's transactions: Needs Review and Accounting Ready.
@@ -137,6 +151,28 @@ const Transactions = ({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const own = transactions.filter((t) => t.bankAccountUuid === ledger.id);
+  const { suggestions, docs } = useBankMatches(company, own);
+  const { fresh } = useBankRules(company);
+  const prompt =
+    fresh && (!fresh.bankAccountUuid || fresh.bankAccountUuid === ledger.id)
+      ? fresh
+      : undefined;
+  const matchFor = (t: BankTransaction) => suggestions.get(t.bankLineUuid);
+  const ruleNoteFor = (t: BankTransaction) => {
+    const rule = ruleFor(company, t);
+    return rule ? ruleCitation(rule) : undefined;
+  };
+  /**
+   * After a person codes lines by hand, look for the repeat that earns a
+   * rule suggestion (the third consistent one).
+   */
+  const observe = (uuids: string[]) => {
+    const all = bankingActions.transactionsOf(company);
+    uuids.forEach((uuid) => {
+      const t = all.find((x) => x.bankLineUuid === uuid);
+      if (t) bankRuleActions.observe(company, t, all);
+    });
+  };
   const review = own.filter((t) => !t.accoutingReady);
   const ready = own.filter((t) => t.accoutingReady);
   const onReady = tab === "ready";
@@ -204,11 +240,23 @@ const Transactions = ({
   ).length;
   const lines = (n: number) => `${n} transaction${n === 1 ? "" : "s"}`;
   const txnFlow = [
-    { label: "Needs review", count: review.length, icon: Clock, current: tab === "review" },
-    { label: "Accounting ready", count: ready.length, icon: CircleCheck, current: tab === "ready" },
+    {
+      label: "Needs review",
+      count: review.length,
+      icon: Clock,
+      current: tab === "review",
+    },
+    {
+      label: "Accounting ready",
+      count: ready.length,
+      icon: CircleCheck,
+      current: tab === "ready",
+    },
     { label: "Synced to Tally", count: synced, icon: CloudUpload },
   ];
-  const transactionsEmpty: React.ComponentProps<typeof TransactionsTable>["empty"] =
+  const transactionsEmpty: React.ComponentProps<
+    typeof TransactionsTable
+  >["empty"] =
     anyFilter || aiOnly || hideSynced
       ? {
           title: "No transactions match these filters",
@@ -391,6 +439,7 @@ const Transactions = ({
         categorisedBy: "user",
       });
     });
+    observe(selectedRows.map((t) => t.bankLineUuid));
   };
   const bulkSave = () => {
     applyStaged();
@@ -433,7 +482,6 @@ const Transactions = ({
     setConfirmDelete(false);
     finish();
   };
-
 
   const openTxn = openId ? own.find((t) => t.bankLineUuid === openId) : null;
   // The page scroller; it owns the horizontal scroll the table's pinned
@@ -559,6 +607,30 @@ const Transactions = ({
               )}
               <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
             </div>
+
+            {prompt ? (
+              <RulePrompt
+                suggestion={prompt}
+                onCreate={() => {
+                  const { rule, coded } = bankRuleActions.accept(
+                    company,
+                    prompt.id,
+                    actor
+                  );
+                  if (rule)
+                    notify(
+                      coded
+                        ? `Rule created. ${coded} more ${coded === 1 ? "line was coded by it and waits" : "lines were coded by it and wait"} for your review.`
+                        : "Rule created. It codes these lines from the next statement on."
+                    );
+                }}
+                onLater={() => bankRuleActions.snooze(company, prompt.id)}
+                onNever={() => {
+                  bankRuleActions.dismiss(company, prompt.id, actor);
+                  notify("We won't suggest a rule for these again.", "info");
+                }}
+              />
+            ) : null}
           </Pinned>
 
           <TableCard>
@@ -584,7 +656,10 @@ const Transactions = ({
                   change
                 );
                 notify(message);
+                observe([txn.bankLineUuid]);
               }}
+              matchFor={matchFor}
+              ruleNoteFor={ruleNoteFor}
               onToggleReady={toggleReady}
               onUnbuilt={onUnbuilt}
               empty={transactionsEmpty}
@@ -738,6 +813,7 @@ const Transactions = ({
         onClose={() => setOpenId(null)}
         onSave={(txn, change, markReady) => {
           bankingActions.updateTransaction(company, txn.bankLineUuid, change);
+          observe([txn.bankLineUuid]);
           if (markReady) {
             bankingActions.setAccountingReady(
               company,
@@ -762,6 +838,31 @@ const Transactions = ({
         }}
         notify={notify}
         onUnbuilt={onUnbuilt}
+        ruleNote={openTxn ? ruleNoteFor(openTxn) : undefined}
+        match={
+          openTxn && matchFor(openTxn)
+            ? {
+                suggestion: matchFor(openTxn)!,
+                candidates: candidatesFor(openTxn, docs),
+                onAccept: () => {
+                  const s = matchFor(openTxn)!;
+                  bankMatchActions.accept(company, openTxn, s, actor);
+                  notify(
+                    `Matched to ${s.documents.map((d) => d.number).join(" + ")}. ${s.vouchers
+                      .map((v) => `${v.type} ${rupees(v.amount)}`)
+                      .join(" and ")} drafted; the line is Accounting Ready.`
+                  );
+                  setOpenId(null);
+                },
+                onChoose: (ids) =>
+                  bankMatchActions.choose(company, openTxn.bankLineUuid, ids),
+                onDismiss: () => {
+                  bankMatchActions.dismiss(company, openTxn, actor);
+                  notify("Suggestion dismissed.", "info");
+                },
+              }
+            : undefined
+        }
       />
     </div>
   );

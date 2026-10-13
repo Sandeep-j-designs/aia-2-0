@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import type { CleanupStep } from "@/types/pages/inbox/cleanup";
 import {
   GSTR2B_MATCH_TYPE,
   Gstr2BStatusEnums,
@@ -632,6 +633,85 @@ export const MOCK_PR_COLUMN_MAPPING: MappingConfig = {
     voucherDateFormat: "%d/%m/%Y",
     remarks: ["Narration"],
   },
+};
+
+/* ------------------------------------------------------------ AI cleanup */
+
+/**
+ * Tally's Purchase Register export opens with its report heading, so the
+ * header is on row 7, not row 1. The cleanup finds it before the columns are
+ * read; the Header Row field starts there.
+ */
+export const PR_DETECTED_HEADER_OFFSET = 6;
+
+/** Invoices in a month's register as the prototype runs it (RUN_MIX less Missing in PR). */
+const PR_RUN_ROWS =
+  Object.values(RUN_MIX).reduce((n, v) => n + v, 0) -
+  RUN_MIX[GSTR2B_MATCH_TYPE.MISSING_IN_PR];
+
+/** The register's amount columns the cleanup normalises. */
+const PR_AMOUNT_COLUMNS = [
+  "Value",
+  "Central Tax Amount",
+  "State Tax Amount",
+  "Integrated Tax Amount",
+  "Cess Amount",
+  "Gross Total",
+];
+
+/**
+ * What the AI did to an uploaded Purchase Register before its columns were
+ * mapped: the lighter cousin of the sales register's cleanup.
+ *
+ * DEV: returned by POST /api/gst-reconciliation/column-mappings as
+ * `cleanupSteps`.
+ */
+export const prCleanupSteps = (mapping: MappingConfig): CleanupStep[] => {
+  const mapped = new Set(
+    Object.entries(mapping.mappings)
+      .filter(([key]) => !/Format$|documentType/.test(key))
+      .flatMap(([, v]) => (Array.isArray(v) ? v : v ? [v] : []))
+      .filter((c) => mapping.columns.includes(String(c)))
+  ).size;
+  return [
+    {
+      id: "header-row",
+      title: `Found the header row on row ${PR_DETECTED_HEADER_OFFSET + 1}`,
+      state: "applied",
+      decided: true,
+      detail: `Rows 1–${PR_DETECTED_HEADER_OFFSET} are Tally's report heading: the company name, its address, “Purchase Register”, the period and a blank line.`,
+    },
+    {
+      id: "dates",
+      title: "Read Tally's dates as day-month-year",
+      scope: `${PR_RUN_ROWS} rows`,
+      state: "applied",
+      decided: true,
+      detail:
+        "Tally writes dates as 1-Sep-26. They are DD/MM/YYYY now, the format the date columns below expect.",
+      samples: [
+        { row: 8, before: "1-Sep-26", after: "01/09/2026" },
+        { row: 9, before: "3-Sep-26", after: "03/09/2026" },
+      ],
+    },
+    {
+      id: "amounts",
+      title: "Removed thousand separators",
+      scope: `${PR_RUN_ROWS * PR_AMOUNT_COLUMNS.length} amounts`,
+      state: "applied",
+      detail: `In ${PR_AMOUNT_COLUMNS.join(", ")}.`,
+      samples: [{ row: 8, before: "1,18,000.00", after: "118000.00" }],
+    },
+    {
+      id: "mapping",
+      title: "Matched the columns to AIA fields",
+      scope: `${mapped} of ${mapping.columns.length} columns`,
+      state: "applied",
+      decided: true,
+      detail:
+        "Each suggestion carries the AI mark below. Voucher Type and Voucher No. are Tally's own and aren't needed for the reconciliation.",
+    },
+  ];
 };
 
 /* ------------------------------------------------- Sahyadri Precision Works, Pune */

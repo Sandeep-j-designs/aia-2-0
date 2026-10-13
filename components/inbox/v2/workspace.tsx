@@ -45,7 +45,12 @@ import {
   Upload,
   X,
   XCircle,
+  History,
+  Zap,
 } from "@/components/icons";
+import HistoryPanel from "./automation/common/history-panel";
+import { shortVendor } from "@/hooks/pages/inbox/use-auto-approve";
+import { closeActivity, undoActivity } from "@/hooks/pages/inbox/use-activity";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -227,11 +232,7 @@ import {
   useGridKeyboard,
 } from "@/hooks/pages/inbox/use-grid-keyboard";
 import KeyboardShortcuts from "./keyboard-shortcuts";
-import {
-  CircleCheck,
-  Clock,
-  Inbox as InboxIcon,
-} from "@/components/icons";
+import { CircleCheck, Clock, Inbox as InboxIcon } from "@/components/icons";
 import { EmptyState as FlowEmptyState } from "./empty-state";
 import Notifications from "@/components/notifications";
 import { useInboxNotifications } from "@/hooks/pages/notifications/use-inbox-notifications";
@@ -1612,6 +1613,9 @@ export default function Workspace() {
    * form is a record by default — this is the deliberate step back into it.
    */
   const [editingApproved, setEditingApproved] = useState<string | null>(null);
+  /** The review screen's History sheet (Automation, 13 Oct 2026). */
+  const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => setHistoryOpen(false), [id]);
   const reviewable =
     !!item &&
     !["Approved", "Deleted", "Received", "Extracting", "Failed"].includes(
@@ -1719,6 +1723,40 @@ export default function Workspace() {
    * screen, and its Current Module is not a guess.
    */
   const sync = useTallySync({ items: books, route: moduleRoute ?? null });
+  /*
+    An auto-approval can be undone until its voucher is in Tally. Once a sync
+    takes it there, the log entry's Undo closes, wherever it is offered.
+  */
+  useEffect(() => {
+    books.forEach((x) => {
+      if (x.autoApproved?.activity && sync.syncedIds.has(x.id))
+        closeActivity(x.autoApproved.activity);
+    });
+  }, [sync.syncedIds, books]);
+  /** Bills the AI approved on its own today, and those it held back. */
+  const autoToday = all.filter(
+    (x) =>
+      x.status === "Approved" &&
+      x.autoApproved &&
+      new Date(x.autoApproved.at).toDateString() === new Date().toDateString()
+  );
+  const autoHeld = all.filter(
+    (x) => x.autoHold && ["Needs Review", "Duplicate"].includes(x.status)
+  );
+  const undoAuto = (list: Item[]) => {
+    const undone = list.filter(
+      (x) =>
+        !sync.syncedIds.has(x.id) &&
+        x.autoApproved?.activity &&
+        undoActivity(x.autoApproved.activity, actor)
+    );
+    if (undone.length)
+      notify(
+        undone.length === 1
+          ? `${undone[0].form.party} is back in Needs Review`
+          : `${undone.length} bills are back in Needs Review`
+      );
+  };
   /*
     A failed-sync notice links to ?sync=failures: the same narrowing as the
     result card's "See what failed", then the param goes so a reload or the
@@ -2132,16 +2170,16 @@ export default function Workspace() {
     : autoModule
       ? autoView.page
       : gstModule
-      ? "gst"
-      : coaModule
-        ? "chart-of-accounts"
-        : inventoryModule
-          ? "inventory"
-          : bankModule
-            ? "banking"
-            : moduleRoute
-              ? ROUTE_TO_NAV[moduleRoute]
-              : "inbox";
+        ? "gst"
+        : coaModule
+          ? "chart-of-accounts"
+          : inventoryModule
+            ? "inventory"
+            : bankModule
+              ? "banking"
+              : moduleRoute
+                ? ROUTE_TO_NAV[moduleRoute]
+                : "inbox";
   const selectNav = (navItemId: string) => {
     if (navItemId === "inbox") {
       setFilters(defaultFilters);
@@ -3199,6 +3237,17 @@ export default function Workspace() {
                   </>
                 )}
                 {!reviewable && <StatusPill status={item.status} />}
+                {/* Who approved it, when it was not a person (13 Oct 2026). */}
+                {item.status === "Approved" && item.autoApproved && (
+                  <span
+                    className={cn(T.sub, "inline-flex items-center gap-1.5")}
+                    title={item.autoApproved.evidence}
+                  >
+                    <Zap aria-hidden className="size-3.5 text-pi-brand" />
+                    Auto-approved · {item.autoApproved.evidence}
+                  </span>
+                )}
+
                 {/*
                   Where Tally stands on this voucher, as a marker rather than a
                   band across the screen. It replaced two full-width banners —
@@ -3292,6 +3341,40 @@ export default function Workspace() {
                   the snapshot in the PRD v2 bridge does — so the button
                   promised an action that had already happened.
                 */}
+                {/*
+                  The document's history: what the AI decided and why, who
+                  changed what, who approved it (Automation, 13 Oct 2026).
+                */}
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="History"
+                        aria-haspopup="dialog"
+                        onClick={() => setHistoryOpen(true)}
+                        className="text-pi-body hover:text-pi-ink"
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>History</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <HistoryPanel
+                  open={historyOpen}
+                  onOpenChange={setHistoryOpen}
+                  company={item.company}
+                  itemId={item.id}
+                  subject={
+                    [item.form.party, item.form.invoiceNo]
+                      .filter(Boolean)
+                      .join(" · ") || item.file.name
+                  }
+                  user={actor}
+                  notify={notify}
+                />
                 {item.status !== "Deleted" && (
                   <>
                     {/*
@@ -3548,6 +3631,22 @@ export default function Workspace() {
                     >
                       Same vendor and invoice number as a posted voucher. Change
                       either one to approve.
+                    </RecordBanner>
+                  )}
+                  {/* From a trusted vendor, but it fell short of the
+                      evidence, so a person decides (Auto-approve, 13 Oct
+                      2026). Approve stays open: the hold is a question,
+                      not a block. */}
+                  {item.autoHold && !matched && (
+                    <RecordBanner
+                      tone="warning"
+                      icon={Zap}
+                      title="Held from auto-approve"
+                      label="Review required"
+                    >
+                      {item.autoHold.reason.split(" — ")[0]}. Bills from this
+                      vendor usually approve on their own; check this one before
+                      approving it.
                     </RecordBanner>
                   )}
                   {item.softRef && (
@@ -4059,6 +4158,88 @@ export default function Workspace() {
                         }
                         onPrimaryButtonClick={() => openSingleUpload()}
                       />
+                      {/*
+                        What the AI approved on its own today, and what it
+                        held back (Automation › Auto-approve, 13 Oct 2026). A
+                        line of the page, not a banner: it reports and offers
+                        the two ways to act on it, Review and Undo.
+                      */}
+                      {!moduleRoute &&
+                      tab !== "Duplicate" &&
+                      (autoToday.length || autoHeld.length) ? (
+                        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-pi-line bg-background px-4 py-3 shadow-contact">
+                          <span
+                            aria-hidden
+                            className="grid size-7 flex-none place-items-center rounded-md bg-pi-brand-tint text-pi-brand"
+                          >
+                            <Zap className="size-4" />
+                          </span>
+                          <p className="min-w-0 flex-1 text-[13px] leading-5 text-pi-body">
+                            {autoToday.length ? (
+                              <>
+                                <span className="font-medium text-pi-ink">
+                                  {autoToday.length === 1
+                                    ? "1 bill auto-approved today"
+                                    : `${autoToday.length} bills auto-approved today`}
+                                </span>{" "}
+                                — each matched its vendor&rsquo;s past approvals
+                                with no edits. Nothing goes to Tally until you
+                                sync.
+                              </>
+                            ) : null}
+                            {autoHeld.length ? (
+                              <>
+                                {autoToday.length ? " " : ""}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void router.push(detailHref(autoHeld[0].id))
+                                  }
+                                  className="font-medium text-pi-ink underline decoration-pi-line-2 underline-offset-2 hover:decoration-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  {autoHeld.length === 1
+                                    ? `1 held for you: ${shortVendor(autoHeld[0].form.party)} ₹${Math.round(autoHeld[0].amount).toLocaleString("en-IN")}`
+                                    : `${autoHeld.length} held for you`}
+                                </button>
+                                {autoHeld.length === 1
+                                  ? `, ${autoHeld[0]
+                                      .autoHold!.reason.split(" — ")[0]
+                                      .replace(/^₹[\d,]+ is /, "")
+                                      .replace(/ for [^ ]+$/, "")}.`
+                                  : "."}
+                              </>
+                            ) : null}
+                          </p>
+                          {autoToday.length ? (
+                            <div className="flex flex-none items-center gap-2">
+                              {tab !== "Approved" ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setTab("Approved");
+                                    setPage(0);
+                                    setSelected([]);
+                                  }}
+                                >
+                                  Review
+                                </Button>
+                              ) : null}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={autoToday.every((x) =>
+                                  sync.syncedIds.has(x.id)
+                                )}
+                                onClick={() => undoAuto(autoToday)}
+                              >
+                                <Undo2 className="h-4 w-4" />
+                                Undo all
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className={cn(band, "shrink-0 flex-wrap py-4")}>
                         <div className="relative w-full sm:w-[198px]">
                           <Input
@@ -5172,7 +5353,51 @@ export default function Workspace() {
                                               </DropdownMenuItem>
                                             </DropdownMenuContent>
                                           </DropdownMenu>
+                                          {x.autoHold ? (
+                                            <span
+                                              className="mt-0.5 block truncate text-[12px] leading-4 text-pi-faint"
+                                              title={x.autoHold.reason}
+                                            >
+                                              Held from auto-approve
+                                            </span>
+                                          ) : null}
                                         </div>
+                                      ) : x.autoApproved &&
+                                        x.status === "Approved" ? (
+                                        /* Approved by the AI on its own: the
+                                           same Approved pill, with a bolt for
+                                           "nobody pressed Approve" and the
+                                           evidence one hover away. */
+                                        <TooltipProvider delayDuration={200}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span
+                                                tabIndex={0}
+                                                className="-ml-2 inline-flex max-w-full rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                              >
+                                                <StatusPill
+                                                  status={x.status}
+                                                  className={tablePillClass}
+                                                  trailing={
+                                                    <Zap
+                                                      aria-label="Auto-approved"
+                                                      className="inline size-3.5 flex-none text-pi-brand"
+                                                    />
+                                                  }
+                                                />
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-[320px]">
+                                              <span className="font-semibold">
+                                                Auto-approved
+                                              </span>
+                                              <span>
+                                                {" "}
+                                                — {x.autoApproved.evidence}
+                                              </span>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
                                       ) : (
                                         <StatusPill
                                           status={x.status}
@@ -5276,7 +5501,11 @@ export default function Workspace() {
                                   : values.join(", ");
                               const chips = [
                                 ...(filters.search.trim()
-                                  ? [{ label: `Search: “${filters.search.trim()}”` }]
+                                  ? [
+                                      {
+                                        label: `Search: “${filters.search.trim()}”`,
+                                      },
+                                    ]
                                   : []),
                                 ...Object.entries(filters.cols)
                                   .filter(([, v]) => v?.length)
@@ -5290,7 +5519,8 @@ export default function Workspace() {
                                   ? [{ label: "Amount range" }]
                                   : []),
                               ];
-                              const here = tab === "All" ? all.length : inTab(tab);
+                              const here =
+                                tab === "All" ? all.length : inTab(tab);
                               return (
                                 <FlowEmptyState
                                   title="No documents match these filters"
@@ -5327,7 +5557,9 @@ export default function Workspace() {
                                   body="Forward a document to this company’s address, send one from a registered WhatsApp number, or upload a file. Every document lands in the Inbox first."
                                   actions={
                                     <>
-                                      <Button onClick={() => openSingleUpload()}>
+                                      <Button
+                                        onClick={() => openSingleUpload()}
+                                      >
                                         <Upload className="h-4 w-4" />
                                         Upload Documents
                                       </Button>
@@ -5360,7 +5592,9 @@ export default function Workspace() {
                                           View approved
                                         </Button>
                                       ) : null}
-                                      <Button onClick={() => openSingleUpload()}>
+                                      <Button
+                                        onClick={() => openSingleUpload()}
+                                      >
                                         <Upload className="h-4 w-4" />
                                         Upload Documents
                                       </Button>
@@ -5380,7 +5614,9 @@ export default function Workspace() {
                                   }
                                   actions={
                                     waiting ? (
-                                      <Button onClick={() => setTab("Need review")}>
+                                      <Button
+                                        onClick={() => setTab("Need review")}
+                                      >
                                         Review {docs(waiting)}
                                       </Button>
                                     ) : undefined

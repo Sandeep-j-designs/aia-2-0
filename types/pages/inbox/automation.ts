@@ -9,8 +9,7 @@
 
 /** Who took an action: the AI (named by the rule or model that acted) or a person. */
 export type ActivityActor =
-  | { kind: "ai"; name: string }
-  | { kind: "person"; name: string };
+  { kind: "ai"; name: string } | { kind: "person"; name: string };
 
 /** The screen an action belongs to, for the log's Module filter. */
 export type ActivityModule =
@@ -68,3 +67,51 @@ export type ActivityEntry = {
   /** The action can still be reversed (nothing has gone to Tally yet). */
   undoable?: boolean;
 };
+
+/* --------------------------------------------------- auto-approve (Fork A) */
+
+/**
+ * One vendor + ledger pattern and the evidence behind trusting it.
+ *
+ * Trust is earned per pattern, not per vendor: Airtel's broadband bills to
+ * Internet Charges and its postpaid bills to Telephone Charges are two
+ * patterns, each with its own history.
+ */
+export type TrustPattern = {
+  id: string;
+  company: string;
+  vendor: string;
+  ledger: string;
+  /** Bills from this vendor approved to this ledger. */
+  approvals: number;
+  /** Of those, how many a person changed before approving. */
+  edits: number;
+  /**
+   * Approvals in a row since the last edit. Trust needs this to reach the
+   * threshold: one edit starts the count again.
+   */
+  streak: number;
+  /** When the last edit was made, ISO. */
+  lastEditAt?: string;
+  /** What changed on the last edit, in the accountant's words. */
+  lastEditNote?: string;
+  /** The usual bill total, in rupees. */
+  usualAmount: number;
+  /** When the last bill was approved, ISO. */
+  lastSeenAt: string;
+  /** Paused by hand, or by an edit after an auto-approval. */
+  paused?: { by: string; at: string; reason: string };
+};
+
+/** The organisation's auto-approve switch and the evidence it asks for. */
+export type AutoApproveSettings = {
+  company: string;
+  enabled: boolean;
+  /** Past approvals to the same ledger, with no edits, before a pattern is trusted. */
+  minApprovals: number;
+  /** The bill must sit within this multiple of the usual amount, either way. */
+  amountBand: number;
+};
+
+/** Where a pattern stands, worked out from its evidence and the settings. */
+export type TrustStatus = "trusted" | "building" | "edited" | "paused";

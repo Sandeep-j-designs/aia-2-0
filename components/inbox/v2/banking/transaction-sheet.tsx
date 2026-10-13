@@ -21,6 +21,10 @@ import type {
   BankTransaction,
   TallyVoucherPaymentType,
 } from "@/types/pages/inbox/banking";
+import type {
+  MatchSuggestion,
+  OpenDocument,
+} from "@/types/pages/inbox/bank-automation";
 import {
   AmountText,
   Field,
@@ -30,6 +34,7 @@ import {
   T,
 } from "@/components/inbox/v2/ui";
 import { AiMark } from "../ai-mark";
+import MatchPanel, { MatchedNote } from "./match-panel";
 import { day } from "./table-parts";
 import { DotChip } from "./page-parts";
 import {
@@ -92,6 +97,16 @@ type Props = {
   onUnbuilt: (what: string) => void;
   /** The active company — its ledgers and GST registrations fill the pickers. */
   company: string;
+  /** The AI's open match for this line, with what accepting it does. */
+  match?: {
+    suggestion: MatchSuggestion;
+    candidates: OpenDocument[];
+    onAccept: () => void;
+    onChoose: (docIds: string[]) => void;
+    onDismiss: () => void;
+  };
+  /** The bank rule that coded this line, as its citation. */
+  ruleNote?: string;
 };
 
 const SheetBody = ({
@@ -102,6 +117,8 @@ const SheetBody = ({
   notify,
   onUnbuilt,
   company,
+  match,
+  ruleNote,
 }: Props & { txn: BankTransaction }) => {
   const gstRegistrations = gstRegistrationsOf(company);
   const [draft, setDraft] = useState<Draft>(() => draftOf(txn));
@@ -201,6 +218,18 @@ const SheetBody = ({
       {/* White, like the bill form: the sections are no longer cards, so the
           grey ground that set them off now only dulled the fields. */}
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-background px-6 py-5">
+        {match && !isReady ? (
+          <MatchPanel
+            txn={txn}
+            suggestion={match.suggestion}
+            candidates={match.candidates}
+            onAccept={match.onAccept}
+            onChoose={match.onChoose}
+            onDismiss={match.onDismiss}
+          />
+        ) : (
+          <MatchedNote txn={txn} />
+        )}
         {isReady && !isSynced ? (
           <Notice tone="warning" className="flex items-start gap-2">
             <Lock className="mt-0.5 h-4 w-4 flex-none" />
@@ -214,8 +243,12 @@ const SheetBody = ({
             label={
               <span className="inline-flex items-center gap-1.5">
                 Voucher Type
-                {aiPicked ? (
-                  <AiMark reason="categorised from this payee and narration" />
+                {aiPicked && !match ? (
+                  <AiMark
+                    reason={
+                      ruleNote ?? "categorised from this payee and narration"
+                    }
+                  />
                 ) : null}
               </span>
             }

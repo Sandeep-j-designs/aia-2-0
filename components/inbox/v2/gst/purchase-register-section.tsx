@@ -10,6 +10,11 @@ import {
   PrFileStatusEnums,
 } from "@/config/pages/inbox/gst";
 import { gst } from "@/hooks/pages/inbox/use-gst";
+import { logActivity } from "@/hooks/pages/inbox/use-activity";
+import {
+  PR_DETECTED_HEADER_OFFSET,
+  prCleanupSteps,
+} from "@/config/pages/inbox/mock-gst";
 import type {
   GstPeriod,
   MappingConfig,
@@ -152,6 +157,18 @@ const PurchaseRegisterSection = ({
           onSave={(mapping) => {
             setSaving(true);
             gst.mapAndImport(company, mappingFile, mapping);
+            if (mapping.headerOffset === PR_DETECTED_HEADER_OFFSET)
+              logActivity({
+                company,
+                actor: { kind: "ai", name: "AI · File cleanup" },
+                kind: "cleaned",
+                module: "GST",
+                action: "Cleaned up an uploaded purchase register",
+                subject: mappingFile.fileName,
+                reason: prCleanupSteps(mapping)
+                  .map((x) => `${x.title}${x.scope ? ` (${x.scope})` : ""}`)
+                  .join("; "),
+              });
             setSaving(false);
             setMappingFile(null);
           }}

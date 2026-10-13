@@ -7,11 +7,13 @@ import {
   gstRegistrationsOf,
   seedFor,
 } from "@/config/pages/inbox/mock-banking";
+import { hasWords } from "@/utils/pages/inbox/bank-text";
 import type {
   BankAccountType,
   BankLedgerData,
   BankTransaction,
   Statement,
+  TallyVoucherPaymentType,
 } from "@/types/pages/inbox/banking";
 
 /**
@@ -108,6 +110,48 @@ export const bankingActions = {
     uuids: string[],
     change: Partial<BankTransaction>
   ) => patchTransactions(company, uuids, () => change),
+
+  /**
+   * Code the lines a new bank rule covers now: untouched lines (no type, no
+   * ledger, not yet ready) whose narration carries the rule's words. They
+   * are the AI's work, cited to the rule, and still wait for a review.
+   * Returns the lines coded.
+   *
+   * DEV: server-side, on POST /api/bank/rules.
+   */
+  applyRule: (
+    company: string,
+    rule: {
+      id: string;
+      contains: string;
+      type: TallyVoucherPaymentType;
+      ledger: string;
+    }
+  ) => {
+    const hits = read(company).transactions.filter(
+      (t) =>
+        !t.accoutingReady &&
+        t.thirdPartySyncStatus === "not_synced" &&
+        !t.paymentType &&
+        !t.ledgersNameList.length &&
+        hasWords(t.description, rule.contains)
+    );
+    patchTransactions(
+      company,
+      hits.map((t) => t.bankLineUuid),
+      () => ({
+        paymentType: rule.type,
+        ledgersNameList: [rule.ledger],
+        ledgersUuidList: [`led-${rule.ledger}`],
+        categorisedBy: "ai",
+        ruleId: rule.id,
+      })
+    );
+    return hits;
+  },
+
+  /** Every line for the company, for code outside a component. */
+  transactionsOf: (company: string) => read(company).transactions,
 
   /** DEV: PATCH /api/transactions/bank/toggle-accounting-ready */
   setAccountingReady: (company: string, uuids: string[], ready: boolean) =>

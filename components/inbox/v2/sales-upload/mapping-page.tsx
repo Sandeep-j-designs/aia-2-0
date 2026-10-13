@@ -52,6 +52,8 @@ import { Field, Notice, PageDialog, T } from "../ui";
 import { FlowHeader } from "./common";
 import ProcessingModal from "./processing-modal";
 import { AiMark } from "../ai-mark";
+import CleanupSteps from "../automation/common/cleanup-steps";
+import { actor } from "../store";
 
 /**
  * Map Fields — production's MappingPage: each spreadsheet column on the left,
@@ -316,6 +318,28 @@ const MappingPage = ({ entry, onPreview, onExit, notify }: Props) => {
                 </HoverCard>
               </div>
             </div>
+
+            {/* What the AI did to the file before these columns were
+                read (13 Oct 2026): formatting fixed, new customers one
+                click away, a bad GSTIN held. */}
+            {entry.cleanup && !reading ? (
+              <CleanupSteps
+                fileName={batch.originalFileName}
+                steps={entry.cleanup.steps}
+                onFix={(step) => {
+                  const created = salesUpload.applyCleanupFix(
+                    id,
+                    step.id,
+                    actor
+                  );
+                  if (created)
+                    notify(
+                      `${created} customers created from their GSTINs\nThey're in your masters, and their rows will match in the preview.`,
+                      "success"
+                    );
+                }}
+              />
+            ) : null}
 
             {showMissing && missing.length > 0 && (
               <Notice

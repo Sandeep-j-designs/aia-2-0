@@ -27,7 +27,11 @@ import {
   prDateFormatOptions,
   voucherTypeOptions,
 } from "@/config/pages/inbox/gst";
-import { MOCK_PR_COLUMN_MAPPING } from "@/config/pages/inbox/mock-gst";
+import {
+  MOCK_PR_COLUMN_MAPPING,
+  PR_DETECTED_HEADER_OFFSET,
+  prCleanupSteps,
+} from "@/config/pages/inbox/mock-gst";
 import type { MappingConfig, Mappings } from "@/types/pages/inbox/gst";
 import {
   Field,
@@ -38,6 +42,7 @@ import {
   T,
 } from "@/components/inbox/v2/ui";
 import { AiMark } from "../ai-mark";
+import CleanupSteps from "../automation/common/cleanup-steps";
 
 /**
  * Map Your Columns — production's columns-mapping-modal: Header Row and
@@ -83,7 +88,8 @@ const ColumnsMappingModal = ({
   const [loading, setLoading] = useState(!initialMapping);
 
   // DEV: POST /api/gst-reconciliation/column-mappings { fileUuid, companyId, headerOffset? }
-  const load = (headerOffset = 0) => {
+  // The cleanup finds the header under Tally's report heading (13 Oct 2026).
+  const load = (headerOffset = PR_DETECTED_HEADER_OFFSET) => {
     setLoading(true);
     window.setTimeout(() => {
       setMapping(normalize({ ...MOCK_PR_COLUMN_MAPPING, headerOffset }));
@@ -195,6 +201,16 @@ const ColumnsMappingModal = ({
         </div>
         <RequiredNote />
       </div>
+
+      {/* What the AI did to the file first. Shown while the header row is
+          the one it found; picking another row reads the file afresh. */}
+      {!loading && mapping.headerOffset === PR_DETECTED_HEADER_OFFSET ? (
+        <CleanupSteps
+          fileName={fileName}
+          steps={prCleanupSteps(mapping)}
+          className="mb-5 shadow-none"
+        />
+      ) : null}
 
       <div className="max-h-[52vh] min-h-0 overflow-auto overscroll-none rounded-lg border border-pi-line bg-background">
         <Table className="table-fixed border-separate border-spacing-0 [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line [&_tr:last-child_td]:border-b-0">

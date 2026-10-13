@@ -13,6 +13,8 @@ import {
   withRowCounts,
   type FieldMappings,
 } from "@/utils/pages/inbox/sales-upload";
+import { gstinFor } from "@/config/pages/inbox/mock-parties";
+import type { CleanupStep } from "@/types/pages/inbox/cleanup";
 
 /**
  * Mock responses for the Sales upload flow, shaped as the AR v2 import
@@ -72,7 +74,8 @@ const line = (
 /*
   A month of the Harihar refinery's sales register, as Tally exports it. The
   awkward rows are deliberate — they are what the preview exists to catch:
-  0417 and 0421 name customers the masters do not know, 0416 and 0428 are a
+  0417 and 0421 name customers the masters do not know, 0435 and 0436 are new
+  customers (0436's GSTIN fails its check digit), 0416 and 0428 are a
   registered customer with no GSTIN on file, 0420 and 0425 carry totals that
   do not add up, and 0425 and 0430 have five-digit HSN codes.
 */
@@ -103,6 +106,8 @@ const LINES: Line[] = [
   line("25/09/2026", "0432", "Sri Lakshmi Traders", "29AAYFS1040D1Z2", "Karnataka", "sun", 20, 2150),
   line("26/09/2026", "0433", "Spar Hypermarket", "29AAKCM9936L1ZI", "Karnataka", "gnut", 30, 2640),
   line("29/09/2026", "0434", "Annapoorna Wholesale", "29AAFFA8764Y1Z3", "Karnataka", "mus", 120, 165),
+  line("30/09/2026", "0435", "MTR Foods Pvt Ltd", "29AABCM4127K1ZC", "Karnataka", "sun", 36, 2150),
+  line("30/09/2026", "0436", "Nilgiris Dairy Farm Pvt Ltd", "29AAACN2238P1Z5", "Karnataka", "bran", 160, 145),
 ];
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -434,4 +439,205 @@ export const mockSalesBatches = (scope: string): MockSalesBatch[] => {
       rows: completeRows,
     },
   ];
+};
+
+/* ------------------------------------------------------------ AI cleanup */
+
+/**
+ * The sales register as the billing software exports it, before the AI's
+ * cleanup: three title rows above the header, customer and GSTIN in one
+ * merged "Party Name / GSTIN" column, two-digit years, and totals printed
+ * "1,05,957.50 Cr". SAMPLE_SALES_FILE above is the same file after cleanup.
+ */
+export const RAW_SALES_HEADER_ROW = 4;
+export const RAW_SALES_TITLE_ROWS = [
+  "Shakunthalam Oil and Refineries Pvt Ltd",
+  "Sales Register",
+  "1-Sep-2026 to 30-Sep-2026",
+];
+
+/** The row a data line sits on in the file as uploaded, 1-based. */
+const fileRow = (index: number) => RAW_SALES_HEADER_ROW + 1 + index;
+
+const shortYear = (date: string) => date.replace(/\/(\d{2})(\d{2})$/, "/$2");
+const longDate = (date: string) => {
+  const [d, m, y] = date.split("/").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+const printed = (n: number) =>
+  `${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Cr`;
+
+/** Whether a GSTIN's last character is the GSTN check digit of the rest. */
+export const gstinCheckOk = (gstin: string) =>
+  /^\d{2}[A-Z0-9]{10}\dZ[A-Z0-9]$/.test(gstin) &&
+  gstinFor(gstin.slice(0, 2), gstin.slice(2, 12)) === gstin;
+
+/** A customer the file names that the masters do not hold. */
+export type NewSalesCustomer = {
+  name: string;
+  gstin: string;
+  state: string;
+  rows: number[];
+  /** Its GSTIN passes the check digit, so it can be created from the GSTIN. */
+  creatable: boolean;
+};
+
+/**
+ * Customers in the file that are new to the masters: neither the name nor
+ * the GSTIN matches one. A misspelt name carrying a known customer's GSTIN
+ * ("Sri Lakshmi Trader") is not new; the preview catches it.
+ */
+export const newSalesCustomers = (
+  masters: SalesCustomerMaster[]
+): NewSalesCustomer[] => {
+  const found = new Map<string, NewSalesCustomer>();
+  LINES.forEach((l, i) => {
+    const known = masters.some(
+      (m) =>
+        m.name.toLowerCase() === l.customer.toLowerCase() ||
+        (!!l.gstin && m.gstin === l.gstin)
+    );
+    if (known) return;
+    const entry = found.get(l.customer) ?? {
+      name: l.customer,
+      gstin: l.gstin,
+      state: l.pos,
+      rows: [],
+      creatable: gstinCheckOk(l.gstin),
+    };
+    entry.rows.push(fileRow(i));
+    found.set(l.customer, entry);
+  });
+  return [...found.values()];
+};
+
+/**
+ * What the AI did to the uploaded register before mapping, in the order it
+ * did it. Counts come from the file; `fresh` is newSalesCustomers as the
+ * file was read, so the step still names every customer after the fix.
+ *
+ * DEV: returned by GET /api/accounts-receivable/v2/import-batches/:id/mapping
+ * as `cleanupSteps`.
+ */
+export const salesCleanupSteps = (
+  /** The file's new customers, as found when it was read. */
+  fresh: NewSalesCustomer[],
+  customersCreated: boolean
+): CleanupStep[] => {
+  const rows = LINES.length;
+  const creatable = fresh.filter((c) => c.creatable);
+  const badGstin = LINES.map((l, i) => ({ l, row: fileRow(i) })).filter(
+    ({ l }) => l.gstin && !gstinCheckOk(l.gstin)
+  );
+  const totals = SAMPLE_SALES_FILE.rows.map((r) => Number(r[13]));
+  const mapped = new Set(
+    Object.values(SUGGESTED_ITEM_MAPPING).flatMap((m) => m?.sourceColumns ?? [])
+  ).size;
+  const steps: CleanupStep[] = [
+    {
+      id: "header-row",
+      title: `Found the header row on row ${RAW_SALES_HEADER_ROW}`,
+      state: "applied",
+      decided: true,
+      detail: `Rows 1–${RAW_SALES_HEADER_ROW - 1} are the report's title block, not data: ${RAW_SALES_TITLE_ROWS.map((t) => `“${t}”`).join(", ")}.`,
+    },
+    {
+      id: "split-party",
+      title: "Split “Party Name / GSTIN” into Customer and GSTIN",
+      scope: `${rows} rows`,
+      state: "applied",
+      decided: true,
+      detail:
+        "The billing software prints the customer and the GSTIN in one merged cell. They are two columns now, so the GSTIN can be checked.",
+      samples: [0, 5].map((i) => ({
+        row: fileRow(i),
+        before: `${LINES[i].customer} / ${LINES[i].gstin}`,
+        after: `${LINES[i].customer} · ${LINES[i].gstin || "no GSTIN"}`,
+      })),
+    },
+    {
+      id: "dates",
+      title: "Read dates as DD/MM/YY",
+      scope: `${rows} rows`,
+      state: "applied",
+      decided: true,
+      detail:
+        "The first number runs up to 30 and the second never passes 09, so the first is the day. Two-digit years are read as 20xx.",
+      samples: [0, 9, rows - 1].map((i) => ({
+        row: fileRow(i),
+        before: shortYear(LINES[i].date),
+        after: longDate(LINES[i].date),
+      })),
+    },
+    {
+      id: "amounts",
+      title: "Removed “Cr” and thousand separators",
+      scope: `${rows} amounts`,
+      state: "applied",
+      samples: [0, 3, 8].map((i) => ({
+        row: fileRow(i),
+        before: printed(totals[i]),
+        after: totals[i].toFixed(2),
+      })),
+    },
+  ];
+  if (fresh.length)
+    steps.push({
+      id: "new-customers",
+      title: customersCreated
+        ? `${creatable.length} new ${creatable.length === 1 ? "customer" : "customers"} created from GSTIN${fresh.length > creatable.length ? `, ${fresh.length - creatable.length} held` : ""}`
+        : `${fresh.length} ${fresh.length === 1 ? "customer isn't" : "customers aren't"} in your masters`,
+      scope: `rows ${fresh.flatMap((c) => c.rows).join(", ")}`,
+      state: customersCreated
+        ? "fixed"
+        : creatable.length
+          ? "needs-you"
+          : "held",
+      detail: `${creatable.map((c) => `${c.name} (row ${c.rows.join(", ")})`).join(" and ")} ${customersCreated ? "were created" : "can be created"} from ${creatable.length === 1 ? "its GSTIN" : "their GSTINs"}: legal name, state and address come from the GST portal.${fresh
+        .filter((c) => !c.creatable)
+        .map(
+          (c) =>
+            ` ${c.name} (row ${c.rows.join(", ")}) is held: its GSTIN fails the check digit.`
+        )
+        .join("")}`,
+      samples: fresh.map((c) => ({
+        row: c.rows[0],
+        before: `${c.name} / ${c.gstin}`,
+        after: c.creatable
+          ? customersCreated
+            ? `Customer created · ${c.state}`
+            : `New customer · ${c.state}`
+          : "Held",
+      })),
+      fix: creatable.length
+        ? {
+            label: `Create ${creatable.length} from GSTIN`,
+            doneLabel: `${creatable.length} customers created`,
+          }
+        : undefined,
+    });
+  badGstin.forEach(({ l, row }) => {
+    const right = gstinFor(l.gstin.slice(0, 2), l.gstin.slice(2, 12));
+    steps.push({
+      id: `gstin-${row}`,
+      title: "1 GSTIN fails its check digit",
+      scope: `row ${row}`,
+      state: "held",
+      detail: `${l.gstin} for ${l.customer}: if the first 14 characters are right, the last should be ${right.slice(-1)}. The row stays flagged in the preview. Check the GSTIN with the customer.`,
+    });
+  });
+  steps.push({
+    id: "mapping",
+    title: "Matched the columns to AIA fields",
+    scope: `${mapped} of ${SALES_UPLOAD_HEADER.length} columns`,
+    state: "applied",
+    decided: true,
+    detail:
+      "Pre-filled below, each with the AI mark. GSTIN and Place of Supply come from the customer master. Taxable Value is left for you: it may be the item amount or a subtotal.",
+  });
+  return steps;
 };

@@ -1,8 +1,9 @@
-node_modules/
-.next/
-.next-*/
-out/
 .backups/
 .DS_Store
-next-env.d.ts
+.next-*/
+.next-validate
+.next/
 *.tsbuildinfo
+next-env.d.ts
+node_modules/
+out/

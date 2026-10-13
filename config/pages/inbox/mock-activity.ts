@@ -108,6 +108,18 @@ export const MOCK_ACTIVITY: ActivityEntry[] = [
     reason: "Sales — Refined Oil: 9 of 9 past invoices to Mysore Traders",
   },
   {
+    id: "act-011",
+    company: "shakun",
+    at: "2026-08-28T05:44:10.000Z",
+    actor: { kind: "ai", name: "AI · Tally history" },
+    kind: "learned",
+    module: "Automation",
+    action: "Learned from Tally history",
+    subject: "6,240 vouchers · Apr 2025 – Aug 2026",
+    reason:
+      "Coding patterns for 164 vendors, read-only; nothing written to Tally",
+  },
+  {
     id: "act-009",
     company: "acme",
     at: ago(40),

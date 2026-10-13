@@ -9,7 +9,13 @@ import {
   SUGGESTED_ITEM_MAPPING,
   COMPLETE_ITEM_MAPPING,
   mockSalesBatches,
+  RAW_SALES_HEADER_ROW,
+  newSalesCustomers,
+  salesCleanupSteps,
+  type NewSalesCustomer,
 } from "@/config/pages/inbox/mock-sales-upload";
+import { logActivity } from "@/hooks/pages/inbox/use-activity";
+import type { CleanupStep } from "@/types/pages/inbox/cleanup";
 import { mappingFieldGroups } from "@/config/pages/inbox/sales-upload";
 import {
   SEED_COMPANIES,
@@ -23,6 +29,7 @@ import {
   type ResponseARVoucherImportBatchMapping,
   type ResponseARVoucherImportPreviewRow,
   type ResponseARVoucherImportTemplate,
+  type SalesCustomerMaster,
 } from "@/types/pages/inbox/sales-upload";
 import {
   buildPreviewRows,
@@ -53,6 +60,16 @@ export type SalesBatchEntry = {
   fieldMappings: FieldMappings;
   /** GET .../import-batches/:id/preview `results`. */
   rows: ResponseARVoucherImportPreviewRow[];
+  /**
+   * What the AI did to the file before mapping (13 Oct 2026). Absent on
+   * batches uploaded before the cleanup existed.
+   */
+  cleanup?: {
+    steps: CleanupStep[];
+    customersCreated: boolean;
+    /** The customers the file named that the masters did not hold, as read. */
+    fresh: NewSalesCustomer[];
+  };
 };
 
 /** File read before mapping, then the AI pass before preview. */
@@ -134,11 +151,19 @@ const patchBatch = (
     batch: { ...e.batch, ...change, updatedAt: new Date().toISOString() },
   }));
 
+/**
+ * Customers created from the cleanup's one-click fix join the masters every
+ * batch checks against.
+ * DEV: production creates them with POST /api/customers and re-reads the list.
+ */
+let createdCustomers: SalesCustomerMaster[] = [];
+const masters = () => [...MOCK_SALES_CUSTOMERS, ...createdCustomers];
+
 const rebuildRows = (entry: SalesBatchEntry) =>
   buildPreviewRows({
     file: SAMPLE_SALES_FILE,
     mappings: entry.fieldMappings,
-    masters: MOCK_SALES_CUSTOMERS,
+    masters: masters(),
     gstRegistration: SALES_GST_REGISTRATION,
     mode: entry.batch.importMode,
     batchId: entry.batch.importBatchUuid,
@@ -175,7 +200,8 @@ export const salesUpload = {
       importMode,
       status: ARVoucherImportBatchStatus.PROCESSING,
       selectedSheetName: SAMPLE_SALES_FILE.sheets[0].name,
-      headerRowIndex: 1,
+      // The cleanup finds the header under the report's title rows.
+      headerRowIndex: RAW_SALES_HEADER_ROW,
       dateFormat: "DD/MM/YYYY",
       discountType: null,
       totalRows: 0,
@@ -210,10 +236,81 @@ export const salesUpload = {
           mapping: mappingFor(next, suggestion),
           // A saved template prefills the mapping over the suggestion.
           fieldMappings: template?.configPayload.fieldMappings ?? suggestion,
+          cleanup: (() => {
+            const fresh = newSalesCustomers(masters());
+            return {
+              steps: salesCleanupSteps(fresh, false),
+              customersCreated: false,
+              fresh,
+            };
+          })(),
         };
+      });
+      const steps = find(id)?.cleanup?.steps ?? [];
+      logActivity({
+        company: companyId,
+        actor: { kind: "ai", name: "AI · File cleanup" },
+        kind: "cleaned",
+        module: "Sales",
+        action: "Cleaned up an uploaded sales register",
+        subject: file.name,
+        reason: steps
+          .filter((x) => x.state === "applied")
+          .map((x) => `${x.title}${x.scope ? ` (${x.scope})` : ""}`)
+          .join("; "),
       });
     }, READ_MS);
     return id;
+  },
+
+  /**
+   * Apply a cleanup step's one-click fix. The one fix today: create the new
+   * customers whose GSTIN passes the check digit; one that fails stays held.
+   *
+   * DEV: POST /api/customers/from-gstin { gstins } then
+   * PATCH .../import-batches/:id/cleanup/:stepId { applied: true }
+   */
+  applyCleanupFix(id: string, stepId: string, by: string) {
+    const entry = find(id);
+    if (!entry?.cleanup || stepId !== "new-customers") return 0;
+    if (entry.cleanup.customersCreated) return 0;
+    const known = new Set(masters().map((m) => m.gstin));
+    const fresh = entry.cleanup.fresh.filter(
+      (c) => c.creatable && !known.has(c.gstin)
+    );
+    createdCustomers = [
+      ...createdCustomers,
+      ...fresh.map((c) => ({
+        name: c.name,
+        gstin: c.gstin,
+        state: c.state,
+        costCentre: "",
+      })),
+    ];
+    patch(id, (e) => {
+      const rows = e.rows.length ? rebuildRows(e) : e.rows;
+      return {
+        cleanup: e.cleanup && {
+          ...e.cleanup,
+          steps: salesCleanupSteps(e.cleanup.fresh, true),
+          customersCreated: true,
+        },
+        rows,
+        batch: e.rows.length ? withRowCounts(e.batch, rows) : e.batch,
+      };
+    });
+    fresh.forEach((c) =>
+      logActivity({
+        company: entry.companyId,
+        actor: { kind: "person", name: by },
+        kind: "cleaned",
+        module: "Masters",
+        action: "Created a customer from its GSTIN",
+        subject: `${c.name} · ${c.gstin}`,
+        reason: `Named in ${entry.batch.originalFileName}, row ${c.rows.join(", ")}`,
+      })
+    );
+    return fresh.length;
   },
 
   /** DEV: PATCH /api/accounts-receivable/v2/import-batches/:id/mapping */
@@ -337,7 +434,7 @@ export const salesUpload = {
     patch(id, (e) => {
       const rows = e.rows.map((row) =>
         row.importRowUuid === rowUuid
-          ? editPreviewRow(row, field, value, MOCK_SALES_CUSTOMERS)
+          ? editPreviewRow(row, field, value, masters())
           : row
       );
       return { rows, batch: withRowCounts(e.batch, rows) };
