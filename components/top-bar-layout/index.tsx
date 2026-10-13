@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import NotificationBell from "@/components/notifications/bell";
+import NeoLauncher from "@/components/neo/common/launcher";
 import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import { cn } from "@/lib/utils";
 import type { UserCompany } from "@/types/pages/organisation";
@@ -166,6 +167,7 @@ const AppTopBar = ({
       <div className="flex flex-none items-center gap-2">
         {companyAction}
 
+        <NeoLauncher className="text-pi-body hover:bg-pi-row-hover" />
         {companyId ? (
           <NotificationBell
             companyId={companyId}

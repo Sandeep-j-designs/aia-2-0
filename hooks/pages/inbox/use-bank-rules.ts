@@ -107,6 +107,19 @@ let seq = 0;
 const id = () => `bank-rule-${Date.now().toString(36)}-${++seq}`;
 
 export const bankRuleActions = {
+  run: (company: string) =>
+    read(company)
+      .rules.filter((r) => r.on && r.action.kind === "categorise")
+      .flatMap((r) =>
+        r.action.kind === "categorise"
+          ? bankingActions.applyRule(company, {
+              id: r.id,
+              contains: r.contains,
+              type: r.action.type,
+              ledger: r.action.ledger,
+            })
+          : []
+      ),
   /**
    * After a person codes a line: if this is the third time the same payee
    * words went to the same ledger by hand, and nothing already covers them,

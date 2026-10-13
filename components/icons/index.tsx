@@ -818,3 +818,38 @@ export const Wand2 = make(
   "Wand2",
   <path d="m4 20 10-10M14 4v3M19 9h-3M17.5 5.5l-2 2M12 6.5l1.5 1.5M17 11l1.5 1.5" />
 );
+export const Square = make(
+  "Square",
+  <rect x="5" y="5" width="14" height="14" rx="1" />
+);
+export const Pause = make(
+  "Pause",
+  <>
+    <path d="M8 5v14M16 5v14" />
+  </>
+);
+export const Crosshair = make(
+  "Crosshair",
+  <>
+    <circle cx="12" cy="12" r="7" />
+    <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
+  </>
+);
+export const ArrowUpRight = make(
+  "ArrowUpRight",
+  <path d="M6 18 18 6M6 6h12v12" />
+);
+export const CornerDownLeft = make(
+  "CornerDownLeft",
+  <path d="M19 4v8H5m5-5-5 5 5 5" />
+);
+export const MessageSquare = make(
+  "MessageSquare",
+  <path d="M4 4h16v12H8l-4 4V4Z" />
+);
+export const SquarePen = make(
+  "SquarePen",
+  <>
+    <path d="M10 4H4v16h16v-6M10 14l1-5 8-8 4 4-8 8-5 1Z" />
+  </>
+);

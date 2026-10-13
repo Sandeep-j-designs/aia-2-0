@@ -60,17 +60,37 @@ type Props = {
 type Leaf = { id: string; label: string; path: string; tag?: string };
 type NavNode =
   | { kind: "item"; id: string; label: string; path: string; icon: ReactNode }
-  | { kind: "group"; id: string; label: string; icon: ReactNode; children: Leaf[] };
+  | {
+      kind: "group";
+      id: string;
+      label: string;
+      icon: ReactNode;
+      children: Leaf[];
+    };
 
 const NAV: NavNode[] = [
-  { kind: "item", id: "dashboard", label: "Dashboard", path: "/dashboard", icon: <LayoutDashboard /> },
-  { kind: "item", id: "inbox", label: "Inbox", path: "/inbox", icon: <Inbox /> },
+  {
+    kind: "item",
+    id: "dashboard",
+    label: "Dashboard",
+    path: "/dashboard",
+    icon: <LayoutDashboard />,
+  },
+  {
+    kind: "item",
+    id: "inbox",
+    label: "Inbox",
+    path: "/inbox",
+    icon: <Inbox />,
+  },
   {
     kind: "group",
     id: "payables",
     label: "Payables",
     icon: <Wallet />,
-    children: [{ id: "purchases", label: "Purchases", path: "/accounts-payable" }],
+    children: [
+      { id: "purchases", label: "Purchases", path: "/accounts-payable" },
+    ],
   },
   {
     kind: "group",
@@ -94,16 +114,31 @@ const NAV: NavNode[] = [
     id: "inventory-group",
     label: "Inventory",
     icon: <Boxes />,
-    children: [{ id: "inventory", label: "Stock items", path: "/inventory-masters" }],
+    children: [
+      { id: "inventory", label: "Stock items", path: "/inventory-masters" },
+    ],
   },
   {
     kind: "group",
     id: "compliance",
     label: "Compliance",
     icon: <Percent />,
-    children: [{ id: "gst", label: "GST Reconciliation", path: "/gst-reconciliation" }],
+    children: [
+      { id: "gst", label: "GST Reconciliation", path: "/gst-reconciliation" },
+      {
+        id: "checks",
+        label: "Compliance checks",
+        path: "/inbox?module=CHECKS",
+      },
+    ],
   },
-  { kind: "item", id: "banking", label: "Banking", path: "/bank", icon: <Landmark /> },
+  {
+    kind: "item",
+    id: "banking",
+    label: "Banking",
+    path: "/bank",
+    icon: <Landmark />,
+  },
   {
     // What the AI may do on its own, and the record of what it did (13 Oct 2026).
     kind: "group",
@@ -113,9 +148,30 @@ const NAV: NavNode[] = [
     children: [
       { id: "activity", label: "Activity log", path: "/automation/activity" },
       { id: "rules", label: "Rules & learning", path: "/automation/rules" },
+      {
+        id: "policy",
+        label: "Client policy",
+        path: "/inbox?module=AUTO&page=policy",
+      },
+      {
+        id: "playbooks",
+        label: "Playbooks",
+        path: "/inbox?module=AUTO&page=playbooks",
+      },
+      {
+        id: "whatsapp",
+        label: "WhatsApp",
+        path: "/inbox?module=AUTO&page=whatsapp",
+      },
     ],
   },
-  { kind: "item", id: "configuration", label: "Sync Management", path: "/configuration", icon: <RefreshCw /> },
+  {
+    kind: "item",
+    id: "configuration",
+    label: "Sync Management",
+    path: "/configuration",
+    icon: <RefreshCw />,
+  },
 ];
 
 /** Breadcrumb trail shown in the top bar for each nav id. */
@@ -131,6 +187,10 @@ export const NAV_TRAIL: Record<string, Crumb[]> = {
   banking: ["Banking", "Bank accounts"],
   activity: ["Automation", "Activity log"],
   rules: ["Automation", "Rules & learning"],
+  checks: ["Compliance", "Compliance checks"],
+  policy: ["Automation", "Client policy"],
+  playbooks: ["Automation", "Playbooks"],
+  whatsapp: ["Automation", "WhatsApp"],
 };
 
 const COLLAPSE_KEY = "sb-collapsed";
@@ -154,13 +214,15 @@ const SidebarLayout = ({
   companyAction,
 }: Props) => {
   const router = useRouter();
-  const current = activeNavId ?? (router.pathname.startsWith("/inbox") ? "inbox" : "");
+  const current =
+    activeNavId ?? (router.pathname.startsWith("/inbox") ? "inbox" : "");
   const activeGroup = NAV.find(
     (n) => n.kind === "group" && n.children.some((c) => c.id === current)
   )?.id;
   const [open, setOpen] = useState<Record<string, boolean>>({});
   useEffect(() => {
-    if (activeGroup) setOpen((o) => (o[activeGroup] ? o : { ...o, [activeGroup]: true }));
+    if (activeGroup)
+      setOpen((o) => (o[activeGroup] ? o : { ...o, [activeGroup]: true }));
   }, [activeGroup]);
 
   const [desktopCollapsed, setCollapsed] = useState(
@@ -253,12 +315,16 @@ const SidebarLayout = ({
                   <span
                     className={cn(
                       ICON,
-                      active ? "text-[var(--nav-active-ink)]" : "text-[var(--nav-faint)] group-hover:text-[var(--nav-body)]"
+                      active
+                        ? "text-[var(--nav-active-ink)]"
+                        : "text-[var(--nav-faint)] group-hover:text-[var(--nav-body)]"
                     )}
                   >
                     {node.icon}
                   </span>
-                  {!collapsed && <span className="flex-1 truncate">{node.label}</span>}
+                  {!collapsed && (
+                    <span className="flex-1 truncate">{node.label}</span>
+                  )}
                   {isNew && !collapsed ? (
                     <span className="rounded-xs border border-[var(--nav-line)] px-2 py-px text-[11px] font-semibold uppercase tracking-[0.03em] text-[var(--nav-faint)]">
                       New
@@ -295,10 +361,17 @@ const SidebarLayout = ({
                   className={cn(
                     "group relative flex h-10 w-full items-center rounded-md text-[14px] transition-colors duration-150 hover:bg-[var(--nav-hover)] hover:text-[var(--nav-ink)]",
                     collapsed ? "justify-center" : "gap-3 pl-3 pr-3",
-                    childActive && collapsed ? "text-[var(--nav-ink)]" : "text-[var(--nav-body)]"
+                    childActive && collapsed
+                      ? "text-[var(--nav-ink)]"
+                      : "text-[var(--nav-body)]"
                   )}
                 >
-                  <span className={cn(ICON, "text-[var(--nav-faint)] group-hover:text-[var(--nav-body)]")}>
+                  <span
+                    className={cn(
+                      ICON,
+                      "text-[var(--nav-faint)] group-hover:text-[var(--nav-body)]"
+                    )}
+                  >
                     {node.icon}
                   </span>
                   {!collapsed && (
@@ -321,7 +394,10 @@ const SidebarLayout = ({
                 >
                   <div className="overflow-hidden">
                     <div className="relative pb-1 pt-1">
-                      <span aria-hidden className="absolute bottom-2 left-[21px] top-1 w-px bg-[var(--nav-line)]" />
+                      <span
+                        aria-hidden
+                        className="absolute bottom-2 left-[21px] top-1 w-px bg-[var(--nav-line)]"
+                      />
                       <div className="flex flex-col gap-0.5">
                         {node.children.map((child) => {
                           const active = current === child.id;
@@ -346,7 +422,9 @@ const SidebarLayout = ({
                                   className="absolute inset-y-1.5 left-[-12px] w-[3px] rounded-full bg-[var(--nav-active-rail)]"
                                 />
                               )}
-                              <span className="flex-1 truncate">{child.label}</span>
+                              <span className="flex-1 truncate">
+                                {child.label}
+                              </span>
                               {child.tag && (
                                 <span className="flex-none rounded-xs border border-[var(--nav-line)] px-2 py-px text-[11px] font-semibold uppercase tracking-[0.03em] text-[var(--nav-faint)]">
                                   {child.tag}
@@ -381,14 +459,18 @@ const SidebarLayout = ({
             aria-controls="prototype-main-navigation"
             className="hidden size-7 flex-none place-items-center rounded-md text-[var(--nav-faint)] transition-colors hover:bg-[var(--nav-hover)] hover:text-[var(--nav-body)] md:grid"
           >
-            {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
+            {collapsed ? (
+              <PanelLeftOpen className="size-[18px]" />
+            ) : (
+              <PanelLeftClose className="size-[18px]" />
+            )}
           </button>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <AppTopBar
-          crumbs={crumbs?.length ? crumbs : NAV_TRAIL[current] ?? []}
+          crumbs={crumbs?.length ? crumbs : (NAV_TRAIL[current] ?? [])}
           company={{ initials: companyName.charAt(0), name: companyName }}
           user={{ initials: "SB", email: "sandeep.balaji@aiaccountant.com" }}
           onGuide={onGuide}
@@ -400,7 +482,11 @@ const SidebarLayout = ({
           companyAction={companyAction}
         />
         <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-pi-page">
-          <div className={cn("min-w-0 flex-1 overflow-hidden", contentClassName)}>{children}</div>
+          <div
+            className={cn("min-w-0 flex-1 overflow-hidden", contentClassName)}
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

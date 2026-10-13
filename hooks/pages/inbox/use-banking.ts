@@ -93,6 +93,7 @@ const patchTransactions = (
     ),
   });
 
+export const getBankingState = read;
 export const bankingActions = {
   /** DEV: PATCH /api/bank/inline-edit?companyId=…&bankLineUuid=… */
   updateTransaction: (

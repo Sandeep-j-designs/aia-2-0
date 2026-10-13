@@ -32,6 +32,32 @@ User asked to bring Campfire-style AI features into AIA, in three phases, with a
 - **#6 Upload cleanup** (`automation/common/cleanup-steps.tsx`): cleanup panel before mapping on the sales Excel upload and the GST purchase-register upload.
 
 ## GST Reconciliation reads like the other modules (8 Oct 2026)
+## AI features Phase 2 — Neo port (13 Oct 2026)
+
+Neo is mounted globally through `pages/_app.tsx`, with the reference panel, runtime, four action tiers, task cards, keyboard controls and live intake task from AIA-Experiment. Store adapters use the existing AIA 2.0 mutations. Drafts carry `preparedBy` and activity entries; drafts and edits can be undone until approval. Evidence replaces confidence in approval and triage. New tasks compute freight movement and Q2 ITC risk, and review each Mahindra ledger change separately. Reference screenshots are in `shots/ai-features/`.
+Deliberate port adaptations: in-house icons, live company lookup, Precision Indigo tokens (Neo uses the white avatar text token on navy), and the current cost-centre contract. The reference live run hands its prepared batch to the existing Inbox approval/Sync controls; that behavior is preserved. No model or new dependencies.
+
+## AI features Phase 2 — Compliance checks (13 Oct 2026)
+
+`?module=CHECKS` ranks open issues by rupee impact, filters by check and separates resolved work. `use-compliance.ts` seeds four document checks and derives missing-in-books issues from the GST store. Review chrome links affected bills to checks. Approval reruns the checks. Fixes preview a balanced JV or an editable message; sending is simulated. Critical notices remain actionable until resolved. A resolved correction means a draft was prepared, not that it reached Tally. Existing GST data determines missing-bill amounts rather than the illustrative ₹38,000 in the brief.
+
+## AI features Phase 2 — Client policy (13 Oct 2026)
+
+`?module=AUTO&page=policy` supports plain-language entry, scripted parsing, condition/action preview, actual matching history, confirmation, switches, editing and firm-template application. Sahyadri starts empty. `POLICY-PUMP` is a ₹42,000 pump plus ₹7,560 GST; policy evidence appears in React review chrome and History without changing the vanilla AP engine. Supported parser vocabulary is equipment/pump, lab/testing and generator diesel. Source facsimiles are used for added records.
+
+## AI features Phase 2 — Playbooks (13 Oct 2026)
+
+`?module=AUTO&page=playbooks` lists GST close, bank tidy-up, TDS checks and overdue receivables, with organisation selection, progress matrix, source-store results and reviewable vendor messages. Runs are company-scoped and logged. Bank rules use the existing coding action. GST uses available reconciled records and reports the current portal session honestly. Sync state is owned by the workspace hook, so the summary explicitly asks the operator to confirm sync rather than claiming books are synced.
+
+## AI features Phase 2 — Schedules (13 Oct 2026)
+
+`?module=AUTO&page=playbooks&tab=schedules` adds schedule editing, enable switches, run-now and message previews. Seeded recurrence choices are monthly on the 14th at 09:00 or Monday at 08:00, relative to 13 Oct 2026. Expired GST authentication pauses with the existing OTP notice. Schedules are demo configuration; no background scheduler or real message delivery is installed.
+
+## AI features Phase 2 — WhatsApp (13 Oct 2026)
+
+`?module=AUTO&page=whatsapp` shows registered numbers and read-only permissions, switches, a conversation preview and unknown-sender refusal. Freight and overdue answers share Inbox records; GST reads current reconciliation and an output-tax mock. The answer explicitly describes available reconciled records, as the baseline GST seed is not a complete September return. No approval, edit or posting is allowed from WhatsApp. Every question and answer is logged.
+
+## GST Reconciliation reads like the other modules (8 Oct 2026)
 
 User: "clean up GST Recon and make it polished as well, to have the same clarity of other modules". The user chose the name "GST Reconciliation" and a compact summary strip on Summary only.
 - **Name:** GST Reconciliation in the sidebar (no GSTR-2B tag), the trail and the page title. The sheet is "New Reconciliation".

@@ -19,6 +19,27 @@ Ported from the original single-file prototype, which is preserved unchanged in
 signed off.
 
 ## Screens
+Phase 2 AI screens: `/inbox?module=CHECKS`, `/inbox?module=AUTO&page=policy`,
+`/inbox?module=AUTO&page=playbooks` (Schedules at `&tab=schedules`), and
+`/inbox?module=AUTO&page=whatsapp`. Neo opens from the top bar or Ctrl J.
+
+Additional folders to copy: `components/neo/`, `hooks/pages/neo/`,
+`config/pages/neo/`, `types/pages/neo/`, `utils/pages/neo/`, plus the added
+Automation components, Inbox hooks, typed mocks and calculation helpers.
+Merge the `neo*` store adapters; mount the provider/panel/shell in production's
+existing `_app.tsx`. Prototype-only task scripts, `components/neo/actions.ts`
+and `utils/pages/neo/selection.ts` are replaced by the production agent runtime.
+
+New API seams: `POST /api/neo/runs` (streamed task events),
+`POST /api/neo/runs/:id/replies`, `DELETE /api/neo/runs/:id/changes`,
+`GET /api/compliance/issues?companyUuid=…` (`ComplianceIssue[]`),
+`POST /api/compliance/issues/:id/resolve`, `GET/PUT /api/policy?companyUuid=…`
+(`PolicyRule[]`), `POST /api/policy/parse`, `GET /api/playbooks` (`Playbook[]`),
+`POST /api/playbooks/:id/runs` (`PlaybookRun`), `GET/PUT /api/agents/schedules`
+(`AgentSchedule[]`), `GET /api/whatsapp/numbers` (`WhatsAppNumber[]`) and
+`POST /api/neo/whatsapp/inbound`. All external sends and schedule runs are
+simulated locally. See dated CLAUDE.md sections for data and port adaptations.
+
 
 | Route         | Screen                                                     | Source                               |
 | ------------- | ---------------------------------------------------------- | ------------------------------------ |

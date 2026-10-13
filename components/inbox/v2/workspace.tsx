@@ -135,6 +135,17 @@ import {
   sizeColumns,
 } from "./table-sizing";
 import { ApprovedDetails, RecordBanner } from "./record-details";
+import CompliancePage from "@/components/inbox/v2/automation/compliance-page";
+import {
+  runComplianceChecks,
+  useCompliance,
+} from "@/hooks/pages/inbox/use-compliance";
+import {
+  policyFor,
+  applyPolicyPrediction,
+} from "@/hooks/pages/inbox/use-client-policy";
+import PreparedTag from "@/components/neo/common/prepared-tag";
+import { setNeoSelection } from "@/utils/pages/neo/selection";
 import Sheet from "./sheet";
 import Banking, { type BankingView } from "./banking";
 import ChartOfAccounts, { type CoaView } from "./chart-of-accounts";
@@ -1387,6 +1398,16 @@ export default function Workspace() {
     Statement Logs (&logs=1).
   */
   const bankModule = router.query.module === "BANK";
+  const checksModule = router.query.module === "CHECKS";
+  useEffect(() => {
+    setNeoSelection(selected);
+  }, [selected]);
+  const complianceIssues = useCompliance(state.company);
+  useEffect(() => {
+    if (!ready) return;
+    runComplianceChecks(state.company);
+    if (state.company === "shakun") applyPolicyPrediction("POLICY-PUMP");
+  }, [ready, state.company]);
   /*
     Masters, like Banking, are modules but not Routes: Chart of Accounts at
     ?module=COA (&ledger=new|<id> for the ledger form) and Inventory at
@@ -2167,20 +2188,26 @@ export default function Workspace() {
   };
   const navId = notificationsPage
     ? "notifications"
-    : autoModule
-      ? autoView.page
-      : gstModule
-        ? "gst"
-        : coaModule
-          ? "chart-of-accounts"
-          : inventoryModule
-            ? "inventory"
-            : bankModule
-              ? "banking"
-              : moduleRoute
-                ? ROUTE_TO_NAV[moduleRoute]
-                : "inbox";
+    : checksModule
+      ? "checks"
+      : autoModule
+        ? autoView.page
+        : gstModule
+          ? "gst"
+          : coaModule
+            ? "chart-of-accounts"
+            : inventoryModule
+              ? "inventory"
+              : bankModule
+                ? "banking"
+                : moduleRoute
+                  ? ROUTE_TO_NAV[moduleRoute]
+                  : "inbox";
   const selectNav = (navItemId: string) => {
+    if (navItemId === "checks") {
+      void router.push("/inbox?module=CHECKS");
+      return;
+    }
     if (navItemId === "inbox") {
       setFilters(defaultFilters);
       void router.push("/inbox");
@@ -3594,6 +3621,46 @@ export default function Workspace() {
                       the header row above, which is the only row this screen
                       has. The confidence percentage is gone with them: it
                       restated what the route and its reason already say. */}
+                  {item.preparedBy && (
+                    <div className="px-6 py-2">
+                      <PreparedTag />
+                    </div>
+                  )}
+                  {complianceIssues.some(
+                    (x) => x.documentId === item.id && x.status === "open"
+                  ) && (
+                    <RecordBanner
+                      tone="warning"
+                      title="Compliance check needs review"
+                      label="Open issue"
+                      action={
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            void router.push("/inbox?module=CHECKS")
+                          }
+                        >
+                          Review checks
+                        </Button>
+                      }
+                    >
+                      {complianceIssues
+                        .filter(
+                          (x) => x.documentId === item.id && x.status === "open"
+                        )
+                        .map((x) => x.evidence)
+                        .join(" ")}
+                    </RecordBanner>
+                  )}
+                  {item.status === "Needs Review" && policyFor(item) && (
+                    <RecordBanner
+                      tone="success"
+                      title={policyFor(item)!.action.ledger}
+                      label="Client policy"
+                    >
+                      {policyFor(item)!.text}
+                    </RecordBanner>
+                  )}
                   {matched && (
                     <RecordBanner
                       tone="warning"
@@ -3831,6 +3898,8 @@ export default function Workspace() {
               companyId={state.company}
               companyIds={state.companies.map((c) => c.id)}
             />
+          ) : checksModule ? (
+            <CompliancePage key={state.company} company={state.company} />
           ) : autoModule ? (
             <Automation
               key={`${state.company}-${autoView.page}`}
@@ -5111,6 +5180,9 @@ export default function Workspace() {
                                                 title={x.file.name}
                                               >
                                                 {x.file.name}
+                                                {x.preparedBy && (
+                                                  <PreparedTag />
+                                                )}
                                               </strong>
                                               {/* Whether Tally has this one yet. */}
                                               {sync.inFlightIds.has(x.id) ? (

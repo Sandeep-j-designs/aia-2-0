@@ -30,6 +30,7 @@ export type NotificationModule =
 export type NotificationSeverity = "info" | "success" | "warning" | "critical";
 
 export type NotificationKind =
+  | "compliance_issue"
   // Inbox documents
   | "documents_arrived"
   | "review_ready"

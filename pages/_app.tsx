@@ -9,6 +9,10 @@ import localFont from "next/font/local";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import GuideProvider from "@/components/guide/guide-provider";
+import NeoProvider from "@/components/neo/provider";
+import NeoShell from "@/components/neo/shell";
+import NeoPanel from "@/components/neo";
+import NeoPresence from "@/components/neo/presence";
 
 // Type families (SIL OFL), bundled locally so builds never fetch fonts.
 // Open Sans (variable, 300–800) is the one UI family — text, headings and
@@ -22,9 +26,18 @@ const openSans = localFont({
 });
 const plexMono = localFont({
   src: [
-    { path: "../public/fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400" },
-    { path: "../public/fonts/ibm-plex-mono-latin-500-normal.woff2", weight: "500" },
-    { path: "../public/fonts/ibm-plex-mono-latin-600-normal.woff2", weight: "600" },
+    {
+      path: "../public/fonts/ibm-plex-mono-latin-400-normal.woff2",
+      weight: "400",
+    },
+    {
+      path: "../public/fonts/ibm-plex-mono-latin-500-normal.woff2",
+      weight: "500",
+    },
+    {
+      path: "../public/fonts/ibm-plex-mono-latin-600-normal.woff2",
+      weight: "600",
+    },
   ],
   display: "swap",
 });
@@ -63,7 +76,13 @@ export default function App({ Component, pageProps }: AppProps) {
         disableTransitionOnChange
       >
         <GuideProvider>
-          <Component {...pageProps} />
+          <NeoProvider>
+            <NeoShell>
+              <Component {...pageProps} />
+            </NeoShell>
+            <NeoPanel />
+            <NeoPresence />
+          </NeoProvider>
         </GuideProvider>
         <Toaster position="bottom-right" closeButton />
       </ThemeProvider>

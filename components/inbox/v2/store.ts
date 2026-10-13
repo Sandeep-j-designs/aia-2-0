@@ -6,6 +6,8 @@ import {
 import type { CostAllocation } from "@/config/pages/inbox/mock-cost-centres";
 import type { InboxItem } from "@/types/pages/inbox";
 import { mockAutoApprovalBills } from "@/config/pages/inbox/mock-trust";
+import { AI_DOCUMENTS } from "@/config/pages/inbox/mock-ai-documents";
+import { runComplianceChecks } from "@/hooks/pages/inbox/use-compliance";
 import { logActivity } from "@/hooks/pages/inbox/use-activity";
 import {
   judge,
@@ -149,6 +151,12 @@ export type GodownAllocation = {
   amount: number;
 };
 export type Item = {
+  preparedBy?: {
+    agent: "Neo";
+    runId: string;
+    onBehalfOf: string;
+    fromId?: string;
+  };
   id: string;
   company: string;
   status: Status;
@@ -746,7 +754,9 @@ function withAutoApprovals(base: State): State {
 function seedFor(scenario: Scenario): State {
   const base = { ...seed(), scenario };
   if (scenario === "whatsapp")
-    return withAutoApprovals(withWhatsAppBacklog(base, base.waCompany));
+    return withAiDocuments(
+      withAutoApprovals(withWhatsAppBacklog(base, base.waCompany))
+    );
   // A new user has received nothing: the queue starts empty everywhere, and
   // only the books (posted vouchers) are there. The seeded queue lives on as
   // the templates `demoUploadDocuments` cuts batches from.
@@ -756,6 +766,24 @@ function seedFor(scenario: Scenario): State {
   };
 }
 
+function withAiDocuments(base: State): State {
+  // DEV: GET /api/inbox returns these records with company scope and approval state.
+  const items = AI_DOCUMENTS.map(({ company, item: mock, approved }, n) => {
+    const item = itemFromMock(mock, 1100 + n);
+    item.company = company;
+    item.form.gst = company === "acme" ? "Pune HQ" : "Karnataka HQ";
+    if (approved) {
+      item.status = "Approved";
+      item.snapshot = structuredClone(item.form);
+      item.arSnapshot = item.arSheet
+        ? structuredClone(item.arSheet)
+        : undefined;
+      item.doneBy = "Priya Raghavan";
+    }
+    return item;
+  });
+  return { ...base, items: [...items, ...base.items] };
+}
 let state: State = seed();
 const server = state;
 let loaded = false;
@@ -866,6 +894,12 @@ export function useStore() {
   );
 }
 export const getState = () => state;
+export const subscribeStore = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
 
 /**
  * The top bar's view of an organisation — production's `UserCompany`, which
@@ -1249,6 +1283,7 @@ export function approve(id: string) {
     }
   );
   recordPersonApproval(next);
+  runComplianceChecks(next.company, next.id);
   persist();
   return "";
 }
@@ -2686,4 +2721,187 @@ function recordPersonApproval(item: Item) {
         ? `Ledger changed from ${before.join(", ")} to ${after[0]}`
         : undefined
     );
+}
+
+/**
+ * Add a document Neo prepared. It enters where any document waiting for a
+ * person does — Needs Review — because Neo prepares and never approves.
+ *
+ * DEV: POST /api/inbox/items with `prepared_by`; the backend writes the edit
+ * log entry naming the agent and the user it acted for.
+ */
+export function neoCreate(item: Item, runId: string, fromId?: string) {
+  if (!state.permissions.includes(item.route))
+    throw new Error("You do not have access to create this voucher type.");
+  if (state.items.some((x) => x.id === item.id))
+    throw new Error("This draft already exists.");
+  if (
+    fromId &&
+    !state.items.some(
+      (x) =>
+        x.id === fromId && x.company === state.company && x.status !== "Deleted"
+    )
+  )
+    throw new Error("The source is unavailable in this company.");
+  const next: Item = {
+    ...item,
+    company: state.company,
+    status: "Needs Review",
+    preparedBy: { agent: "Neo", runId, onBehalfOf: actor, fromId },
+  };
+  state = { ...state, items: [next, ...state.items] };
+  event("Neo Draft Created", next, {
+    agent: "Neo",
+    on_behalf_of: actor,
+    run_id: runId,
+    route: next.route,
+    prepared_from: fromId,
+  });
+  logActivity(
+    {
+      company: next.company,
+      actor: { kind: "ai", name: "Neo" },
+      kind: "predicted",
+      module: "Inbox",
+      action: "Prepared draft",
+      subject: next.form.voucherNo,
+      ref: { kind: "document", id: next.id },
+      reason: next.reason,
+      undoable: true,
+    },
+    () => {
+      const result = neoDiscard([next], runId);
+      if (!result.reversed.length)
+        throw new Error(
+          "The draft has changed or been approved; it cannot be undone."
+        );
+    }
+  );
+  return next;
+}
+
+/**
+ * Undo for a Neo run: take out what it created. Only drafts go — anything
+ * someone has approved since is a posted record, and stays.
+ *
+ * DEV: DELETE /api/neo/runs/:id/changes.
+ */
+export function neoDiscard(created: Item[], runId: string) {
+  const ids = created.map((x) => x.id);
+  const removed = state.items
+    .filter(
+      (x) =>
+        x.preparedBy?.runId === runId &&
+        x.company === state.company &&
+        x.status === "Needs Review" &&
+        created.some(
+          (before) =>
+            before.id === x.id && JSON.stringify(before) === JSON.stringify(x)
+        )
+    )
+    .map((x) => x.id);
+  state = {
+    ...state,
+    items: state.items.filter((x) => !removed.includes(x.id)),
+  };
+  event("Neo Run Undone", undefined, {
+    agent: "Neo",
+    run_id: runId,
+    removed,
+  });
+  for (const item of created.filter((x) => removed.includes(x.id)))
+    neoLog("Neo Draft Removed", runId, item);
+  return {
+    reversed: removed,
+    skipped: ids.filter((id) => !removed.includes(id)),
+  };
+}
+
+/**
+ * Undo for a Neo run that edited documents: put each back as it was before
+ * the run touched it. Approved records are skipped for the same reason as
+ * above.
+ */
+export function neoRestore(snapshots: Item[], runId: string, expected: Item[]) {
+  const byId = new Map(snapshots.map((x) => [x.id, x]));
+  const restored: string[] = [];
+  state = {
+    ...state,
+    items: state.items.map((x) => {
+      const before = byId.get(x.id);
+      const after = expected.find((item) => item.id === x.id);
+      if (
+        !before ||
+        !after ||
+        x.company !== state.company ||
+        x.status === "Approved" ||
+        JSON.stringify(x) !== JSON.stringify(after)
+      )
+        return x;
+      restored.push(x.id);
+      return structuredClone(before);
+    }),
+  };
+  event("Neo Run Undone", undefined, {
+    agent: "Neo",
+    run_id: runId,
+    restored,
+  });
+  for (const item of snapshots.filter((x) => restored.includes(x.id)))
+    neoLog("Neo Draft Restored", runId, item);
+  return {
+    reversed: restored,
+    skipped: snapshots.filter((x) => !restored.includes(x.id)).map((x) => x.id),
+  };
+}
+
+/** Capture the accepted write now, so Undo cannot overwrite a later edit. */
+export function neoUndoChanges(snapshots: Item[], runId: string) {
+  snapshots = snapshots.filter((before) => {
+    const current = state.items.find((x) => x.id === before.id);
+    return (
+      current &&
+      current.company === state.company &&
+      current.status !== "Approved" &&
+      JSON.stringify(current) !== JSON.stringify(before)
+    );
+  });
+  state = {
+    ...state,
+    items: state.items.map((x) =>
+      snapshots.some((s) => s.id === x.id) && x.status !== "Approved"
+        ? { ...x, preparedBy: { agent: "Neo", runId, onBehalfOf: actor } }
+        : x
+    ),
+  };
+  const expected = structuredClone(
+    state.items.filter((x) => snapshots.some((s) => s.id === x.id))
+  );
+  for (const item of expected) neoLog("Neo Draft Changed", runId, item);
+  return () => neoRestore(snapshots, runId, expected);
+}
+
+/** Log an agent action that changed nothing in the books, e.g. a message. */
+export function neoLog(
+  name: string,
+  runId: string,
+  item?: Item,
+  properties: Record<string, unknown> = {}
+) {
+  logActivity({
+    company: item?.company || state.company,
+    actor: { kind: "ai", name: "Neo" },
+    kind: "predicted",
+    module: "Automation",
+    action: name,
+    subject: item?.form.voucherNo || runId,
+    ref: item ? { kind: "document", id: item.id } : undefined,
+    reason: String(properties.reason || "Scripted task requested by the user"),
+  });
+  event(name, item, {
+    agent: "Neo",
+    on_behalf_of: actor,
+    run_id: runId,
+    ...properties,
+  });
 }

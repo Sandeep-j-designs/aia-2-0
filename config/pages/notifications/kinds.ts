@@ -42,6 +42,17 @@ export const BOOK_NOUN: Record<string, [string, string]> = {
 };
 
 export const NOTIFICATION_KINDS: Record<NotificationKind, KindMeta> = {
+  compliance_issue: {
+    category: "action",
+    module: "gst",
+    severity: "critical",
+    group: "gst",
+    action: "Review checks",
+    copy: (d) => ({
+      title: `${n(d, "count")} compliance issues need review`,
+      body: "Review the document evidence and prepare the correction.",
+    }),
+  },
   /* ------------------------------------------------------------ documents */
   documents_arrived: {
     category: "update",

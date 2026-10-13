@@ -3,9 +3,19 @@ import { actor } from "@/components/inbox/v2/store";
 import ActivityLog from "./activity-log";
 import RulesPage, { RULES_TABS } from "./rules-page";
 import type { RulesTab } from "./rules/types";
+import PolicyPage from "@/components/inbox/v2/automation/policy-page";
+import PlaybooksPage from "@/components/inbox/v2/automation/playbooks-page";
+import WhatsAppPage from "@/components/inbox/v2/automation/whatsapp-page";
 
-export type AutomationPage = "activity" | "rules";
-export const AUTOMATION_PAGES: AutomationPage[] = ["activity", "rules"];
+export type AutomationPage =
+  "activity" | "rules" | "policy" | "playbooks" | "whatsapp";
+export const AUTOMATION_PAGES: AutomationPage[] = [
+  "activity",
+  "rules",
+  "policy",
+  "playbooks",
+  "whatsapp",
+];
 
 export type AutomationView = {
   page: AutomationPage;
@@ -42,6 +52,16 @@ const Automation = ({
   notify,
   onUnbuilt,
 }: Props) => {
+  if (view.page === "policy") return <PolicyPage company={company} />;
+  if (view.page === "playbooks")
+    return (
+      <PlaybooksPage
+        company={company}
+        tab={view.tab}
+        onTab={(tab) => onNavigate({ page: "playbooks", tab })}
+      />
+    );
+  if (view.page === "whatsapp") return <WhatsAppPage company={company} />;
   if (view.page === "rules") {
     const tab = RULES_TABS.includes(view.tab as RulesTab)
       ? (view.tab as RulesTab)
