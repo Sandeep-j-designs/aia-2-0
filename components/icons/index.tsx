@@ -775,3 +775,46 @@ export const Percent = make(
   </>
 );
 export const ReceiptText = Receipt;
+
+/* Automation (13 Oct 2026) ------------------------------------------------ */
+/** Two ledger nodes joined by a routed line: work the system runs on its own. */
+export const Workflow = make(
+  "Workflow",
+  <>
+    <rect x="3.5" y="3.5" width="7" height="6" rx="2" />
+    <rect x="13.5" y="14.5" width="7" height="6" rx="2" />
+    <path d="M7 9.5v4a2 2 0 0 0 2 2h4.5" />
+  </>
+);
+/** A clock turning back: what happened, in order. */
+export const History = make(
+  "History",
+  <>
+    <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5M3.5 3.5v5h5" />
+    <path d="M12 8v4l2.75 1.75" />
+  </>
+);
+/** A checklist with ticks: a playbook of steps. */
+export const ListChecks = make(
+  "ListChecks",
+  <path d="M3.5 6.5 5 8l2.5-2.5M3.5 13.5 5 15l2.5-2.5M11 7h9.5M11 14h9.5M11 19.5h9.5" />
+);
+/** A ruled page with a seal: the client's written policy. */
+export const ScrollText = make(
+  "ScrollText",
+  <>
+    <path d={PAGE} />
+    <path d={FOLD} />
+    <path d="M8.5 11h7M8.5 14h7M8.5 17h4" />
+  </>
+);
+/** A lightning bolt: done without asking, because it has earned it. */
+export const Zap = make(
+  "Zap",
+  <path d="M13 3 5 13.5h6.5L10.5 21 19 10.5h-6.5L13 3Z" />
+);
+/** A ledger-rule stamp: a rule the user set. */
+export const Wand2 = make(
+  "Wand2",
+  <path d="m4 20 10-10M14 4v3M19 9h-3M17.5 5.5l-2 2M12 6.5l1.5 1.5M17 11l1.5 1.5" />
+);

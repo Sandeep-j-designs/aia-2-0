@@ -15,6 +15,7 @@ import {
   Percent,
   RefreshCw,
   Wallet,
+  Workflow,
 } from "@/components/icons";
 import AppTopBar, { type Crumb } from "@/components/top-bar-layout";
 import { basePath } from "@/lib/base-path";
@@ -103,6 +104,17 @@ const NAV: NavNode[] = [
     children: [{ id: "gst", label: "GST Reconciliation", path: "/gst-reconciliation" }],
   },
   { kind: "item", id: "banking", label: "Banking", path: "/bank", icon: <Landmark /> },
+  {
+    // What the AI may do on its own, and the record of what it did (13 Oct 2026).
+    kind: "group",
+    id: "automation",
+    label: "Automation",
+    icon: <Workflow />,
+    children: [
+      { id: "activity", label: "Activity log", path: "/automation/activity" },
+      { id: "rules", label: "Rules & learning", path: "/automation/rules" },
+    ],
+  },
   { kind: "item", id: "configuration", label: "Sync Management", path: "/configuration", icon: <RefreshCw /> },
 ];
 
@@ -117,6 +129,8 @@ export const NAV_TRAIL: Record<string, Crumb[]> = {
   inventory: ["Inventory", "Stock items"],
   gst: ["Compliance", "GST Reconciliation"],
   banking: ["Banking", "Bank accounts"],
+  activity: ["Automation", "Activity log"],
+  rules: ["Automation", "Rules & learning"],
 };
 
 const COLLAPSE_KEY = "sb-collapsed";

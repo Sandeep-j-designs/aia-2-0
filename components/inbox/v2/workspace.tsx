@@ -135,6 +135,11 @@ import Banking, { type BankingView } from "./banking";
 import ChartOfAccounts, { type CoaView } from "./chart-of-accounts";
 import Inventory, { type InventoryView } from "./inventory";
 import GstReconciliation, { type GstTab, type GstView } from "./gst";
+import Automation, {
+  AUTOMATION_PAGES,
+  type AutomationPage,
+  type AutomationView,
+} from "./automation";
 import SalesUpload, { type SalesUploadStep } from "./sales-upload";
 import InvoiceSheet from "./invoice-sheet";
 import { ExtractionLoader, RouteSwitchLoader } from "./document-loader";
@@ -1390,6 +1395,23 @@ export default function Workspace() {
   const inventoryModule = router.query.module === "INV";
   /** GST reconciliation at ?module=GST, its results tab in &tab=. */
   const gstModule = router.query.module === "GST";
+  /**
+   * Automation at ?module=AUTO: the activity log (&page=activity) and Rules &
+   * learning (&page=rules, its tab in &tab=). Like Banking, a module that is
+   * not a Route.
+   */
+  const autoModule = router.query.module === "AUTO";
+  const autoView: AutomationView = {
+    page: AUTOMATION_PAGES.includes(router.query.page as AutomationPage)
+      ? (router.query.page as AutomationPage)
+      : "activity",
+    tab: typeof router.query.tab === "string" ? router.query.tab : undefined,
+  };
+  const goAutomation = (view: AutomationView) => {
+    const q = new URLSearchParams({ module: "AUTO", page: view.page });
+    if (view.tab) q.set("tab", view.tab);
+    void router.push(`/inbox?${q.toString()}`);
+  };
   /** The notification centre's full page, /notifications. */
   const notificationsPage = router.pathname === "/notifications";
   const gstView: GstView = {
@@ -2107,7 +2129,9 @@ export default function Workspace() {
   };
   const navId = notificationsPage
     ? "notifications"
-    : gstModule
+    : autoModule
+      ? autoView.page
+      : gstModule
       ? "gst"
       : coaModule
         ? "chart-of-accounts"
@@ -2130,6 +2154,10 @@ export default function Workspace() {
     }
     if (navItemId === "gst") {
       goGst({});
+      return;
+    }
+    if (AUTOMATION_PAGES.includes(navItemId as AutomationPage)) {
+      goAutomation({ page: navItemId as AutomationPage });
       return;
     }
     if (navItemId === "chart-of-accounts") {
@@ -2172,6 +2200,8 @@ export default function Workspace() {
     if (typeof router.query.module === "string")
       keep.set("module", router.query.module);
     if (typeof router.query.tab === "string") keep.set("tab", router.query.tab);
+    if (typeof router.query.page === "string")
+      keep.set("page", router.query.page);
     const query = keep.toString();
     void router.push(query ? `/inbox?${query}` : "/inbox");
     // DEV: POST /api/users/switch-company { companyUuid, userUuid, updatedBy }
@@ -3701,6 +3731,22 @@ export default function Workspace() {
             <Notifications
               companyId={state.company}
               companyIds={state.companies.map((c) => c.id)}
+            />
+          ) : autoModule ? (
+            <Automation
+              key={`${state.company}-${autoView.page}`}
+              view={autoView}
+              company={state.company}
+              companyName={company.name}
+              onNavigate={goAutomation}
+              onOpenDocument={(docId) => void router.push(detailHref(docId))}
+              notify={notify}
+              onUnbuilt={(what) =>
+                notify(
+                  `${what} is part of the app, but not this prototype.`,
+                  "info"
+                )
+              }
             />
           ) : gstModule ? (
             <GstReconciliation
