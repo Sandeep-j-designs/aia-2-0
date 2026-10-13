@@ -19,6 +19,18 @@ See `README.md` (folder-copy contract to `aiaccountant-app`) and `PRD-V2-IMPLEME
 - **Legacy code removed (overhaul phase 6, Oct 2026):** the pre-v2 list and detail (`components/inbox/{index,detail,ar,conversion,table}`), unused `common/*` components, the hooks `use-inbox-list`, `use-inbox-detail` and `use-bill-review`, `components/ui/sidebar.tsx` and `config/pages/inbox/columns.tsx`. All of it is recoverable from git. From the old tree, v2 still uses only `components/inbox/journal/` (the JV form) and `components/inbox/common/file-icon`.
 - **Tests:** `tests/ar-predictions` and `tests/inbox-v2` already failed at baseline `22f8270`. `button`, `badge` and `inbox-table-sizing` pass.
 
+## AI features from the Campfire study, Phase 1 (13 Oct 2026, branch `ai-features`)
+
+User asked to bring Campfire-style AI features into AIA, in three phases, with an evidence-based (never percentage) auto-approve threshold, a new Automation sidebar group, and Neo ported unchanged from AIA-Experiment in Phase 2.
+- **Automation module** (`?module=AUTO&page=activity|rules[&tab=]`, `components/inbox/v2/automation/`). Pages are listed in `AUTOMATION_PAGES` (automation/index.tsx); the sidebar group and `NAV_TRAIL` entries are in `components/sidebar-layout/index.tsx`; the workspace maps nav ids to pages through `AUTOMATION_PAGES`.
+- **Activity log** (`hooks/pages/inbox/use-activity.ts`): one attributed list of what the AI and people did. `logActivity(entry, undo?)` records; an entry with `undoable` and an undo function gets Undo in the log, the document History panel and toasts (`undoActivity`). Rows: `automation/common/activity-row.tsx`. Every AI action carries a "Why" (evidence), every edit a before → after.
+- **#1 Earned auto-approve** (`use-auto-approve.ts`, `mock-trust.ts`, `rules/auto-approve.tsx`): per vendor + ledger, N approvals in a row with no edits, amount within a band; approved bills wait in Approved (nothing reaches Tally until sync) and can be undone; an edit pauses trust. Inbox strip and held-bill banner in `workspace.tsx`.
+- **#5 History panel** (`automation/common/history-panel.tsx`): History button on every review header.
+- **#2 Bank matching** (`use-bank-matches.ts`, `banking/match-panel.tsx`): exact, multi-invoice, part payment and net-of-TDS (194C 2%) matches; Accept drafts Receipt + TDS Receivable journal and moves the line to Accounting Ready.
+- **#3 Bank rules** (`use-bank-rules.ts`, `banking/rule-prompt.tsx`, `rules/bank-rules.tsx`): "Always do this?" after the 3rd identical manual coding; rule-coded lines still wait for review and cite the rule.
+- **#4 Learned from Tally** (`use-tally-learning.ts`, `automation/learning-sheet.tsx`, `rules/tally-learning.tsx`): read-only history read, summary, resolve split vendors. `learnedEvidence(company, vendor)` returns "Freight Inward · 38 of 40 past bills".
+- **#6 Upload cleanup** (`automation/common/cleanup-steps.tsx`): cleanup panel before mapping on the sales Excel upload and the GST purchase-register upload.
+
 ## GST Reconciliation reads like the other modules (8 Oct 2026)
 
 User: "clean up GST Recon and make it polished as well, to have the same clarity of other modules". The user chose the name "GST Reconciliation" and a compact summary strip on Summary only.
