@@ -7,6 +7,7 @@ import type { CostAllocation } from "@/config/pages/inbox/mock-cost-centres";
 import type { InboxItem } from "@/types/pages/inbox";
 import { mockAutoApprovalBills } from "@/config/pages/inbox/mock-trust";
 import { AI_DOCUMENTS } from "@/config/pages/inbox/mock-ai-documents";
+import { MOCK_CUSTOMER_PO } from "@/config/pages/inbox/mock-purchase-order";
 import { runComplianceChecks } from "@/hooks/pages/inbox/use-compliance";
 import { logActivity } from "@/hooks/pages/inbox/use-activity";
 import {
@@ -782,7 +783,18 @@ function withAiDocuments(base: State): State {
     }
     return item;
   });
-  return { ...base, items: [...items, ...base.items] };
+  const po = itemFromMock(MOCK_CUSTOMER_PO, 1500);
+  po.reason = "Customer purchase order — raised as a draft sales invoice";
+  po.form.narration =
+    "Customer PO RRL/KA/2610/1042 · Sales — Local (GST) from coding history";
+  po.preparedBy = { agent: "Neo", runId: "po-intake", onBehalfOf: actor };
+  return {
+    ...base,
+    startedCompanies: [
+      ...new Set([...(base.startedCompanies || []), "shakun", "acme"]),
+    ],
+    items: [po, ...items, ...base.items],
+  };
 }
 let state: State = seed();
 const server = state;

@@ -76,7 +76,10 @@ export const savePolicies = (company: string, next: PolicyRule[]) => {
       undoable: true,
     },
     () => {
-      rules = before;
+      rules = [
+        ...rules.filter((r) => !next.some((n) => n.id === r.id)),
+        ...before.filter((r) => next.some((n) => n.id === r.id)),
+      ];
       emit();
     }
   );
@@ -99,6 +102,7 @@ export const applyPolicyPrediction = (id: string) => {
   if (!item || item.status !== "Needs Review") return;
   const rule = policyFor(item);
   if (!rule) return;
+  if (item.form.lines.every((l) => l.ledger === rule.action.ledger)) return;
   const before = structuredClone(item.form);
   update(id, {
     form: {
@@ -122,6 +126,8 @@ export const applyPolicyPrediction = (id: string) => {
       const now = getState().items.find((x) => x.id === id);
       if (now?.status !== "Needs Review")
         throw new Error("The bill was approved");
+      if (!now.form.lines.every((l) => l.ledger === rule.action.ledger))
+        throw new Error("The bill was edited after this prediction");
       update(id, { form: before });
     }
   );

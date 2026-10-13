@@ -1,5 +1,9 @@
 [
   {
+    "find": "  customers:[\n",
+    "replace": "  customers:[\n    {id:'v-reliance-retail',name:'Reliance Retail Ltd',group:'Karnataka',gstin:'29AAACR7342J1Z3',pan:'AAACR7342J',state:'KA',credit:30,ledger:'led-sales-local',treatment:'registered',deductee:'company',address:'Whitefield, Bengaluru, Karnataka 560066',fyGoods:3200000,fyServices:0},\n"
+  },
+  {
     "find": "   the one row in the column with four marks on it and the one row that\n   wrapped; both moved into the pencil's popover, where there is room to say\n   what they meant. A settled value is drawn as a settled value. */\n.hsn__flag{flex:none;display:inline-flex;color:var(--warning)}\n\n/* ------------------------------------------------------- prediction in-cell\n",
     "replace": "   the one row in the column with four marks on it and the one row that\n   wrapped; both moved into the pencil's popover, where there is room to say\n   what they meant. A settled value is drawn as a settled value. */\n.hsn__input.is-pred{border-bottom-color:var(--brand-soft);border-bottom-style:dashed;color:var(--brand-deep)}\n.hsn__flag{flex:none;display:inline-flex;color:var(--warning)}\n\n/* ------------------------------------------------------- prediction in-cell\n"
   },

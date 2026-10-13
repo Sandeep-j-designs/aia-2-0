@@ -136,6 +136,7 @@ import {
 } from "./table-sizing";
 import { ApprovedDetails, RecordBanner } from "./record-details";
 import CompliancePage from "@/components/inbox/v2/automation/compliance-page";
+import Dashboard from "@/components/inbox/v2/dashboard";
 import {
   runComplianceChecks,
   useCompliance,
@@ -1399,6 +1400,7 @@ export default function Workspace() {
   */
   const bankModule = router.query.module === "BANK";
   const checksModule = router.query.module === "CHECKS";
+  const dashboardModule = router.query.module === "DASH";
   useEffect(() => {
     setNeoSelection(selected);
   }, [selected]);
@@ -2188,21 +2190,23 @@ export default function Workspace() {
   };
   const navId = notificationsPage
     ? "notifications"
-    : checksModule
-      ? "checks"
-      : autoModule
-        ? autoView.page
-        : gstModule
-          ? "gst"
-          : coaModule
-            ? "chart-of-accounts"
-            : inventoryModule
-              ? "inventory"
-              : bankModule
-                ? "banking"
-                : moduleRoute
-                  ? ROUTE_TO_NAV[moduleRoute]
-                  : "inbox";
+    : dashboardModule
+      ? "dashboard"
+      : checksModule
+        ? "checks"
+        : autoModule
+          ? autoView.page
+          : gstModule
+            ? "gst"
+            : coaModule
+              ? "chart-of-accounts"
+              : inventoryModule
+                ? "inventory"
+                : bankModule
+                  ? "banking"
+                  : moduleRoute
+                    ? ROUTE_TO_NAV[moduleRoute]
+                    : "inbox";
   const selectNav = (navItemId: string) => {
     if (navItemId === "checks") {
       void router.push("/inbox?module=CHECKS");
@@ -2214,7 +2218,7 @@ export default function Workspace() {
       return;
     }
     if (navItemId === "dashboard") {
-      setDialog("dashboard");
+      void router.push("/inbox?module=DASH");
       return;
     }
     if (navItemId === "gst") {
@@ -3898,6 +3902,8 @@ export default function Workspace() {
               companyId={state.company}
               companyIds={state.companies.map((c) => c.id)}
             />
+          ) : dashboardModule ? (
+            <Dashboard key={state.company} company={state.company} />
           ) : checksModule ? (
             <CompliancePage key={state.company} company={state.company} />
           ) : autoModule ? (
@@ -6960,63 +6966,6 @@ export default function Workspace() {
             ? "They are removed from the Inbox. This can’t be undone."
             : "It is removed from the Inbox. This can’t be undone."}
         </p>
-      </PageDialog>
-      <PageDialog
-        open={dialog === "dashboard"}
-        title="Launch dashboard"
-        description="Local prototype metrics; extraction latency and query performance need production measurement."
-        onClose={() => setDialog("")}
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {routes.map((r) => {
-            const approved = all.filter(
-              (x) => x.status === "Approved" && x.route === r
-            );
-            return (
-              <div
-                className="rounded-lg border border-neutral-gray bg-section p-5"
-                key={r}
-              >
-                <h2 className={T.section}>{routeNames[r]}</h2>
-                <p className="mt-2 text-lg font-bold tabular-nums text-foreground">
-                  {approved.length}{" "}
-                  <span className={cn(T.sub, "font-normal")}>approved</span>
-                </p>
-                <p className={T.sub}>
-                  {approved.length
-                    ? Math.round(
-                        (approved.filter((x) => x.route === x.aiRoute).length /
-                          approved.length) *
-                          100
-                      )
-                    : 0}
-                  % route acceptance
-                </p>
-              </div>
-            );
-          })}
-        </div>
-        <dl className="mt-5 space-y-2">
-          <Stat label="Permission redirects">
-            {all.filter((x) => x.aiRoute !== x.topChoice).length}
-          </Stat>
-          <Stat label="First-attempt approvals">
-            {
-              all.filter((x) => x.status === "Approved" && x.firstAttempt)
-                .length
-            }
-          </Stat>
-          <Stat label="Channel mix">
-            {["email", "whatsapp", "upload"]
-              .map((s) => `${s}: ${all.filter((x) => x.source === s).length}`)
-              .join(" · ")}
-          </Stat>
-        </dl>
-        <div className="mt-5">
-          <Button variant="outline" onClick={() => setDialog("audit")}>
-            Inspect bulk and recovery events
-          </Button>
-        </div>
       </PageDialog>
     </>
   );

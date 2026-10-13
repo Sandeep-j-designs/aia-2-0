@@ -31,7 +31,6 @@ User asked to bring Campfire-style AI features into AIA, in three phases, with a
 - **#4 Learned from Tally** (`use-tally-learning.ts`, `automation/learning-sheet.tsx`, `rules/tally-learning.tsx`): read-only history read, summary, resolve split vendors. `learnedEvidence(company, vendor)` returns "Freight Inward · 38 of 40 past bills".
 - **#6 Upload cleanup** (`automation/common/cleanup-steps.tsx`): cleanup panel before mapping on the sales Excel upload and the GST purchase-register upload.
 
-## GST Reconciliation reads like the other modules (8 Oct 2026)
 ## AI features Phase 2 — Neo port (13 Oct 2026)
 
 Neo is mounted globally through `pages/_app.tsx`, with the reference panel, runtime, four action tiers, task cards, keyboard controls and live intake task from AIA-Experiment. Store adapters use the existing AIA 2.0 mutations. Drafts carry `preparedBy` and activity entries; drafts and edits can be undone until approval. Evidence replaces confidence in approval and triage. New tasks compute freight movement and Q2 ITC risk, and review each Mahindra ledger change separately. Reference screenshots are in `shots/ai-features/`.
@@ -56,6 +55,26 @@ Deliberate port adaptations: in-house icons, live company lookup, Precision Indi
 ## AI features Phase 2 — WhatsApp (13 Oct 2026)
 
 `?module=AUTO&page=whatsapp` shows registered numbers and read-only permissions, switches, a conversation preview and unknown-sender refusal. Freight and overdue answers share Inbox records; GST reads current reconciliation and an output-tax mock. The answer explicitly describes available reconciled records, as the baseline GST seed is not a complete September return. No approval, edit or posting is allowed from WhatsApp. Every question and answer is logged.
+
+## AI features Phase 3 — Dashboard and forecast (13 Oct 2026)
+
+`?module=DASH` replaces the launch dialog. Typed monthly MIS records drive KPIs, margin arithmetic, token-coloured Recharts, CSV export and source-record drilldown. Shakunthalam's gross margin is 14.2% in August and 11.8% in September. Freight uses the same underlying bills as Neo and WhatsApp; overdue values use Collections' outstanding balances. The 390px layout wraps header actions and stacks panels. Fixed-rule calculations have no AI mark, following the existing AI-mark rule; reasons and formulas are visible instead.
+
+The ten-week cash forecast starts from typed bank balances exported by `use-banking.ts`. Scheduled flows use approved unpaid future-due documents, including bank-match outstanding balances. Estimates are explicitly labelled demo recurring assumptions, not a claim of a trained model. Notes parse amounts/dates and affect only estimates (₹4L on 1 Nov subtracts exactly ₹4,00,000); History can undo them. No voucher is posted. MIS source records are aggregate ledger totals, not a complete Tally voucher import. GST continues to use the existing limited reconciliation dataset.
+
+## AI features Phase 3 — Collections (13 Oct 2026)
+
+Sales' Overdue tab uses approved invoices, date arithmetic anchored to 13 Oct 2026 and Phase 1 bank-match remaining amounts where available. Sahyadri's three invoices total ₹7,40,000; Bharat Forge SPW/26-27/091 is ₹4,10,000 and 74 days overdue. Individual and bulk drafting opens Neo. Message edits are preserved verbatim; only Send (simulated) adds the reminder and person-attributed History entry. Nothing leaves the prototype. The same helper powers Dashboard and WhatsApp.
+
+## AI features Phase 3 — Year-end provisions (13 Oct 2026)
+
+Journals offers FY 25–26 estimates and source schedules, editable amounts/ledgers, and separate optional 1 Apr reversals. Neo exposes the same preparation service. Four groups create seven balanced Needs Review journals with `preparedBy`, not approved vouchers. Audit fee arithmetic is ₹1,65,000 × 1.09 = ₹1,79,850; tax WDV uses general machinery 15% under IT Rules Appendix I, explicitly not Companies Act book depreciation. Source schedules/engagement evidence are bundled read-only demo records. Marks disappear after manual edits. Individual/group undo refuses changed or approved drafts.
+
+## AI features Phase 3 — Invoice from PO (13 Oct 2026)
+
+Shakunthalam's WhatsApp intake includes Reliance PO RRL/KA/2610/1042. A source facsimile is used, with Reliance as issuer and Shakunthalam as supplier; no document image was generated. Customer matches the AR engine master, stock matches its existing 15 L sunflower-oil item, PO reference reaches Customer PO no., and the sales ledger is the existing Local GST ledger. 100 × ₹2,150 = ₹2,15,000; HSN 151219, CGST/SGST ₹5,375 each, total ₹2,25,750. The normal AR review/approval flow is preserved. Neo opens the existing draft rather than duplicating it; Sahyadri has an honest no-PO state. `public/ar/index.html` is rebuilt into `sheet.js` and the version stamp; keep the added Reliance master when syncing upstream.
+
+Validation: production build and TypeScript pass; calculation tests cover shared amounts, forecast notes, balanced drafts/reversals and undo; browser tests cover both organisations, editable collection send, policies/checks/schedules, Neo diffs, the mobile dashboard and PO review. Reviewed screenshots are in `shots/ai-features/`. Existing `tests/inbox-v2.test.cjs` has an outdated standalone module loader (`date-fns.ts`) and old assertion wording; it is unchanged. No dependency was added.
 
 ## GST Reconciliation reads like the other modules (8 Oct 2026)
 

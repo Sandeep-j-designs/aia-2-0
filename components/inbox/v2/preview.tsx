@@ -602,6 +602,10 @@ const Facsimile = ({ item }: { item: Item }) => {
     : us;
 
   const doc = bill || invoice;
+  const issuer = invoice?.customerPoNo
+    ? { ...buyer, pan: buyer.gstin.slice(2, 12) }
+    : seller;
+  const recipient = invoice?.customerPoNo ? seller : buyer;
   const lines: (PrintedLine & { desc: string; amount: number })[] =
     doc?.items ||
     item.form.lines
@@ -625,7 +629,10 @@ const Facsimile = ({ item }: { item: Item }) => {
   const grand =
     doc?.grandTotal ?? subTotal + taxRows.reduce((sum, [, v]) => sum + v, 0);
   const number =
-    bill?.supplierInvoiceNo || invoice?.invoiceNo || item.form.invoiceNo;
+    invoice?.customerPoNo ||
+    bill?.supplierInvoiceNo ||
+    invoice?.invoiceNo ||
+    item.form.invoiceNo;
   const date = bill?.billDate || invoice?.invoiceDate || item.form.date;
   // Where the goods or services were received — the buyer's state.
   const place = STATE_BY_CODE[buyer.gstin.slice(0, 2)] || own.state || "—";
@@ -634,30 +641,34 @@ const Facsimile = ({ item }: { item: Item }) => {
     <article className={cn(s.paper, s.inv)}>
       <div className={s.head}>
         <div>
-          <h3>{seller.name}</h3>
-          <div>{seller.address}</div>
+          <h3>{issuer.name}</h3>
+          <div>{issuer.address}</div>
           <div>
-            GSTIN: {seller.gstin} · PAN: {seller.pan}
+            GSTIN: {issuer.gstin} · PAN: {issuer.pan}
           </div>
         </div>
         <div className={s.title}>
-          TAX
+          {invoice?.customerPoNo ? "PURCHASE" : "TAX"}
           <br />
-          INVOICE
+          {invoice?.customerPoNo ? "ORDER" : "INVOICE"}
         </div>
       </div>
       <div className={s.parties}>
         <div>
-          <div className={s.k}>Billed to</div>
-          <strong>{buyer.name}</strong>
-          {buyer.address && <div>{buyer.address}</div>}
-          {buyer.gstin && <div>GSTIN: {buyer.gstin}</div>}
+          <div className={s.k}>
+            {invoice?.customerPoNo ? "Order to" : "Billed to"}
+          </div>
+          <strong>{recipient.name}</strong>
+          {recipient.address && <div>{recipient.address}</div>}
+          {recipient.gstin && <div>GSTIN: {recipient.gstin}</div>}
         </div>
         <div>
-          <div className={s.k}>Invoice no.</div>
+          <div className={s.k}>
+            {invoice?.customerPoNo ? "Customer PO no." : "Invoice no."}
+          </div>
           <strong>{number || "—"}</strong>
           <div className={s.k} style={{ marginTop: 6 }}>
-            Invoice date
+            {invoice?.customerPoNo ? "Order date" : "Invoice date"}
           </div>
           <strong>{printedDate(date) || "—"}</strong>
           <div className={s.k} style={{ marginTop: 6 }}>

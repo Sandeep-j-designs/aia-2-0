@@ -1,4 +1,8 @@
 import React, { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
+import Collections from "@/components/inbox/v2/collections";
+import Provisions from "@/components/inbox/v2/provisions";
+import { overdueInvoices } from "@/utils/pages/inbox/ai-calculations";
 import {
   ChevronLeft,
   ChevronRight,
@@ -312,6 +316,7 @@ const REGISTER_COPY: Record<
     // way in, opened into the review form from here.
     tabs: [
       { id: "all", label: "All Invoices" },
+      { id: "overdue", label: "Overdue" },
       { id: "review", label: "Needs Review" },
       { id: "uploads", label: "Uploaded Invoice" },
     ],
@@ -371,11 +376,13 @@ export const countOf = (n: number, noun: string) =>
   plus Duplicate for the same book.
 */
 export const tabRows = (tab: string, items: Item[]) =>
-  tab === "review"
-    ? items.filter((x) => ["Needs Review", "Duplicate"].includes(x.status))
-    : tab === "uploads"
-      ? items.filter((x) => x.source === "upload" && x.status !== "Deleted")
-      : items.filter((x) => x.status === "Approved");
+  tab === "overdue"
+    ? overdueInvoices(items, items[0]?.company || "").map((x) => x.item)
+    : tab === "review"
+      ? items.filter((x) => ["Needs Review", "Duplicate"].includes(x.status))
+      : tab === "uploads"
+        ? items.filter((x) => x.source === "upload" && x.status !== "Deleted")
+        : items.filter((x) => x.status === "Approved");
 
 const Register = ({
   route,
@@ -401,6 +408,7 @@ const Register = ({
   pageSizes,
   children,
 }: RegisterProps) => {
+  const router = useRouter();
   const copy = REGISTER_COPY[route];
   const journal = route === "JV";
   const [tab, setTab] = useState(
@@ -628,7 +636,9 @@ const Register = ({
   const activeFilters: ActiveFilter[] = [
     ...(search.trim() ? [{ label: `Search: “${search.trim()}”` }] : []),
     ...(filters.party ? [{ label: `${copy.party}: ${filters.party}` }] : []),
-    ...(filters.from || filters.to ? [{ label: `${copy.dateLabel} range` }] : []),
+    ...(filters.from || filters.to
+      ? [{ label: `${copy.dateLabel} range` }]
+      : []),
     ...(filters.min || filters.max ? [{ label: "Amount range" }] : []),
   ];
   const tabCount = (id: string) =>
@@ -682,6 +692,14 @@ const Register = ({
                           data-state={tab === entry.id ? "active" : "inactive"}
                           onClick={() => {
                             setTab(entry.id);
+                            void router.replace(
+                              {
+                                pathname: "/inbox",
+                                query: { ...router.query, tab: entry.id },
+                              },
+                              undefined,
+                              { shallow: true, scroll: false }
+                            );
                             setPage(0);
                             onSelectedChange([]);
                           }}
@@ -703,6 +721,9 @@ const Register = ({
                 secondaryIcon={Plus}
                 onSecondaryButtonClick={onCreate}
                 primaryText={copy.upload}
+                leadingActions={
+                  journal ? <Provisions company={company} /> : undefined
+                }
                 primaryIcon={Upload}
                 onPrimaryButtonClick={() =>
                   onUpload ? onUpload() : onUnbuilt(copy.upload as string)
@@ -832,7 +853,20 @@ const Register = ({
 
           {/* The table, edge to edge: no card and no scroll of its own. */}
           <div className="table-region flex min-w-0 flex-1 flex-col bg-background">
-            {batchTab ? (
+            {route === "AR" && tab === "overdue" ? (
+              <Collections
+                company={company}
+                search={search}
+                pageIds={pageRows.map((x) => x.id)}
+                onOpen={(item) =>
+                  onOpen(
+                    item,
+                    rows.map((x) => x.id),
+                    "overdue"
+                  )
+                }
+              />
+            ) : batchTab ? (
               <UploadedInvoicesTable
                 company={company}
                 search={search}

@@ -24,8 +24,8 @@ const NeoLauncher = ({ className }: Props) => {
       onClick={() => neo.setOpen(!neo.open)}
       className={cn(
         "flex h-8 shrink-0 items-center gap-2 rounded-lg px-1.5 text-label-2 font-normal transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-topnav-text",
-        neo.open && "bg-surface-muted",
-        className
+        className,
+        neo.open && "bg-pi-brand-tint text-pi-brand"
       )}
     >
       <NeoMark

@@ -81,5 +81,6 @@ export const MOCK_NEO_REGISTRATIONS: Record<
   { state: string; stateCode: string }
 > = {
   "Karnataka HQ": { state: "Karnataka", stateCode: "29" },
+  "Pune HQ": { state: "Maharashtra", stateCode: "27" },
   "Maharashtra Branch": { state: "Maharashtra", stateCode: "27" },
 };

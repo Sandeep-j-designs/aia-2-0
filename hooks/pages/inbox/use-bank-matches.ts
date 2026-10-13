@@ -352,6 +352,17 @@ const offerable = (txn: BankTransaction, state: MatchState) =>
 export const useBankMatches = (
   company: string,
   transactions: BankTransaction[]
+) => useBankMatchesInternal(company, transactions);
+export const getOpenDocuments = (company: string) => read(company).docs;
+export const useOpenDocuments = (company: string) =>
+  useSyncExternalStore(
+    subscribe,
+    () => read(company),
+    () => read(company)
+  ).docs;
+const useBankMatchesInternal = (
+  company: string,
+  transactions: BankTransaction[]
 ) => {
   const state = useSyncExternalStore(
     subscribe,

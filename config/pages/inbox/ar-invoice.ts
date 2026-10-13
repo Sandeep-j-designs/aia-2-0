@@ -40,6 +40,7 @@ export type ArSeedLine = {
 };
 
 export type ArSeedDocument = {
+  customerPoNo?: string;
   /** The voucher type by name ("Sales", "Credit Note"…); the sheet maps it. */
   voucherType?: string;
   customerName: string;
@@ -98,6 +99,7 @@ export const arDocumentFor = (item: Item): ArSeedDocument | null => {
       undo that.
     */
     voucherType: item.form.voucherType,
+    customerPoNo: invoice.customerPoNo || "",
     customerName: item.form.party || invoice.customer,
     customerGstin: printed?.gstin || "",
     customerPan: printed?.gstin.slice(2, 12) || "",

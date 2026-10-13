@@ -22,6 +22,7 @@ const FeaturePage = ({
     <div className="px-[var(--inset-page)] pt-6">
       <PageTopBar
         title={title}
+        className="flex-wrap gap-4"
         leading={
           <div
             className="flex gap-6 border-b border-pi-line"

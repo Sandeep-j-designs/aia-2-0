@@ -8,6 +8,9 @@ import liveRun from "./live-run";
 import reledger from "./reledger";
 import salesFromPurchase from "./sales-from-purchase";
 import triage from "./triage";
+import collections from "@/config/pages/neo/tasks/collections";
+import provisions from "@/config/pages/neo/tasks/provisions";
+import invoiceFromPo from "@/config/pages/neo/tasks/invoice-from-po";
 import {
   freightInsight,
   itcInsight,
@@ -22,6 +25,9 @@ import {
  * definitions and this file is deleted.
  */
 export const NEO_TASKS: NeoTask[] = [
+  collections,
+  provisions,
+  invoiceFromPo,
   freightInsight,
   itcInsight,
   mahindraReledger,

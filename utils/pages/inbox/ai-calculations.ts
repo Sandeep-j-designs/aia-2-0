@@ -1,4 +1,5 @@
 import type { Item } from "@/components/inbox/v2/store";
+import { getOpenDocuments } from "@/hooks/pages/inbox/use-bank-matches";
 import type { InvoiceViewRow } from "@/types/pages/inbox/gst";
 export const DEMO_TODAY = new Date("2026-10-13T00:00:00+05:30");
 export const rupees = (n: number) =>
@@ -16,11 +17,14 @@ export const overdueInvoices = (items: Item[], company: string) =>
       item,
       days: Math.max(
         0,
-        Math.floor((+DEMO_TODAY - +new Date(item.form.due)) / 86400000)
+        Math.round((+DEMO_TODAY - +new Date(item.form.due)) / 86400000)
       ),
-      outstanding: item.amount,
+      outstanding:
+        getOpenDocuments(company).find(
+          (d) => d.id === item.id || d.number === item.form.invoiceNo
+        )?.outstanding ?? item.amount,
     }))
-    .filter((x) => x.days > 0);
+    .filter((x) => x.days > 0 && x.outstanding > 0);
 export const itcRisk = (rows: InvoiceViewRow[]) => {
   const missing = rows.filter((r) => r.matchType === "missing_in_2b");
   const probable = rows.filter((r) => r.matchType === "ai_probable_match");

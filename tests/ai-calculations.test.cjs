@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),vm=require('node:vm');
+const root=path.resolve(__dirname,'..'),cache=new Map();
+const context={structuredClone,Date,console,crypto:require('node:crypto').webcrypto,setTimeout(){return 1},window:{dispatchEvent(){}},localStorage:{getItem(){return null},setItem(){}},CustomEvent:class{}};
+function load(file){if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);const js=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const req=n=>n==='react'?{useSyncExternalStore(){}}:n.startsWith('@/')?load(path.join(root,n.slice(2)+'.ts')):require(n);vm.runInNewContext('(function(require,exports){'+js+'\n})',context)(req,exports);return exports;}
+const mod=f=>load(path.join(root,f+'.ts'));
+const store=mod('components/inbox/v2/store'),calc=mod('utils/pages/inbox/ai-calculations'),dash=mod('hooks/pages/inbox/use-dashboard'),provisions=mod('hooks/pages/inbox/use-provisions');
+store.applyScenario('whatsapp');
+const state=store.getState();const overdue=calc.overdueInvoices(state.items,'acme');assert.equal(overdue.length,3);assert.equal(overdue.reduce((n,x)=>n+x.outstanding,0),740000);assert.equal(overdue.find(x=>x.item.form.party==='Bharat Forge Ltd').days,74);
+const freight=calc.freightSummary(state.items,'shakun');assert.equal(freight.august,210000);assert.equal(freight.september,340000);
+const report=dash.getDashboard('shakun');assert.equal(dash.dashboardMetrics(report,'2026-08').margin,14.2);assert.equal(dash.dashboardMetrics(report,'2026-09').margin,11.799999999999999);
+const before=dash.cashForecast('shakun');dash.addForecastNote('shakun','Paying ₹4L advance to SKF on 1 Nov');const after=dash.cashForecast('shakun');assert.equal(before.weeks[2].estimated-after.weeks[2].estimated,400000);assert.equal(before.weeks[2].scheduled,after.weeks[2].scheduled);assert.equal(dash.cashForecast('acme').actual,1280000);
+const lines=provisions.suggestProvisions('shakun');assert.equal(lines[0].amount,1800000);assert.equal(lines.find(x=>x.group==='Audit fee').amount,179850);const created=provisions.createProvisionDrafts('shakun',lines,'unit-test');assert.equal(created.length,7);for(const x of created){assert.equal(x.status,'Needs Review');assert.equal(x.preparedBy.agent,'Neo');assert.equal(x.form.lines.reduce((n,l)=>n+l.dr-l.cr,0),0);}assert.equal(created.filter(x=>x.form.date==='2026-04-01').length,3);
+const reversed=store.neoDiscard(created,'unit-test');assert.equal(reversed.reversed.length,7);
+const po=store.getState().items.find(x=>x.id==='PO-RELIANCE-1042');assert.equal(po.amount,225750);assert.equal(po.original.invoice.items[0].qty*po.original.invoice.items[0].rate,215000);assert.equal(po.original.invoice.taxes.cgst+po.original.invoice.taxes.sgst,10750);
+console.log('PASS: shared overdue balances and dates, freight, margins, isolated forecast adjustment, 7 balanced provision/reversal drafts and undo, PO arithmetic.');

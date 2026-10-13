@@ -167,7 +167,11 @@ export const resolveCompliance = (
             if (!result.reversed.length)
               throw new Error("Journal was changed or approved");
           }
-          issues = before;
+          issues = issues.map((x) =>
+            x.id === issue.id
+              ? before.find((prior) => prior.id === issue.id)!
+              : x
+          );
           emit();
         }
       : undefined

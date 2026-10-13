@@ -131,6 +131,7 @@ export type InvoiceLine = {
 } & PrintedLine;
 
 export type InboxInvoice = {
+  customerPoNo?: string;
   voucherNo: string;
   /** OUR invoice number. The vendor's equivalent is `supplierInvoiceNo`. */
   invoiceNo: string;

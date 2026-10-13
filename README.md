@@ -19,6 +19,11 @@ Ported from the original single-file prototype, which is preserved unchanged in
 signed off.
 
 ## Screens
+Phase 3: Dashboard `/inbox?module=DASH` (including forecast and CSV MIS),
+Collections `/inbox?module=AR&tab=overdue`, provision suggestions in
+`/inbox?module=JV`, and customer PO `/inbox?id=PO-RELIANCE-1042`.
+The default WhatsApp demo includes both organisations; refresh resets demo actions.
+
 Phase 2 AI screens: `/inbox?module=CHECKS`, `/inbox?module=AUTO&page=policy`,
 `/inbox?module=AUTO&page=playbooks` (Schedules at `&tab=schedules`), and
 `/inbox?module=AUTO&page=whatsapp`. Neo opens from the top bar or Ctrl J.
@@ -39,6 +44,23 @@ New API seams: `POST /api/neo/runs` (streamed task events),
 (`AgentSchedule[]`), `GET /api/whatsapp/numbers` (`WhatsAppNumber[]`) and
 `POST /api/neo/whatsapp/inbound`. All external sends and schedule runs are
 simulated locally. See dated CLAUDE.md sections for data and port adaptations.
+
+Phase 3 handoff adds `components/inbox/v2/dashboard/`, `collections.tsx`,
+`provisions.tsx`, their `hooks/pages/inbox/use-*` hooks, typed dashboard and
+provision mocks, and three Neo tasks. API seams:
+`GET /api/dashboard/overview?companyUuid=…&period=…` (`DashboardOverview`),
+`GET /api/dashboard/overview/cash-on-accounts`, `GET /api/dashboard/cash-forecast`,
+`POST /api/dashboard/cash-forecast/notes` (`ForecastNote`),
+`POST /api/receivables/:invoiceId/reminders`, `GET /api/fixed-assets`
+(`FixedAsset[]`), `POST /api/journals/provisions/suggest` (`Provision[]`).
+The PO uses the existing extraction and AR review contract, including
+`customerPoNo`; the AR engine adds one customer master and is rebuilt with
+`node scripts/build-ar-sheet.cjs`. Preserve that master if re-importing upstream.
+
+Validation added: `node tests/ai-calculations.test.cjs`,
+`node tests/ai-features-browser.cjs`, and `node tests/ai-phase3-browser.cjs`.
+Browser scripts use local Chrome, port 3001 and the existing temporary
+Playwright install. Screenshots: `shots/ai-features/`.
 
 
 | Route         | Screen                                                     | Source                               |

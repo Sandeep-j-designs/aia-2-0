@@ -1,4 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react";
+import { MOCK_BANK_BALANCES } from "@/config/pages/inbox/mock-bank-balances";
 import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import {
   EXTRACTED_ROWS,
@@ -94,6 +95,9 @@ const patchTransactions = (
   });
 
 export const getBankingState = read;
+// DEV: GET /api/dashboard/overview/cash-on-accounts?companyUuid=… supplies statement closing balances.
+export const bankBalances = (company: string) =>
+  MOCK_BANK_BALANCES.filter((b) => b.company === company);
 export const bankingActions = {
   /** DEV: PATCH /api/bank/inline-edit?companyId=…&bankLineUuid=… */
   updateTransaction: (

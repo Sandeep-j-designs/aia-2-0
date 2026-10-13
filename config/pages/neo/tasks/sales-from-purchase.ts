@@ -220,7 +220,7 @@ const salesFromPurchase: NeoTask = {
     const rate = Number(
       await api.ask(
         `Confirm one GST rate for all resale lines${suggestedRate !== undefined ? ` (purchase suggests ${suggestedRate}%)` : " (purchase rate could not be established)"}. Mixed rates need manual review.`,
-        [0, 5, 12, 18, 28].map((n) => ({ id: String(n), label: `${n}%` }))
+        [0, 5, 18, 40].map((n) => ({ id: String(n), label: `${n}%` }))
       )
     );
     let placeOfSupply: string | undefined;
