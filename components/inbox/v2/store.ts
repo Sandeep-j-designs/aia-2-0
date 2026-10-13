@@ -3,6 +3,7 @@ import {
   MOCK_INBOX_ITEMS,
   SAHYADRI_FIRST_BILL,
 } from "@/config/pages/inbox/mock-inbox";
+import type { CostAllocation } from "@/config/pages/inbox/mock-cost-centres";
 import type { InboxItem } from "@/types/pages/inbox";
 import type { UserCompany } from "@/types/pages/organisation";
 import {
@@ -92,16 +93,23 @@ export type Form = {
   /** Due Date on a bill; Reference Date on a journal, where it is optional. */
   due: string;
   party: string;
+  /**
+   * The header's cost centre answer, as Tally and production model it: a
+   * class OR one cost centre for the whole voucher, never both. `costMode` is
+   * which one the header's switch points at; it survives its picker being
+   * empty. Either value set clears and locks every line's own cost centre.
+   * Both hold names (see config/pages/inbox/mock-cost-centres).
+   */
+  costMode: "class" | "centre";
   costClass: string;
   costCentre: string;
   /**
-   * Whether the journal's Cost Centre Class picker is on.
-   *
-   * Separate from `costClass` holding a value, because the switch is a
-   * statement about the voucher and survives the picker being empty — turning
-   * it off drops the class without touching allocations already made on lines.
+   * The party line's own cost centre (vendor on a bill, customer on an
+   * invoice). Only a party whose ledger has "Cost centres are applicable" on
+   * carries one; the sheet sends it, the record shows it.
    */
-  costClassEnabled: boolean;
+  partyCostCentre?: string;
+  partyCostAllocation?: CostAllocation | null;
   narration: string;
   lines: {
     description: string;
@@ -109,9 +117,29 @@ export type Form = {
     amount: number;
     dr: number;
     cr: number;
-    /** The journal's Allocation column — a cost centre name, or "". */
+    /** One cost centre for the whole line — a name, or "". */
     costCentre: string;
+    /**
+     * A split across centres, per category, when one centre is not the whole
+     * answer. Mutually exclusive with `costCentre`: the split wins.
+     */
+    costAllocation?: CostAllocation | null;
+    /** Stock lines only: the godown the goods land in — a name, or "". */
+    godown?: string;
+    /**
+     * A split across godowns, by quantity at the line's rate. Mutually
+     * exclusive with `godown`: the split wins. Quantities total the line's.
+     */
+    godownAllocation?: GodownAllocation[] | null;
   }[];
+};
+
+/** One godown's share of a stock line. */
+export type GodownAllocation = {
+  godown: string;
+  qty: number;
+  unit?: string;
+  amount: number;
 };
 export type Item = {
   id: string;
@@ -222,6 +250,14 @@ type State = {
   /** Which first-visit story the prototype is telling. See `Scenario`. */
   scenario?: Scenario;
   queue: string[];
+  /**
+   * The list `queue` was taken from: "inbox:<tab>" or "<route>:<tab>" (a
+   * register's tab, e.g. "AR:review"). The review screen names it on its
+   * counter, and Back and the end of the queue return to it. A document
+   * opened from anywhere else (a link, a notice) is not in the queue, and
+   * its way back is the Inbox.
+   */
+  queueFrom?: string;
   emailSuffix: Record<string, string>;
   waCompany: string;
   /**
@@ -275,9 +311,9 @@ export const blankForm = (): Form => ({
   date: "",
   due: "",
   party: "",
+  costMode: "class",
   costClass: "",
   costCentre: "",
-  costClassEnabled: false,
   narration: "",
   lines: [],
 });
@@ -385,8 +421,9 @@ function seed(): State {
       voucherNo: b?.voucherNo || inv?.voucherNo || `${route}-${n + 101}`,
       // Whose number this is depends on which way the invoice points: the
       // vendor's on a bill, ours on a sales invoice.
-      invoiceNo: b?.supplierInvoiceNo || inv?.invoiceNo || x.id,
-      date: date(b?.billDate || inv?.invoiceDate || "2026-09-10"),
+      invoiceNo:
+        b?.supplierInvoiceNo || inv?.invoiceNo || x.jv?.referenceNo || x.id,
+      date: date(b?.billDate || inv?.invoiceDate || x.jv?.date || "2026-09-10"),
       due: date(b?.dueDate || inv?.dueDate || "2026-10-10"),
       // The counterparty, named from the side the document is read from — a
       // vendor billed us, we billed a customer.
@@ -396,9 +433,11 @@ function seed(): State {
           : x.vendor && x.vendor !== "—"
             ? x.vendor
             : x.customer || "General counterparty",
+      // A document's cost centre is the voucher's one cost centre, so the
+      // header holds a centre rather than a class when there is one.
+      costMode: b?.costCentre || inv?.costCentre ? "centre" : "class",
       costClass: "",
       costCentre: b?.costCentre || inv?.costCentre || "",
-      costClassEnabled: false,
       narration: x.jv?.narration || x.source.subject || "",
       lines,
     };
@@ -1925,7 +1964,9 @@ export function createImportedInvoices(
         ...blankArItem(),
         description: l.description,
         item: l.itemName,
-        costCentre: invoice.costCentre,
+        // The upload's cost centre is the invoice's, so it sits in the header
+        // and the lines stay empty behind it — not copied onto each one.
+        costCentre: "",
         quantity: l.quantity,
         unitRate: l.unitRate,
         amount: l.amount,
@@ -1948,6 +1989,7 @@ export function createImportedInvoices(
       invoiceNo: invoice.referenceNumber,
       date: invoice.invoiceDate,
       party: invoice.customerName,
+      costMode: "centre",
       costCentre: invoice.costCentre,
       lines: deriveLines(arSheet),
     };
@@ -2045,6 +2087,47 @@ export const VOUCHER_GROUPS: {
 export const BULK_VOUCHER_TYPES: readonly string[] = VOUCHER_GROUPS.flatMap(
   (group) => group.types
 );
+/**
+ * The voucher types each review form actually offers, by book (7 Oct 2026).
+ * The header's Voucher type picker lists these: they are the forms' own
+ * lists (the AP/AR engines' `MASTERS.voucherTypes`, the JV's
+ * `JOURNAL_VOUCHER_TYPES`), so whatever the header sets, the form can hold.
+ * The same name can sit in two books ("Debit Note" is a purchase type and a
+ * journal type), so a pick is always a book and a type together.
+ */
+export const FORM_VOUCHER_TYPES: Record<Route, string[]> = {
+  AP: [
+    "Purchase",
+    "Purchase — Import",
+    "Purchase — SEZ",
+    "Purchase — Reverse Charge",
+    "Purchase Return",
+    "Debit Note",
+  ],
+  AR: ["Sales", "Sales — Export", "Sales — SEZ", "Sales Return", "Credit Note"],
+  JV: ["Journal", "Contra", "Debit Note", "Credit Note"],
+};
+
+/**
+ * Set a document's voucher type from the review header. A type in the same
+ * book is a field edit; a type in another book moves the document there
+ * first (the same switch Post as makes) and then lands on that type.
+ */
+export function setVoucherType(id: string, route: Route, type: string) {
+  const x = state.items.find((x) => x.id === id);
+  if (!x) return;
+  if (route !== x.route) switchRoute(id, route);
+  const current = state.items.find((x) => x.id === id) || x;
+  update(
+    id,
+    {
+      form: { ...structuredClone(current.form), voucherType: type },
+      edited: [...new Set([...current.edited, "Voucher Type"])],
+      firstAttempt: false,
+    },
+    "Inbox Voucher Type Changed"
+  );
+}
 export const ROUTE_BY_VOUCHER_TYPE: Record<string, Route> = Object.fromEntries(
   VOUCHER_GROUPS.flatMap((group) =>
     group.types.map((type) => [type, group.route])

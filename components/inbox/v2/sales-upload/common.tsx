@@ -78,7 +78,6 @@ export const FlowHeader = ({
 }) => (
   <div className="flex shrink-0 flex-wrap items-end gap-x-6 gap-y-3 px-[var(--inset-page)] pb-5 pt-6">
     <div className="min-w-0 flex-1">
-      <span className="workspace-eyebrow">Receivables · Upload sales</span>
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="page-title">{title}</h1>
         {fileName ? (

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Info, Sparkles } from "@/components/icons";
+import { Info } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -29,7 +29,15 @@ import {
 } from "@/config/pages/inbox/gst";
 import { MOCK_PR_COLUMN_MAPPING } from "@/config/pages/inbox/mock-gst";
 import type { MappingConfig, Mappings } from "@/types/pages/inbox/gst";
-import { PageDialog, Req, T } from "@/components/inbox/v2/ui";
+import {
+  Field,
+  FieldError,
+  OptionalTag,
+  PageDialog,
+  RequiredNote,
+  T,
+} from "@/components/inbox/v2/ui";
+import { AiMark } from "../ai-mark";
 
 /**
  * Map Your Columns — production's columns-mapping-modal: Header Row and
@@ -114,53 +122,82 @@ const ColumnsMappingModal = ({
       onClose={onClose}
       title="Map Your Columns"
       description={fileName}
-      className="flex max-w-[1024px] flex-col p-0 [&>div:first-child]:border-b [&>div:first-child]:border-pi-line [&>div:first-child]:px-7 [&>div:first-child]:pb-4 [&>div:first-child]:pt-7"
+      className="max-w-[1024px]"
+      footer={
+        <>
+          {/* The disclaimer rides the footer's left edge, the actions its right. */}
+          <p className="mr-auto text-[13px] text-pi-body">
+            <span className="font-medium text-pi-danger">Disclaimer:</span>{" "}
+            Rows/Invoices with 0 tax value are excluded from the reconciliation
+            process
+          </p>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!ready || loading || saving}
+            loading={saving}
+            onClick={() => onSave(mapping)}
+          >
+            Map &amp; import
+          </Button>
+        </>
+      }
     >
-      <div className="flex flex-wrap items-end gap-4 px-7 pb-4 pt-1">
-        <label className="flex flex-col gap-2">
-          <span className={T.label}>Header Row</span>
-          <Select
-            value={String(mapping.headerOffset)}
-            onValueChange={(value) => load(Number(value))}
-            disabled={loading}
+      {/* Form fields (7 Oct 2026): the 38px form box via Field; required is
+          unmarked, the optional mappings say so in the table below. */}
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start gap-x-5 gap-y-4">
+          <Field label="Header Row" className="w-[160px]">
+            <Select
+              value={String(mapping.headerOffset)}
+              onValueChange={(value) => load(Number(value))}
+              disabled={loading}
+            >
+              <SelectTrigger aria-label="Header Row">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {headerRowOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field
+            label="Voucher Type"
+            className="w-[200px]"
+            error={
+              !loading && !mapping.mappings.documentType
+                ? "Choose a voucher type"
+                : undefined
+            }
           >
-            <SelectTrigger aria-label="Header Row" className="h-9 w-[130px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {headerRowOptions.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className={T.label}>
-            Voucher Type <span className="text-pi-danger">*</span>
-          </span>
-          <Select
-            value={mapping.mappings.documentType}
-            onValueChange={(value) => set("documentType", value)}
-            disabled={loading}
-          >
-            <SelectTrigger aria-label="Voucher Type" className="h-9 w-[160px]">
-              <SelectValue placeholder="Select Voucher Type" />
-            </SelectTrigger>
-            <SelectContent>
-              {voucherTypeOptions.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
+            <Select
+              value={mapping.mappings.documentType}
+              onValueChange={(value) => set("documentType", value)}
+              disabled={loading}
+            >
+              <SelectTrigger aria-label="Voucher Type">
+                <SelectValue placeholder="Select Voucher Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {voucherTypeOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <RequiredNote />
       </div>
 
-      <div className="mx-7 max-h-[52vh] min-h-0 overflow-auto overscroll-none rounded-lg border border-pi-line bg-background">
-        <Table className="table-fixed border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line [&_tr:last-child_td]:border-b-0">
+      <div className="max-h-[52vh] min-h-0 overflow-auto overscroll-none rounded-lg border border-pi-line bg-background">
+        <Table className="table-fixed border-separate border-spacing-0 [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line [&_tr:last-child_td]:border-b-0">
           <colgroup>
             <col className="w-[36%]" />
             <col className="w-[64%]" />
@@ -200,8 +237,8 @@ const ColumnsMappingModal = ({
                 <TableRow key={key} className="hover:bg-transparent">
                   <TableCell className={cn("h-14 px-4 align-middle", T.cell)}>
                     <span className="flex items-center gap-2">
-                      {field.isRequired ? <Req /> : null}
                       {field.label}
+                      {field.isRequired ? null : <OptionalTag />}
                       {key === "invoiceAmount" && (
                         <Tooltip
                           align="start"
@@ -272,23 +309,13 @@ const ColumnsMappingModal = ({
                               triggerClassName={cn("h-8 w-[150px]", T.cell)}
                             />
                           )}
-                          <span
-                            className="grid size-4 flex-none place-items-center"
-                            title={fromAi ? "Suggested by AI" : undefined}
-                          >
+                          <span className="grid size-4 flex-none place-items-center">
                             {fromAi && (
-                              <Sparkles
-                                className="size-3.5 text-pi-brand"
-                                aria-label="Suggested by AI"
-                              />
+                              <AiMark reason="matched from the column header and sample values" />
                             )}
                           </span>
                         </div>
-                        {missing ? (
-                          <span className="text-xs text-pi-danger">
-                            Required
-                          </span>
-                        ) : null}
+                        {missing ? <FieldError>Required</FieldError> : null}
                       </div>
                     )}
                   </TableCell>
@@ -297,21 +324,6 @@ const ColumnsMappingModal = ({
             })}
           </TableBody>
         </Table>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 px-7 py-5">
-        <p className="text-[13px] text-pi-body">
-          <span className="font-medium text-pi-danger">Disclaimer:</span>{" "}
-          Rows/Invoices with 0 tax value are excluded from the reconciliation
-          process
-        </p>
-        <Button
-          disabled={!ready || loading || saving}
-          loading={saving}
-          onClick={() => onSave(mapping)}
-        >
-          Map &amp; Import
-        </Button>
       </div>
     </PageDialog>
   );

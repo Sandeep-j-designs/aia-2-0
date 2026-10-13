@@ -3,6 +3,7 @@ import "@/styles/sheet-bridge.css";
 import "@/styles/form-workspace.css";
 import "@/styles/dialog-workspace.css";
 import "@/styles/bill-form.css";
+import "@/styles/bill-refinement.css";
 import type { AppProps } from "next/app";
 import localFont from "next/font/local";
 import { ThemeProvider } from "next-themes";

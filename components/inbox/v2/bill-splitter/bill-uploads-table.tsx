@@ -1,5 +1,12 @@
 import React from "react";
-import { MoreVertical, RotateCcw, Scissors } from "@/components/icons";
+import EmptyState from "../empty-state";
+import {
+  CloudUpload,
+  MoreVertical,
+  RotateCcw,
+  Scissors,
+  Upload as UploadIcon,
+} from "@/components/icons";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,21 +40,47 @@ type Props = {
   onRetry: (packet: SplitPacket) => void;
   onRemove: (packet: SplitPacket) => void;
   onRemoveUpload: (item: Item) => void;
+  /** The register's search, so a miss is said as a miss, not as "nothing". */
+  search?: string;
+  onClearSearch?: () => void;
+  onUpload?: () => void;
 };
 
 const stamp = (iso: string) => format(new Date(iso), "d MMM yyyy, h:mm aaa");
 
 /** The PRD's four packet states, in the words it gives them, as dot-chips. */
-const PacketStatus = ({ packet }: { packet: SplitPacket }) => {
+const PacketStatus = ({
+  packet,
+  className,
+}: {
+  packet: SplitPacket;
+  className?: string;
+}) => {
   switch (packet.status) {
     case "inProgress":
-      return <DotChip tone="progress">In progress</DotChip>;
+      return (
+        <DotChip tone="progress" className={className}>
+          In progress
+        </DotChip>
+      );
     case "splitReady":
-      return <DotChip tone="warn">Split ready</DotChip>;
+      return (
+        <DotChip tone="warn" className={className}>
+          Split ready
+        </DotChip>
+      );
     case "failed":
-      return <DotChip tone="error">Failed</DotChip>;
+      return (
+        <DotChip tone="error" className={className}>
+          Failed
+        </DotChip>
+      );
     case "completed":
-      return <DotChip tone="ok">Completed</DotChip>;
+      return (
+        <DotChip tone="ok" className={className}>
+          Completed
+        </DotChip>
+      );
   }
 };
 
@@ -75,6 +108,9 @@ const BillUploadsTable = ({
   onRetry,
   onRemove,
   onRemoveUpload,
+  search,
+  onClearSearch,
+  onUpload,
 }: Props) => {
   const head = cn("h-11 whitespace-nowrap px-4 py-0 align-middle", T.head);
   // Row hover wash across the whole row, the Inbox's.
@@ -87,7 +123,8 @@ const BillUploadsTable = ({
     // No scroll of its own: the register page scrolls both axes, and the
     // header sticks against it.
     <div className="min-w-0 flex-1">
-      <Table className="min-w-[880px] table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line">
+      {/* Hairline rules between the columns. */}
+      <Table className="min-w-[880px] table-fixed border-separate border-spacing-0 bg-background [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line">
         <TableHeader className="sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none">
           <TableRow className="hover:bg-transparent">
             <TableHead className={cn(head, "pl-5")}>File</TableHead>
@@ -142,7 +179,9 @@ const BillUploadsTable = ({
                 {packet.pageCount || "—"}
               </TableCell>
               <TableCell className={cell}>
-                <PacketStatus packet={packet} />
+                {/* -ml-2: the chip's padding, so its dot sits on the
+                    header's line. */}
+                <PacketStatus packet={packet} className="-ml-2" />
               </TableCell>
               <TableCell className={cn(cell, "whitespace-nowrap text-pi-body")}>
                 {stamp(packet.uploadedAt)}
@@ -229,7 +268,7 @@ const BillUploadsTable = ({
                 —
               </TableCell>
               <TableCell className={cell}>
-                <StatusPill status={item.status} />
+                <StatusPill status={item.status} className="-ml-2" />
               </TableCell>
               <TableCell className={cn(cell, "whitespace-nowrap text-pi-body")}>
                 {stamp(item.received)}
@@ -267,17 +306,29 @@ const BillUploadsTable = ({
           ))}
         </TableBody>
       </Table>
-      {!packets.length && !uploads.length && (
-        <div className="px-6 py-16 text-center">
-          <h2 className="text-[16px] font-medium leading-[22px] text-pi-ink">
-            Nothing uploaded yet
-          </h2>
-          <p className={cn(T.value, "mt-2")}>
-            Bills you upload appear here while they are read. A PDF with several
-            bills in it goes through Upload Purchases ▾ → Split Purchases.
-          </p>
-        </div>
-      )}
+      {!packets.length && !uploads.length &&
+        (search?.trim() ? (
+          <EmptyState
+            title="No uploads match your search"
+            body="Search looks at file names. Clear it to see every upload."
+            filters={[{ label: `Search: “${search.trim()}”` }]}
+            onClear={onClearSearch}
+          />
+        ) : (
+          <EmptyState
+            icon={CloudUpload}
+            title="Nothing uploaded yet"
+            body="Bills you upload appear here while they are read. A PDF with several bills in it goes through Upload Purchases ▾ → Split Purchases."
+            actions={
+              onUpload ? (
+                <Button onClick={onUpload}>
+                  <UploadIcon className="h-4 w-4" />
+                  Upload Purchases
+                </Button>
+              ) : undefined
+            }
+          />
+        ))}
     </div>
   );
 };

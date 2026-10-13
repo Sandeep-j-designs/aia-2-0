@@ -567,6 +567,73 @@ body,
   scrollbar-color: var(--pi-line-2) transparent;
 }
 
+/*
+  Pinned table edges. While columns scroll under a pinned bookend, its inner
+  edge casts a soft 12px shade instead of a hairline: a fixed hairline there
+  doubled up with the rule of the column sliding beneath it. The table sets
+  data-pin-l / data-pin-r only while something is actually under that edge.
+*/
+.pin-edge-l::after,
+.pin-edge-r::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-enter);
+}
+.pin-edge-l::after {
+  left: 100%;
+  background: linear-gradient(to right, var(--pin-shade), transparent);
+}
+.pin-edge-r::after {
+  right: 100%;
+  background: linear-gradient(to left, var(--pin-shade), transparent);
+}
+[data-pin-l] .pin-edge-l::after,
+[data-pin-r] .pin-edge-r::after {
+  opacity: 1;
+}
+[data-pin-l] .pin-edge-l {
+  border-right-color: transparent;
+}
+/* The shade hangs outside the cell, so a clipping cell would cut it off.
+   Pinned cells clip their content with an inner box instead. */
+:is(td, th).pin-edge-l,
+:is(td, th).pin-edge-r {
+  overflow: visible;
+}
+
+/*
+  A page scroller holding a table: white under the page chrome, so the
+  ground beside the rows stays white once the table is scrolled sideways
+  (the table region is only as wide as the view; it is what the column
+  sizing measures). The chrome blocks are its sticky children and keep the
+  page canvas. The header's top rule is drawn on the header cells, so it
+  runs the full width of the table rather than stopping with the region.
+*/
+.table-scroller {
+  background-color: hsl(var(--background));
+}
+.table-scroller > .sticky {
+  background-color: var(--pi-page);
+}
+.table-region thead tr:first-child > th {
+  border-top: 1px solid var(--pi-line);
+}
+
+/*
+  Table chips are pulled 8px left (-ml-2) so a bare dot sits on the column's
+  text line. A tinted chip keeps its box on that line instead: pulled left,
+  its tint would be clipped by the cell.
+*/
+.-ml-2:is(.bg-pi-danger-bg, .bg-pi-warning-bg, .bg-pi-success-bg),
+.-ml-2:has(> :is(.bg-pi-danger-bg, .bg-pi-warning-bg, .bg-pi-success-bg)) {
+  margin-left: 0;
+}
+
 .mx-scrollcontainer-open .plus-icon {
   transform: rotate(180deg);
   transition: all 0.2s ease-out;
@@ -733,6 +800,7 @@ html {
   --shadow-1: 0 2px 8px rgba(20, 26, 60, 0.09);
   --shadow-2: 0 8px 24px rgba(20, 26, 60, 0.15), 0 2px 8px rgba(20, 26, 60, 0.07);
   --shadow-table: 0 3px 16px -10px rgba(37, 57, 83, 0.19);
+  --pin-shade: rgba(20, 26, 60, 0.1);
 }
 @media (min-width: 1280px) {
   :root {
@@ -744,6 +812,7 @@ html {
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-table: 0 0 0 1px var(--pi-line);
+  --pin-shade: rgba(0, 0, 0, 0.45);
 }
 
 @layer components {
@@ -888,5 +957,10 @@ html {
   --pi-body: #526077;
   --pi-faint: #626f83;
   --pi-fill: #f1f3f7;
+  /* The source highlight sits on white paper in both themes, so it keeps the
+     light theme's brand rather than the dark theme's lighter one. */
+  --pi-brand: #3654b5;
+  --pi-brand-tint: #edf1fb;
+  --source-dim: rgba(16, 24, 40, 0.1);
   color: #202b3d;
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { InvoiceViewPrData } from "@/types/pages/inbox/gst";
-import { PageDialog, T } from "@/components/inbox/v2/ui";
+import { Field, PageDialog } from "@/components/inbox/v2/ui";
 
 /**
  * Add Remark — production's remark-modal: a note on a PR line. Commas are
@@ -26,24 +26,26 @@ const RemarkModal = ({ pr, onClose, onSave }: Props) => {
       title="Add Remark"
       description={`For Invoice #${pr?.invoiceNo || "-"}`}
       className="max-w-[480px]"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => pr && onSave(pr.prLineUuid, value)}>
+            {pr?.remarks ? "Update remark" : "Add remark"}
+          </Button>
+        </>
+      }
     >
-      <label className="mt-2 flex flex-col gap-2">
-        <span className={T.label}>Remarks</span>
+      <Field label="Remarks" htmlFor="gst-remark">
         <Textarea
+          id="gst-remark"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Enter your remarks here"
           className="min-h-24"
         />
-      </label>
-      <div className="mt-6 flex justify-end gap-3">
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={() => pr && onSave(pr.prLineUuid, value)}>
-          Save Remark
-        </Button>
-      </div>
+      </Field>
     </PageDialog>
   );
 };

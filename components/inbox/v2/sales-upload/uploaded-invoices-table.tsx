@@ -1,17 +1,6 @@
 import React, { useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from "@/components/icons";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import EmptyState from "../empty-state";
+import { FileSpreadsheet as SheetIcon } from "@/components/icons";
 import {
   Table,
   TableBody,
@@ -32,7 +21,7 @@ import {
   type ResponseARVoucherImportBatch,
 } from "@/types/pages/inbox/sales-upload";
 import { batchStep } from "@/utils/pages/inbox/sales-upload";
-import { PageButton, T } from "../ui";
+import { T } from "../ui";
 import { BatchStatusPill } from "./common";
 import ProcessingModal from "./processing-modal";
 
@@ -42,15 +31,29 @@ import ProcessingModal from "./processing-modal";
  * table: file first with its mode underneath, the counts, then status.
  * A row opens the step its batch is waiting on; a batch still being read
  * opens its progress.
+ *
+ * The pager is the register's: it sits below the register's page scroller,
+ * which this table renders inside, so the register owns the page and counts
+ * the rows with `batchRows`.
  */
 
 type Props = {
   company: string;
   search: string;
   onOpen: (batchId: string, step: "mapping" | "preview") => void;
+  page: number;
   pageSize: number;
-  onPageSizeChange: (size: number) => void;
-  pageSizes: number[];
+};
+
+/** The batches the tab lists for a search, for the table and the pager. */
+export const batchRows = (
+  entries: { batch: ResponseARVoucherImportBatch }[],
+  search: string
+) => {
+  const term = search.trim().toLowerCase();
+  return entries
+    .map((e) => e.batch)
+    .filter((b) => !term || b.originalFileName.toLowerCase().includes(term));
 };
 
 /** Production: formatDisplayDate — "12 Sep 2026". */
@@ -101,21 +104,16 @@ const UploadedInvoicesTable = ({
   company,
   search,
   onOpen,
+  page,
   pageSize,
-  onPageSizeChange,
-  pageSizes,
 }: Props) => {
   const entries = useSalesBatches(company);
-  const [page, setPage] = useState(0);
   const [progressId, setProgressId] = useState("");
   const progress = useSalesBatch(progressId);
 
   const term = search.trim().toLowerCase();
-  const rows = entries
-    .map((e) => e.batch)
-    .filter((b) => !term || b.originalFileName.toLowerCase().includes(term));
+  const rows = batchRows(entries, search);
   const pageRows = rows.slice(page * pageSize, (page + 1) * pageSize);
-  const lastPage = Math.max(0, Math.ceil(rows.length / pageSize) - 1);
 
   const head = cn("h-11 whitespace-nowrap px-4 py-0 align-middle", T.head);
   // Row hover wash across the whole row, the Inbox's.
@@ -135,9 +133,10 @@ const UploadedInvoicesTable = ({
 
   return (
     <>
-      {/* No scroll of its own: the register page scrolls both axes. */}
+      {/* No scroll of its own: the register page scrolls both axes. Hairline
+          rules between the columns. */}
       <div className="min-w-0 flex-1">
-        <Table className="min-w-[860px] table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line">
+        <Table className="min-w-[860px] table-fixed border-separate border-spacing-0 bg-background [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line [&_th]:border-b [&_th]:border-pi-line">
           <TableHeader className="sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none">
             <TableRow className="hover:bg-transparent">
               <TableHead className={cn(head, "pl-5")}>
@@ -216,91 +215,31 @@ const UploadedInvoicesTable = ({
                     {batch.createdRows}
                   </TableCell>
                   <TableCell className={cn(cell, "pr-5")}>
-                    <BatchStatusPill status={batch.status} />
+                    {/* -ml-2: the chip's padding, so its dot sits on the
+                        header's line. */}
+                    <span className="-ml-2 inline-flex max-w-full">
+                      <BatchStatusPill status={batch.status} />
+                    </span>
                   </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
-        {!pageRows.length && (
-          <div className="px-6 py-16 text-center">
-            <h2 className="text-[16px] font-medium leading-[22px] text-pi-ink">
-              No uploaded invoice batches found.
-            </h2>
-            <p className={cn(T.value, "mt-2")}>
-              {term
-                ? "Nothing matches that search."
-                : "Spreadsheets you upload with Upload Sales are listed here while they are mapped and reviewed."}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="sticky left-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
-        <div className="flex items-center gap-2">
-          <span className={cn(T.cell, "text-foreground")}>Rows per page:</span>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(value) => {
-              onPageSizeChange(Number(value));
-              setPage(0);
-            }}
-          >
-            <SelectTrigger
-              aria-label="Rows per page"
-              className={cn(
-                "h-auto w-[72px] rounded-md border-border px-2 py-1",
-                T.cell,
-                "text-foreground"
-              )}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {pageSizes.map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-0 sm:gap-1">
-          <PageButton
-            label="First page"
-            disabled={page === 0}
-            onClick={() => setPage(0)}
-          >
-            <ChevronsLeft />
-          </PageButton>
-          <PageButton
-            label="Previous page"
-            disabled={page === 0}
-            onClick={() => setPage(page - 1)}
-          >
-            <ChevronLeft />
-          </PageButton>
-          <span className={cn(T.cell, "px-2 tabular-nums text-foreground")}>
-            {rows.length
-              ? `${page * pageSize + 1} - ${Math.min((page + 1) * pageSize, rows.length)} of ${rows.length}`
-              : "0 of 0"}
-          </span>
-          <PageButton
-            label="Next page"
-            disabled={page >= lastPage}
-            onClick={() => setPage(page + 1)}
-          >
-            <ChevronRight />
-          </PageButton>
-          <PageButton
-            label="Last page"
-            disabled={page >= lastPage}
-            onClick={() => setPage(lastPage)}
-          >
-            <ChevronsRight />
-          </PageButton>
-        </div>
+        {!pageRows.length &&
+          (term ? (
+            <EmptyState
+              title="No uploads match your search"
+              body="Search looks at the spreadsheet's file name."
+              filters={[{ label: `Search: “${search.trim()}”` }]}
+            />
+          ) : (
+            <EmptyState
+              icon={SheetIcon}
+              title="No sales spreadsheets uploaded yet"
+              body="Spreadsheets you upload with Upload Sales are listed here while their columns are mapped and the invoices reviewed."
+            />
+          ))}
       </div>
 
       {progress && (

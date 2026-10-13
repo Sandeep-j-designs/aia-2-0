@@ -34,12 +34,18 @@
   max-width: 52ch;
   line-height: 1.65;
 }
+/*
+  No reserved scrollbar gutter: with classic (always-on) scrollbars it added
+  ~12px to the right inset of every dialog, even when nothing scrolled, so the
+  body sat off-centre. Insets stay equal; a long body takes its bar only when
+  it actually overflows.
+*/
 .refined-dialog-body {
-  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 .refined-dialog
   :is(input:not([type="checkbox"]), textarea, button[role="combobox"]) {
-  border-radius: 8px;
+  border-radius: 6px; /* the form box's radius (7 Oct 2026) */
 }
 
 html :is(.ap-sheet, .ar-sheet) dialog.refined-native-dialog {
@@ -57,7 +63,9 @@ html :is(.ap-sheet, .ar-sheet) dialog.refined-native-dialog::backdrop {
   backdrop-filter: blur(4px);
 }
 html :is(.ap-sheet, .ar-sheet) dialog.refined-native-dialog:is(#nm-dialog) {
-  max-width: 700px;
+  /* 760, not 700: the title, the AI tag and the required note share one
+     line, and at 700 the note was cut off */
+  max-width: 760px;
 }
 html
   :is(.ap-sheet, .ar-sheet)
@@ -139,8 +147,9 @@ html :is(.ap-sheet, .ar-sheet) .refined-native-dialog .dialog-actions {
   justify-content: flex-end;
   gap: 12px;
   border-top: 1px solid var(--pi-line);
-  padding: 16px 28px;
-  background: var(--pi-head-bg);
+  padding: 14px 28px;
+  /* white, a hairline above: the bill form's footer band (7 Oct 2026) */
+  background: var(--pi-surface-panel);
 }
 html
   :is(.ap-sheet, .ar-sheet)
@@ -192,20 +201,23 @@ html :is(.ap-sheet, .ar-sheet) .dialog-section-nav button:hover {
 html :is(.ap-sheet, .ar-sheet) .refined-native-dialog .nmd__body {
   gap: 20px 20px;
 }
+/* section heads: the form's — 14px/600 brand, a hairline above (7 Oct 2026) */
 html :is(.ap-sheet, .ar-sheet) .refined-native-dialog .nmd__sec {
-  margin: 4px 0 0;
-  padding-top: 20px;
-  font-size: 13px;
-  line-height: 1.5;
-  font-weight: 500;
+  margin: 8px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--pi-line);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
   text-transform: none;
-  letter-spacing: -0.01em;
-  color: var(--pi-ink);
+  letter-spacing: 0;
+  color: var(--pi-brand);
   scroll-margin-top: 12px;
 }
 html :is(.ap-sheet, .ar-sheet) .refined-native-dialog .nmd__sec:first-child {
   padding-top: 0;
   margin-top: 0;
+  border-top: 0;
 }
 html
   :is(.ap-sheet, .ar-sheet)
@@ -220,11 +232,21 @@ html
   :is(.ap-sheet, .ar-sheet)
   .refined-native-dialog
   :is(.nmd__ctl, .pickdlg__pick, .nmd__seg, .nmd__sub) {
-  min-height: 40px;
-  border-radius: 8px;
-  border-color: var(--pi-line-2);
+  /* the form box: 38px, 6px radius, 14px text (7 Oct 2026) */
+  height: 38px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
   background: var(--pi-surface-panel);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet) .refined-native-dialog .nmd__seg {
+  padding: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .refined-native-dialog .nmd__ctl--area {
+  height: auto;
+  padding: 8px 12px;
 }
 html
   :is(.ap-sheet, .ar-sheet)
@@ -236,8 +258,8 @@ html
     .pickdlg__pick select,
     .nmd__seg button
   ) {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 20px;
 }
 html
   :is(.ap-sheet, .ar-sheet)
@@ -263,9 +285,10 @@ html
   :is(.ap-sheet, .ar-sheet)
   .refined-native-dialog
   .nmd__f.is-invalid
-  .nmd__ctl {
+  :is(.nmd__ctl, .nmd__sub, .nmd__seg) {
+  /* red edge, no wash: the form's error rule */
   border-color: var(--pi-danger);
-  background: var(--pi-danger-bg);
+  background: var(--pi-surface-panel);
 }
 html
   :is(.ap-sheet, .ar-sheet)
@@ -303,9 +326,11 @@ html
   :is(.ap-sheet, .ar-sheet)
   .refined-native-dialog
   :is(.fcd__foot, .afd__foot, .ccx__foot, .brx__foot) {
-  padding: 16px 28px;
+  padding: 14px 28px;
   flex: none;
-  background: var(--pi-head-bg);
+  gap: 12px;
+  border-top: 1px solid var(--pi-line);
+  background: var(--pi-surface-panel);
 }
 html
   :is(.ap-sheet, .ar-sheet)
@@ -377,9 +402,32 @@ html
   :is(.afd__fields .control, .brrow .control) {
   border-radius: 8px;
 }
+/* Focus: buttons, tabs and switches keep a ring; a field shows the form's
+   brand edge and 3px halo on its box instead, so the text control inside the
+   box draws nothing of its own (7 Oct 2026). */
 html :is(.ap-sheet, .ar-sheet) .refined-native-dialog :focus-visible {
   outline: 2px solid var(--pi-brand);
-  outline-offset: 3px;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .refined-native-dialog
+  :is(.nmd__ctl, .pickdlg__pick, .cell, .control)
+  :is(input, select, textarea):focus-visible,
+html
+  :is(.ap-sheet, .ar-sheet)
+  .refined-native-dialog
+  .afd__fields
+  textarea:focus-visible {
+  outline: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .refined-native-dialog
+  :is(.cell, .control):focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
 }
 @media (max-width: 600px) {
   .refined-dialog-header {
@@ -443,5 +491,1600 @@ html :is(.ap-sheet, .ar-sheet) .refined-native-dialog :focus-visible {
   }
   .refined-native-dialog * {
     scroll-behavior: auto !important;
+  }
+}
+
+/* ── master dialogs read as the bill form (7 Oct 2026) ──────────────────────
+   Create Item Master, New Ledger, vendor and customer: the user asked for
+   these to "match … the patterns used inside the forms". The same metrics as
+   the form's fields (12px/500 label, 38px box, 6px radius, 14px text, 12px
+   inset), its brand section heads with a hairline above, its teal Suggested
+   tag, its tinted panel for dependent fields, and its error rule. The GST
+   rate details dialog is built from the same .nmd parts and opens from the
+   ledger form, so it takes the same rules (7 Oct 2026). */
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .pickdlg__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .dialog-req-note {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-faint);
+  white-space: nowrap;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .pickdlg__x {
+  border-color: transparent;
+  background: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .pickdlg__x:hover {
+  background: var(--pi-head-bg);
+}
+
+/* section tabs: the page's underline tabs, not a band of buttons */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .dialog-section-nav {
+  gap: 24px;
+  padding: 0 28px;
+  background: var(--pi-surface-panel);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .dialog-section-nav
+  button {
+  padding: 12px 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .dialog-section-nav
+  button:hover {
+  background: none;
+  color: var(--pi-ink);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .dialog-section-nav
+  button[aria-current="true"] {
+  border-bottom-color: var(--pi-brand);
+  color: var(--pi-brand);
+}
+
+/* the body: the form's grid */
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__body {
+  gap: 16px 20px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__sec {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--pi-line);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--pi-brand);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__sec:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__f {
+  gap: 6px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__lblrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 16px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__lbl {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__opt {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__ai {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  gap: 4px;
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  cursor: help;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__ai:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  :is(.nmd__ctl, .nmd__seg, .nmd__sub) {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__seg {
+  padding: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__ctl--area {
+  height: auto;
+  padding: 8px 12px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  :is(
+    .nmd__ctl input,
+    .nmd__ctl select,
+    .nmd__ctl textarea,
+    .nmd__seg button,
+    .nmd__sub
+  ) {
+  font-size: 14px;
+  line-height: 20px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  :is(.nmd__ctl, .nmd__sub):hover {
+  border-color: var(--pi-line-strong);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__ctl:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__ctl--ro {
+  border-style: solid;
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__note {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+/* the reasoning line is gone; anything still drawing it stays hidden */
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__from {
+  display: none;
+}
+
+/* errors: the form's rule — red edge, no wash */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__f.is-invalid
+  :is(.nmd__ctl, .nmd__sub, .nmd__seg) {
+  border-color: var(--pi-danger);
+  background: var(--pi-surface-panel);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__f.is-invalid
+  .nmd__ctl:focus-within {
+  box-shadow: 0 0 0 3px var(--pi-danger-bg);
+}
+
+/* a run of switches: one bordered list, a hairline between rows */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--switches {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-surface-panel);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__f--switch {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  margin: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--switches
+  > .nmd__f--switch
+  + .nmd__f--switch {
+  border-top: 1px solid var(--pi-line);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__f--switch
+  .nmd__lbl {
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--pi-ink);
+}
+
+/* a switch and the fields it opens: the form's tinted panel */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--sub {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  padding: 4px 16px 16px;
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-head-bg);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--sub
+  > .nmd__f--sub {
+  padding-left: 0;
+  border-left: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--sub
+  > .nmd__f--switch {
+  grid-column: 1 / -1;
+  padding: 8px 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--sub
+  > .nmd__f--switch:only-child {
+  padding-bottom: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--sub
+  > .nmd__f--switch:not(:only-child) {
+  border-bottom: 1px solid var(--pi-line);
+  margin-bottom: 4px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__group--sub
+  > .nmd__f--wide {
+  grid-column: 1 / -1;
+}
+
+/* footer: white, a hairline above, the actions on the right */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .dialog-actions {
+  background: var(--pi-surface-panel);
+  padding: 14px 28px;
+}
+@media (max-width: 600px) {
+  html
+    body
+    :is(.ap-sheet, .ar-sheet)
+    :is(#nm-dialog, #st-dialog)
+    .dialog-req-note {
+    display: none;
+  }
+  html
+    body
+    :is(.ap-sheet, .ar-sheet)
+    :is(#nm-dialog, #st-dialog)
+    .nmd__group--sub {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__ai--head[hidden] {
+  display: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .nmd__lbl[title] {
+  cursor: help;
+}
+/* the title and its tag stay on one line; the required note gives way */
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .pickdlg__ttl,
+html body :is(.ap-sheet, .ar-sheet) :is(#nm-dialog, #st-dialog) .nmd__ai--head {
+  flex: none;
+  white-space: nowrap;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#nm-dialog, #st-dialog)
+  .dialog-req-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── the other engine dialogs read as the bill form too (7 Oct 2026) ────────
+   User: "Implement all the changes made on these forms to all the forms in
+   the prototype." The RCM / ITC ledger pickers, GST rate details, cost centre
+   split, bill allocation, Customise fields and Additional Fields take the
+   master dialog's metrics: 12px/500 labels, 38px boxes, 6px radius, 14px
+   text, red edge and one 12px line on error, a white footer with a hairline,
+   Cancel and a specific primary on the right. No red asterisks. */
+html body :is(.ap-sheet, .ar-sheet) .refined-native-dialog .pickdlg__x {
+  border-color: transparent;
+  background: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .refined-native-dialog .pickdlg__x:hover {
+  background: var(--pi-head-bg);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .refined-native-dialog
+  :is(.pickdlg__lbl, .nmd__lbl)
+  .req {
+  display: none;
+}
+
+/* RCM / ITC: one field and a remember box; Cancel + "Use this ledger" in the
+   footer band (dialog-refinement.ts moves the submit there) */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#rcm-dialog, #itc-dialog)
+  .pickdlg__head {
+  padding: 20px 28px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#rcm-dialog, #itc-dialog)
+  .pickdlg__group {
+  gap: 6px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#rcm-dialog, #itc-dialog)
+  .pickdlg__lbl {
+  line-height: 16px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#rcm-dialog, #itc-dialog)
+  .pickdlg__pick
+  select {
+  color: var(--pi-ink);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#rcm-dialog, #itc-dialog)
+  .pickdlg__check {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--pi-ink);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#rcm-dialog, #itc-dialog)
+  .dialog-actions
+  .pickdlg__save {
+  width: auto;
+}
+
+/* GST rate details: the error line under its field */
+html body :is(.ap-sheet, .ar-sheet) .refined-native-dialog .nmd__err {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-danger);
+}
+html body :is(.ap-sheet, .ar-sheet) #st-dialog .nmd__warn:not([hidden]) {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) #st-dialog .nmd__chips button {
+  height: 32px;
+  padding: 0 14px;
+  border-color: var(--pi-line-2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #st-dialog
+  .nmd__chips
+  button[aria-pressed="true"] {
+  border-color: var(--pi-brand);
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #st-dialog
+  .nmd__f.is-invalid
+  .nmd__chips
+  button {
+  border-color: var(--pi-danger);
+}
+
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(:is(#cc-dialog, #gd-dialog) .ccrow, #br-dialog .brrow)
+  .cell {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background-color: var(--pi-surface-panel);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(:is(#cc-dialog, #gd-dialog) .ccrow, #br-dialog .brrow)
+  :is(.cell__input, .cell__select) {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(:is(#cc-dialog, #gd-dialog) .ccrow, #br-dialog .brrow)
+  .cell:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html body :is(.ap-sheet, .ar-sheet) #br-dialog .brcell.is-bad .cell {
+  border-color: var(--pi-danger);
+}
+
+/* Bill allocation: the column head as the cost centre one, no stars */
+html body :is(.ap-sheet, .ar-sheet) #br-dialog .brrow--head {
+  padding: 8px 14px;
+  background: var(--pi-head-bg);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) #br-dialog .brx__warn {
+  font-weight: 400;
+  color: var(--pi-danger);
+}
+
+/* Additional Fields: the form's field, errors inline under each box */
+html body :is(.ap-sheet, .ar-sheet) #af-dialog #af-warn {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__panel {
+  padding: 20px 24px;
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afg {
+  padding-bottom: 16px;
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afg__ttl {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afg__switch {
+  font-size: 13px;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__fields {
+  gap: 16px 20px;
+  align-items: start;
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__fields .field {
+  gap: 6px;
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__fields .field > .t-label {
+  min-height: 16px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__fields .control {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  filter: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #af-dialog
+  .afd__fields
+  .control
+  :is(.control__input, .control__select, .t-value) {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__fields textarea {
+  min-height: 88px;
+  padding: 8px 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #af-dialog
+  .afd__fields
+  :is(.control:focus-within, textarea:focus) {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #af-dialog
+  .afd__fields
+  .field.is-invalid
+  :is(.control, textarea) {
+  border-color: var(--pi-danger);
+  background: var(--pi-surface-panel);
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__fields .field__error {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-danger);
+}
+html body :is(.ap-sheet, .ar-sheet) #af-dialog .afd__fields .field__note {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+
+/* ── master form rework (8 Oct 2026) ──────────────────────────────────────
+   "Master creation dialog box lacks a lot of UX." One scroll, no tabs; where
+   a value came from beside its label; the AI's Under suggestion with a Use
+   button; the duplicate check under Name; switches as one bordered list;
+   the opening balance folded. */
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__src {
+  margin-left: auto;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--pi-faint);
+  cursor: help;
+  white-space: nowrap;
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog :is(.nmd__sugg, .nmd__dup) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__sugg svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__sugg b,
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__dup b {
+  font-weight: 600;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__dup.is-hit {
+  color: var(--pi-warning);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__use {
+  flex: none;
+  margin-left: auto;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 4px;
+  background: var(--pi-surface-panel);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pi-brand);
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__use:hover {
+  background: var(--pi-brand-tint);
+}
+
+/* switches and the fields they open: one bordered list, a row per switch */
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__group--list {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-surface-panel);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__item + .nmd__item {
+  border-top: 1px solid var(--pi-line);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__item > .nmd__f--switch {
+  padding: 10px 16px;
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__item--open {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  padding-bottom: 16px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #nm-dialog
+  .nmd__item--open
+  > :not(.nmd__f--switch) {
+  margin: 0 16px;
+  padding-left: 0;
+  border-left: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #nm-dialog
+  .nmd__item--open
+  > :is(.nmd__f--switch, .nmd__f--wide) {
+  grid-column: 1 / -1;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #nm-dialog
+  .nmd__item--open
+  > .nmd__f--switch:not(:only-child) {
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+  border-radius: 8px 8px 0 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #nm-dialog
+  .nmd__item:not(:first-child)
+  > .nmd__f--switch:not(:only-child) {
+  border-radius: 0;
+}
+
+/* the opening balance, folded until wanted */
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__sec--fold {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  text-align: left;
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__fold-sum {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__sec--fold .ico {
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #nm-dialog
+  .nmd__sec--fold[aria-expanded="true"]
+  .ico {
+  transform: rotate(180deg);
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__fold {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .nmd__fold[hidden] {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) #nm-dialog .dialog-section-nav {
+  display: none;
+}
+
+
+/* ── split dialogs: one type hierarchy (13 Oct 2026) ────────────────────────
+   Four steps, so each kind of text reads as what it is:
+     1. the title, and the figure being divided (18 / 20, semibold, ink);
+     2. what is left to allocate, in each section's head (13, semibold, with
+        its bar), the one live number the dialog is about;
+     3. field values (14, ink);
+     4. labels and captions (11, semibold small caps, faint) and helper text
+        (12, faint).
+   The section's head carries its status; the rows under it are the working. */
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) {
+  --alx-pad: 24px;
+  width: min(640px, calc(100vw - 48px));
+  max-width: none;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 64px rgba(15, 23, 42, 0.18),
+    0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+/* 1 — title and subject */
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccx__head {
+  position: relative;
+  align-items: flex-start;
+  min-height: 0;
+  padding: 20px var(--alx-pad) 0;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-surface-panel);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__titles {
+  flex: 1;
+  min-width: 0;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccx__ttl {
+  padding-right: 40px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .pickdlg__x {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccx__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 6px 0 0;
+  padding: 0 0 18px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  white-space: normal;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__context-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--pi-body);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__context-value {
+  display: flex;
+  flex: none;
+  flex-direction: row-reverse;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pi-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 4 — every label in the dialog speaks in one voice */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  :is(.alx__context-value small, .alx__lbl, .alx__section-title, .ccrow--head) {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pi-faint);
+}
+
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccx__body {
+  padding: 20px var(--alx-pad);
+  background: var(--pi-surface-panel);
+}
+
+/* a section: its head holds the category and what is left */
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccc {
+  padding: 0;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccc + .ccc {
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: 1px solid var(--pi-line-2);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccc .ccc__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__cat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  min-width: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__cat
+  .cell {
+  display: flex;
+  align-items: center;
+  width: 176px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__cat
+  .cell:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__cat
+  .cell__select {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pi-ink);
+}
+
+/* 2 — what is left: the loudest thing after the title */
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--pi-ink);
+  font-variant-numeric: tabular-nums;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__meter-txt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__bar {
+  display: block;
+  flex: none;
+  width: 72px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pi-line-2);
+  overflow: hidden;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--pi-brand);
+  transition: width 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__meter.is-done {
+  color: var(--pi-success);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__meter.is-done
+  .alx__bar
+  i {
+  background: var(--pi-success);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__meter:is(.is-over, .is-short) {
+  color: var(--pi-danger);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__meter:is(.is-over, .is-short)
+  .alx__bar
+  i {
+  background: var(--pi-danger);
+}
+
+/* 3 — the working: column labels, then fields */
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__rows {
+  padding: 14px 16px 14px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccrow {
+  grid-template-columns: minmax(0, 1fr) 96px 148px 32px;
+  column-gap: 10px;
+  row-gap: 4px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccrow--head {
+  margin: 0;
+  padding: 0 0 8px;
+  border: 0;
+  background: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccrow--head
+  > :is(:nth-child(2), :nth-child(3)) {
+  padding-right: 12px;
+  text-align: right;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccrow
+  + .ccrow:not(.ccrow--head) {
+  padding-top: 8px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccrow--head
+  + .ccrow {
+  padding-top: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  :is(.alx__suffix, .alx__prefix) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  :is(.alx__suffix, .alx__prefix)
+  > span {
+  flex: none;
+  font-size: 13px;
+  color: var(--pi-faint);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  :is(.alx__suffix, .alx__prefix)
+  input {
+  min-width: 0;
+  flex: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* a worked-out figure, not a field: no box to type into */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccrow
+  .cell.is-disabled {
+  border-color: transparent;
+  background: var(--pi-head-bg);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .cell.is-disabled
+  input {
+  color: var(--pi-body);
+  cursor: default;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .cell.is-bad {
+  border-color: var(--pi-danger);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__err {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-danger);
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--pi-faint);
+  cursor: pointer;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__icon:hover:not(:disabled) {
+  background: var(--pi-row-hover);
+  color: var(--pi-danger);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__icon:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* the section's actions: add on the left, Fill remaining under the figures */
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__acts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding: 10px 42px 0 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__remaining {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccx__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0 -6px;
+  padding: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--pi-brand);
+  text-decoration: none;
+  cursor: pointer;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccx__add:hover {
+  background: var(--pi-brand-tint);
+  text-decoration: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccx__add[hidden] {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .alx__fill {
+  margin: 0 -6px 0 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__category-action {
+  margin-top: 12px;
+  padding-top: 0;
+  border: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccx__add--cat {
+  margin-left: -6px;
+  color: var(--pi-body);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccx__add--cat:hover {
+  background: var(--pi-row-hover);
+  color: var(--pi-brand);
+}
+
+/* footer: the rule in faint text, the actions on the right */
+html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccx__foot {
+  min-height: 64px;
+  padding: 14px var(--alx-pad);
+  border-top: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccx__foot
+  .btn {
+  min-width: 80px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .ccx__foot
+  .btn--solid {
+  min-width: 132px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  :is(.alx__status, .ccx__warn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto 0 0;
+  max-width: 300px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--pi-faint);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__status.is-done {
+  font-weight: 500;
+  color: var(--pi-success);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  :is(#cc-dialog, #gd-dialog)
+  .alx__status.is-err {
+  color: var(--pi-danger);
+}
+
+@media (max-width: 680px) {
+  html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) {
+    --alx-pad: 20px;
+    width: calc(100vw - 24px);
+  }
+  html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccc .ccc__head {
+    flex-wrap: wrap;
+  }
+  html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccrow {
+    grid-template-columns: minmax(180px, 1fr) 96px 132px 32px;
+  }
+  html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccc {
+    overflow-x: auto;
+  }
+  html body :is(.ap-sheet, .ar-sheet) :is(#cc-dialog, #gd-dialog) .ccx__foot {
+    flex-wrap: wrap;
+  }
+  html
+    body
+    :is(.ap-sheet, .ar-sheet)
+    :is(#cc-dialog, #gd-dialog)
+    :is(.alx__status, .ccx__warn) {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* ── Customise fields: the split dialogs' hierarchy (13 Oct 2026) ──────────
+   Same four steps as the allocation dialogs: title; the group in its own
+   head band with its switch; field names at 14 in ink; labels as 11px small
+   caps and notes at 12, faint. The rail names each group once with its count
+   beside it (every group lives in Additional Details, so saying so in the
+   rail only repeated it). */
+html body :is(.ap-sheet, .ar-sheet) dialog.refined-native-dialog#fc-dialog {
+  width: min(760px, calc(100vw - 48px));
+  max-width: none;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 64px rgba(15, 23, 42, 0.18),
+    0 4px 16px rgba(15, 23, 42, 0.08) !important;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__head {
+  position: relative;
+  display: block;
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--pi-line);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__ttl {
+  padding-right: 40px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__sub {
+  margin-top: 2px;
+  max-width: none;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .pickdlg__x {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__body {
+  grid-template-columns: 200px minmax(0, 1fr);
+}
+
+/* the rail (13 Oct 2026): each group with a meter of how many of its fields
+   are on, the allocation dialogs' bar. The group being edited is a raised
+   card; an off group shows an empty dashed track. */
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nav {
+  gap: 4px;
+  padding: 16px 12px;
+  border-right: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nav button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  box-shadow: none;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--pi-body);
+  text-align: left;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nav button:hover {
+  background: var(--pi-row-hover);
+  color: var(--pi-ink);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #fc-dialog
+  .fcd__nav
+  button[aria-selected="true"] {
+  border-color: var(--pi-line-2);
+  background: var(--pi-surface-panel);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  color: var(--pi-ink);
+  font-weight: 600;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nm {
+  display: block;
+  min-width: 0;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__n {
+  float: none;
+  flex: none;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--pi-faint);
+  opacity: 1;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #fc-dialog
+  .fcd__nav
+  button[aria-selected="true"]:not(.is-off)
+  .fcd__n {
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nav button.is-off .fcd__n {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pi-line-2);
+  overflow: hidden;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--pi-brand);
+  transition: width 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nav button:not([aria-selected="true"]) .fcd__bar i {
+  background: var(--pi-brand-border);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nav button.is-off .fcd__bar {
+  height: 0;
+  border-top: 2px dashed var(--pi-line-2);
+  border-radius: 0;
+  background: none;
+}
+
+/* the panel: one bordered group, head band then the list */
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__panel {
+  padding: 20px 24px;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__group {
+  border: 1px solid var(--pi-line-2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcrow {
+  min-height: 48px;
+  margin: 0;
+  padding: 10px 16px;
+  gap: 16px;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcrow--master {
+  min-height: 60px;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--pi-line);
+  border-radius: 0;
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcrow__lbl {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcrow--master .fcrow__lbl {
+  font-weight: 600;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcrow__note {
+  margin-top: 2px;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__cols {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px 4px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__list {
+  border: 0;
+  border-radius: 0;
+  background: var(--pi-surface-panel);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__list > .fcrow + .fcrow {
+  border-top: 1px solid var(--pi-line);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcrow.is-off {
+  opacity: 0.45;
+}
+
+/* footer: the band the allocation dialogs use. Reset is not a delete, so it
+   is a quiet text button, not a red one. */
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__foot {
+  min-height: 64px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__reset {
+  margin-left: -8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--pi-body);
+  text-decoration: none;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__reset:hover {
+  background: var(--pi-row-hover);
+  color: var(--pi-ink);
+  text-decoration: none;
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__warn {
+  margin: 0 auto 0 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--pi-danger);
+}
+html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__warn[hidden] {
+  display: none;
+}
+@media (max-width: 600px) {
+  html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__nav {
+    border-right: 0;
+  }
+  html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__head,
+  html body :is(.ap-sheet, .ar-sheet) #fc-dialog .fcd__foot {
+    padding-left: 20px;
+    padding-right: 20px;
   }
 }

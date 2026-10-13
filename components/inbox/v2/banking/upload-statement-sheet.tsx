@@ -29,7 +29,7 @@ import type {
   FileStatus,
   Statement,
 } from "@/types/pages/inbox/banking";
-import { Field, Req, T } from "@/components/inbox/v2/ui";
+import { Field, RequiredNote, T } from "@/components/inbox/v2/ui";
 import { DotChip } from "./page-parts";
 import {
   DeleteStatementDialog,
@@ -135,18 +135,27 @@ const FileRow = ({
     );
   if (file.status === "password_required")
     return (
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-          {name}
-          <DotChip tone="warn">Password required</DotChip>
-          <div className="flex w-[196px] flex-col gap-1">
+      // Top-aligned on the 38px box line, so the error line under the box
+      // grows the row downward instead of lifting the name and chip.
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 flex-wrap items-start gap-3">
+          <span className="flex h-[38px] min-w-0 items-center">{name}</span>
+          <span className="flex h-[38px] items-center">
+            <DotChip tone="warn">Password required</DotChip>
+          </span>
+          {/* The form box (38px, 12px error line) without a visible label:
+              the row's file name is the label (7 Oct 2026). */}
+          <div
+            className="modern-field flex w-[196px] flex-col"
+            data-invalid={error ? "true" : undefined}
+          >
             <Input
               type="password"
               placeholder="Enter Password"
               aria-label={`Password for ${file.file.name}`}
               value={password}
               aria-invalid={!!error}
-              className={cn("h-8", error && "border-pi-danger")}
+              error={error || undefined}
               onChange={(e) => {
                 setPassword(e.target.value);
                 if (e.target.value) setError("");
@@ -155,13 +164,10 @@ const FileRow = ({
                 if (e.key === "Enter") e.currentTarget.blur();
               }}
             />
-            {error ? (
-              <span className="text-xs text-pi-danger">{error}</span>
-            ) : null}
           </div>
           <Button
             variant="link"
-            className="h-auto p-0 font-semibold"
+            className="h-[38px] p-0 font-semibold"
             onClick={() => {
               if (!password) return setError("Password is required");
               // Simulated: "wrong" stands in for a password pdfjs rejects.
@@ -173,7 +179,7 @@ const FileRow = ({
             Give Access
           </Button>
         </div>
-        {remove}
+        <span className="flex h-[38px] items-center">{remove}</span>
       </div>
     );
   if (file.status === "corrupted" || file.status === "error")
@@ -225,6 +231,9 @@ const UploadStatementSheet = ({
   const [files, setFiles] = useState<FileStatus[]>([]);
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<Statement | null>(null);
+  // Set when an upload is tried before the three pickers are filled: each
+  // empty one then says so under its box, beside the toast (7 Oct 2026).
+  const [showErrors, setShowErrors] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const mounted = useRef(true);
   useEffect(
@@ -235,6 +244,26 @@ const UploadStatementSheet = ({
   );
 
   const ready = !!(target.ledgerId && target.accountType && target.bankName);
+  // Account type and bank stay disabled until a ledger is picked (and the
+  // ledger fills them), so only the ledger speaks up before that.
+  const errors = showErrors
+    ? {
+        ledger: target.ledgerId ? undefined : "Select a ledger",
+        accountType:
+          target.ledgerId && !target.accountType
+            ? "Select an account type"
+            : undefined,
+        bank: target.ledgerId && !target.bankName ? "Select a bank" : undefined,
+      }
+    : {};
+  const refuseUpload = () => {
+    setShowErrors(true);
+    notify(
+      "Select a ledger, account type, and bank before uploading.",
+      "error"
+    );
+  };
+  const browse = () => (ready ? inputRef.current?.click() : refuseUpload());
 
   const update = (id: string, change: Partial<FileStatus>) =>
     mounted.current &&
@@ -272,10 +301,7 @@ const UploadStatementSheet = ({
 
   const addFiles = (list: FileList | File[]) => {
     if (!ready) {
-      notify(
-        "Select a ledger, account type, and bank before uploading.",
-        "error"
-      );
+      refuseUpload();
       return;
     }
     const all = Array.from(list);
@@ -311,7 +337,7 @@ const UploadStatementSheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 overflow-y-auto border-pi-line bg-background p-0 sm:max-w-[800px] sm:rounded-l-xl"
+        className="flex w-full flex-col gap-0 overflow-hidden border-pi-line bg-background p-0 sm:max-w-[800px] sm:rounded-l-xl"
       >
         <SheetHeader className="flex-row items-center justify-between space-y-0 border-b border-pi-line px-6 py-5 text-left">
           <div className="min-w-0">
@@ -330,75 +356,62 @@ const UploadStatementSheet = ({
           </SheetClose>
         </SheetHeader>
 
-        <div className="flex flex-col gap-6 px-6 py-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field
-              label={
-                <>
-                  <Req />
-                  Ledger
-                </>
-              }
-            >
-              <ComboBox
-                title="Select a Ledger type..."
-                options={uploadLedgers.map((l) => ({
-                  value: l.id,
-                  label: l.ledgerName,
-                }))}
-                selectedValue={target.ledgerId}
-                onChange={(value) => chooseLedger(String(value))}
-                isMultiSelect={false}
-                actionLabel="+ Create Ledger"
-                onAction={() => onUnbuilt("Creating a ledger")}
-                hideClearButton
-              />
-            </Field>
-            <Field
-              label={
-                <>
-                  <Req />
-                  Account Type
-                </>
-              }
-            >
-              <ComboBox
-                title="Select an account type..."
-                options={ACCOUNT_TYPES}
-                selectedValue={target.accountType}
-                onChange={(value) =>
-                  setTarget((t) => ({
-                    ...t,
-                    accountType: value as BankAccountType,
-                    accountTypeLabel: TYPE_LABEL[String(value)] ?? "",
-                  }))
-                }
-                hasSearch={false}
-                isMultiSelect={false}
-                disabled={!target.ledgerId}
-                hideClearButton
-              />
-            </Field>
-            <Field
-              label={
-                <>
-                  <Req />
-                  Bank
-                </>
-              }
-            >
-              <ComboBox
-                title="Select Bank"
-                options={BANK_OPTIONS.map((b) => ({ value: b, label: b }))}
-                selectedValue={target.bankName}
-                onChange={(value) =>
-                  setTarget((t) => ({ ...t, bankName: String(value) }))
-                }
-                isMultiSelect={false}
-                disabled={!target.ledgerId}
-                hideClearButton
-              />
-            </Field>
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-end">
+              <RequiredNote />
+            </div>
+            <div className="grid grid-cols-1 items-start gap-x-5 gap-y-4 sm:grid-cols-3">
+              <Field label="Ledger" error={errors.ledger}>
+                <ComboBox
+                  title="Select a Ledger type..."
+                  options={uploadLedgers.map((l) => ({
+                    value: l.id,
+                    label: l.ledgerName,
+                  }))}
+                  selectedValue={target.ledgerId}
+                  onChange={(value) => chooseLedger(String(value))}
+                  isMultiSelect={false}
+                  actionLabel="+ Create Ledger"
+                  invalid={!!errors.ledger}
+                  onAction={() => onUnbuilt("Creating a ledger")}
+                  hideClearButton
+                />
+              </Field>
+              <Field label="Account Type" error={errors.accountType}>
+                <ComboBox
+                  title="Select an account type..."
+                  options={ACCOUNT_TYPES}
+                  selectedValue={target.accountType}
+                  onChange={(value) =>
+                    setTarget((t) => ({
+                      ...t,
+                      accountType: value as BankAccountType,
+                      accountTypeLabel: TYPE_LABEL[String(value)] ?? "",
+                    }))
+                  }
+                  hasSearch={false}
+                  isMultiSelect={false}
+                  disabled={!target.ledgerId}
+                  invalid={!!errors.accountType}
+                  hideClearButton
+                />
+              </Field>
+              <Field label="Bank" error={errors.bank}>
+                <ComboBox
+                  title="Select Bank"
+                  options={BANK_OPTIONS.map((b) => ({ value: b, label: b }))}
+                  selectedValue={target.bankName}
+                  onChange={(value) =>
+                    setTarget((t) => ({ ...t, bankName: String(value) }))
+                  }
+                  isMultiSelect={false}
+                  disabled={!target.ledgerId}
+                  invalid={!!errors.bank}
+                  hideClearButton
+                />
+              </Field>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -407,14 +420,7 @@ const UploadStatementSheet = ({
               tabIndex={0}
               aria-disabled={!ready}
               aria-label="Drop your files or browse"
-              onClick={() =>
-                ready
-                  ? inputRef.current?.click()
-                  : notify(
-                      "Select a ledger, account type, and bank before uploading.",
-                      "error"
-                    )
-              }
+              onClick={browse}
               onKeyDown={(e) => {
                 if ((e.key === "Enter" || e.key === " ") && ready) {
                   e.preventDefault();
@@ -576,6 +582,19 @@ const UploadStatementSheet = ({
               </p>
             )}
           </div>
+        </div>
+
+        {/* The sheet's footer band (7 Oct 2026): white, a hairline above,
+            Cancel then the action. Files upload as they are dropped, so the
+            primary opens the file picker — the drop zone's own click. */}
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-pi-line bg-background px-6 py-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={browse}>
+            <FilePlus2 className="h-4 w-4" />
+            Choose statements
+          </Button>
         </div>
         <DeleteStatementDialog
           statement={deleting}

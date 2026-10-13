@@ -3,8 +3,10 @@ import { SAMPLE_SPLIT_PLAN } from "@/config/pages/inbox/mock-split-packet";
 import type { SplitPacket, SplitPlan } from "@/types/pages/inbox/bill-splitter";
 import {
   PACKET_PAGE_LIMIT,
+  billsOf,
   detectPlan,
 } from "@/utils/pages/inbox/bill-splitter";
+import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import { PdfReadError, readPacket } from "@/utils/pages/inbox/read-pdf";
 import { vaultDrop, vaultGet, vaultPut } from "@/utils/pages/inbox/pdf-vault";
 
@@ -39,6 +41,49 @@ const emit = () => {
 const patch = (id: string, change: Partial<SplitPacket>) => {
   packets = packets.map((p) => (p.id === id ? { ...p, ...change } : p));
   emit();
+  const packet = packets.find((p) => p.id === id);
+  if (packet && change.status) notice(packet);
+};
+
+const SPLIT_TARGET = (id: string) => ({
+  href: `/inbox?module=AP&tab=uploads&split=${encodeURIComponent(id)}`,
+  label: "Bill Uploads",
+});
+
+/**
+ * A packet's notices. Reading a packet takes long enough to look away; the
+ * Purchases screen toasts it only while you are on it, the notice stays.
+ * DEV: raised server-side when the split job changes status.
+ */
+const notice = (packet: SplitPacket) => {
+  const { id, company } = packet;
+  if (packet.status === "splitReady" && packet.plan)
+    notificationActions.push(
+      {
+        companyId: company,
+        kind: "split_ready",
+        data: {
+          file: packet.fileName,
+          bills: billsOf(packet.plan).length,
+          pages: packet.pageCount || packet.plan.pages.length,
+        },
+        target: SPLIT_TARGET(id),
+        actor: { kind: "ai" },
+        refs: [id],
+      },
+      { toast: false }
+    );
+  else if (packet.status === "failed" && packet.failure)
+    notificationActions.push({
+      companyId: company,
+      kind: "split_failed",
+      data: { file: packet.fileName, reason: packet.failure.reason },
+      target: SPLIT_TARGET(id),
+      actor: { kind: "ai" },
+      refs: [id],
+    });
+  else
+    notificationActions.resolve(company, ["split_ready", "split_failed"], id);
 };
 
 const load = () => {
@@ -140,6 +185,13 @@ export const splitPackets = {
     patch(id, { status: "completed", billCount });
   },
   remove(id: string) {
+    const gone = packets.find((p) => p.id === id);
+    if (gone)
+      notificationActions.resolve(
+        gone.company,
+        ["split_ready", "split_failed"],
+        id
+      );
     packets = packets.filter((p) => p.id !== id);
     emit();
     void vaultDrop(id);

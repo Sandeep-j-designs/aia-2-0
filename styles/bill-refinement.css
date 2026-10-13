@@ -1,0 +1,480 @@
+/* Review surface: a quiet surface hierarchy, aligned controls, and responsive
+   field groups. Built on the bill (AP) and carried to the sales invoice (AR)
+   on 6 Oct 2026, when the user asked for the AP form's changes on every form.
+   Kept separate from the shared AP/AR/JV engine styles. The wrapper class
+   keeps its first name, .payable-review. */
+
+/* Stop native rubber-banding and scroll chaining at every review boundary.
+   `contain` still permits the bounce. The engine loads dropdown/dialog CSS
+   dynamically, so this interaction rule must take precedence over it. */
+html:has(.payable-review),
+body:has(.payable-review),
+html body .payable-review,
+html body .payable-review * {
+  overscroll-behavior: none !important;
+}
+/* …except inside a sideways-scrolling table (7 Oct 2026). Every cell clips
+   its text (overflow: hidden), which makes it a scroll container, and with
+   `none` on it a trackpad swipe or shift-wheel that starts on a cell stopped
+   there instead of reaching the table — only the scrollbar could move it.
+   The cells chain again; the table itself still never bounces sideways, and
+   lets vertical wheels through to the page. */
+html body .payable-review :is(.table-scroll, .cr-grid, .cr-grid-wrap, .jv-lines) * {
+  overscroll-behavior: auto !important;
+}
+html body .payable-review :is(.table-scroll, .cr-grid, .jv-lines > .overflow-x-auto) {
+  overscroll-behavior-x: none !important;
+  overscroll-behavior-y: auto !important;
+}
+html body .payable-review .cr-grid-wrap {
+  overscroll-behavior: auto !important;
+}
+
+html:not(.dark) .payable-review {
+  /* User palette: primary action, interaction accent, supporting tint. */
+  --review-cobalt: #3146b0;
+  --review-iris: #465ed5;
+  --review-periwinkle: #bac3f4;
+  --pi-page: #f4f5f7;
+  --pi-head-bg: #f8f9fa;
+  --pi-ink: #252a34;
+  --pi-body: #59616e;
+  --pi-faint: #707783;
+  --pi-line: #e7e9ed;
+  --pi-line-2: #d8dce2;
+  --pi-line-strong: #a6afbf;
+  --pi-brand: var(--review-cobalt);
+  --pi-brand-vivid: var(--review-iris);
+  --pi-brand-tint: color-mix(in srgb, var(--review-periwinkle) 24%, white);
+  --pi-brand-border: var(--review-periwinkle);
+  --pi-brand-hover: var(--review-iris);
+  --pi-brand-active: #293b96;
+  --pi-btn-fill: var(--review-cobalt);
+  --pi-btn-fill-hover: var(--review-iris);
+  --pi-btn-fill-active: #293b96;
+  --pi-btn-primary-edge: var(--review-cobalt);
+  --pi-teal-strong: #17675b;
+  --pi-teal-tint: #eaf3ef;
+  --pi-row-hover: #f5f7fb;
+  --pi-fill: #f0f2f6;
+  --pi-fill-2: #e6eaf1;
+  --primary: 230.07874 56.444444% 44.117647%;
+  --foreground: 220 17% 17%;
+  --secondary-foreground: 217 11% 39%;
+}
+
+html body :is(.ap-sheet, .ar-sheet) .form,
+html body .jv-form.journal-voucher {
+  container: bill-review / inline-size;
+  background: var(--pi-surface-panel);
+  padding: 28px 32px 40px;
+  scrollbar-gutter: stable;
+}
+
+/* Teal identifies a proposed new master; existing matches use indigo. */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .predtag:not(.predtag--new) {
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .predtag--why:not(.predtag--new):hover {
+  box-shadow: inset 0 0 0 1px var(--pi-brand-border);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-hsn .cell__input.is-pred {
+  color: var(--pi-ink);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 24px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-title {
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: -0.025em;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label small {
+  font-size: 11px;
+  color: var(--pi-faint);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards {
+  gap: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards > .cr-card {
+  border: 0;
+  border-radius: 0;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards > .cr-card + .cr-card {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--pi-line);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-head {
+  padding: 0;
+  gap: 10px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-headrow {
+  border-radius: 0;
+  border: 0;
+  background: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-headrow:hover {
+  background: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-title::before {
+  content: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card[data-card="party"] .cr-card-headrow {
+  background: none;
+}
+
+/* The create action sits beside what it acts on (7 Oct 2026). A boxed + in
+   the field's corner read as a second, unrelated button. It is now an icon
+   that names what it makes — person-plus for a party, book-plus for a
+   ledger, swapped in by BillReview's dressCreate() — set just after the
+   chosen name by seatCreate(), which lays it over the select so the whole
+   field still opens the list. A tooltip says what a press does. Edit in
+   Additional details follows its value the same way. */
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.cr-cards .control, .cr-table .cell):has(> .fieldplus) {
+  position: relative;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.cr-cards .control, .cr-table) .fieldplus {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  color: var(--pi-brand);
+  cursor: pointer;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.cr-cards .control, .cr-table) .fieldplus svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.cr-cards .control, .cr-table) .fieldplus[hidden] {
+  display: none;
+}
+/* Edit follows its value, the same pattern */
+html :is(.ap-sheet, .ar-sheet) .cr-cards .xf-slot > .field.xf-group > .xf-summary {
+  justify-content: flex-start;
+  gap: 12px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-cards .xf-group .xf-summary__text {
+  flex: 0 1 auto;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.cr-cards .control, .cr-table) .fieldplus:hover {
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.cr-cards .control, .cr-table) .fieldplus[data-barred]:hover {
+  background: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.cr-cards .control, .cr-table) .fieldplus:focus-visible {
+  outline: none;
+  box-shadow: none;
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-title::before {
+  content: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card[data-card="party"] .cr-card-headrow {
+  background: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-title {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--pi-brand);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-body {
+  gap: 16px 20px;
+  padding: 16px 0 0;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row {
+  row-gap: 6px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-label,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-slot > .field.xf-group > .t-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-label:not(:has(i))::after {
+  font-size: 10px;
+  margin-left: 7px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .picker__state,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-slot > .field.xf-group > .xf-summary,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value > .narration textarea {
+  height: 38px;
+  min-height: 38px;
+  border-radius: 6px;
+  border-color: var(--pi-line-2);
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control .t-value,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .picker select,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-group .xf-summary__text,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value > .narration textarea {
+  font-size: 13px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value > .narration textarea {
+  padding-block: 8px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row[data-check="narration"] .narration textarea {
+  min-height: 38px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control:has(input[readonly]) {
+  background: color-mix(
+    in srgb,
+    var(--pi-head-bg) 75%,
+    var(--pi-surface-panel)
+  );
+  box-shadow: none;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control.control--offer {
+  border-style: solid;
+  border-color: var(--pi-line-2);
+  background: var(--pi-surface-panel);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control:hover,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .picker__state:hover,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-slot > .field.xf-group > .xf-summary:hover,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value > .narration textarea:hover {
+  border-color: var(--pi-brand-border);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control:focus-within,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .picker__state:focus-within,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-slot > .field.xf-group > .xf-summary:focus-visible,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value > .narration textarea:focus {
+  border-color: var(--pi-brand-vivid);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .field.is-invalid .control,
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-group.is-invalid > .xf-summary {
+  border-color: var(--pi-danger);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-slot > .field.xf-group {
+  gap: 6px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-headrow > .cr-customise {
+  margin-top: 0;
+  margin-right: 0;
+  font-size: 12px;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head h3 {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--pi-brand);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head h3 span {
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid-wrap {
+  box-shadow: 0 2px 3px -2px rgb(20 32 60 / 0.06);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table th {
+  height: 40px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals {
+  overflow: hidden;
+  box-shadow: 0 2px 3px -2px rgb(20 32 60 / 0.06);
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > :is(span, .cr-totals-cell):last-child {
+  background: color-mix(
+    in srgb,
+    var(--pi-brand-tint) 75%,
+    var(--pi-surface-panel)
+  );
+}
+
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > :is(span, .cr-totals-cell):last-child b {
+  letter-spacing: -0.025em;
+  color: var(--pi-brand);
+}
+
+/* Respond to the resizable form pane, not just the browser viewport. */
+@container bill-review (max-width: 660px) {
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-body,
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card[data-card="additional"] .cr-card-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* The optional-group count must not override the pane's column limit. */
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card[data-card="additional"] .cr-card-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row[data-check="narration"] {
+    grid-column: 1 / -1;
+  }
+
+  html
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-cards
+    .cr-card[data-card="accounting"]:has(
+      .cr-row:is([data-check="purchaseLedger"], [data-check="salesLedger"]):not(
+          [hidden]
+        )
+    )
+    .cr-row[data-check="narration"] {
+    grid-column: 1 / -1;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row--cc {
+    grid-column: 1 / -1;
+  }
+}
+
+@container bill-review (max-width: 420px) {
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-body,
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card[data-card="additional"] .cr-card-body {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 0;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card[data-card="additional"] .cr-card-body {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row,
+  html
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-cards
+    .cr-row:is([data-check="vendor"], [data-check="customer"]) {
+    grid-column: 1 / -1;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-head {
+    padding-inline: 0;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-tools small {
+    max-width: 240px;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-head > div {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals {
+    grid-template-columns: 1fr;
+  }
+
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > :is(span, .cr-totals-cell) + :is(span, .cr-totals-cell) {
+    border-left: 0;
+    border-top: 1px solid var(--pi-line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .control,
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .picker__state,
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-summary,
+  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards textarea {
+    transition: none;
+  }
+}
+
+/* the create button's tooltip — one, fixed, placed by BillReview */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tip {
+  position: fixed;
+  z-index: 60;
+  max-width: 280px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--pi-ink);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-surface-panel);
+  box-shadow: 0 4px 12px rgb(17 27 52 / 0.16);
+  pointer-events: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-tip[hidden] {
+  display: none;
+}

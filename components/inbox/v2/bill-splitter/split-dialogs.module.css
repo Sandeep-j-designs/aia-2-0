@@ -42,7 +42,7 @@
   --text: var(--pi-ink);
   --text-muted: var(--pi-faint);
   --text-body: var(--pi-body);
-  --ai: var(--pi-ai-ink);
+  --ai: var(--pi-brand); /* the AI mark is brand indigo (7 Oct 2026) */
   --danger: var(--pi-danger);
   --danger-dot: var(--pi-danger-dot);
   --danger-wash: var(--pi-danger-bg);
@@ -1289,14 +1289,6 @@
   font-size: 12px;
   line-height: 16px;
   font-weight: 400;
-}
-.rail2__pill::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--ai);
 }
 .rail2__t {
   font-size: 22px;

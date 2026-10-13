@@ -192,9 +192,18 @@
   if(!readyForSnapshots||!context)return;
   const calc=compute();
   const party=(byId(MASTERS.vendors,state.vendor)||state.vendorSuggestion||{}).name||'';
-  const lines=state.ledgers.filter(r=>num(r.amount)).map(r=>({description:r.description||r.desc||r.text||'',ledger:ledgerNameOf(r.ledger)||r.ledgerSuggestion?.name||'',amount:num(r.amount),dr:num(r.amount),cr:0}));
-  if(state.mode==='item')state.items.filter(r=>num(r.qty)*num(r.rate)).forEach(r=>lines.push({description:r.description||r.desc||r.text||'',ledger:byId(MASTERS.purchaseLedgers,state.purchaseLedger)?.name||state.purchaseLedgerSuggestion?.name||'',amount:num(r.qty)*num(r.rate),dr:num(r.qty)*num(r.rate),cr:0}));
-  const payload={sheet:JSON.parse(JSON.stringify({...state,__drafted:state.newMasters.map(m=>({kind:m.kind,master:(NM_LIST[m.kind]?.()||[]).find(x=>x.id===m.id)})).filter(d=>d.master)})),form:{gst:byId(MASTERS.branches,state.branch)?.name||'',voucherType:byId(MASTERS.voucherTypes,state.voucherType)?.name||state.voucherType,voucherNo:state.voucherNo||nextVoucherNo(),invoiceNo:state.supplierInvoiceNo,date:state.billDate,due:state.dueDate,party,costClass:state.costCentreClass,costCentre:state.billCostCentre,narration:state.narration,lines},amount:calc.grand};
+  /* Cost centres leave as NAMES, like every value on the inbox's form. A line
+     posts its own answer only when its ledger takes one and no header class or
+     centre has answered for the whole bill — the same rule the cells draw. */
+  const ccName=id=>byId(MASTERS.costCentres,id)?.name||'';
+  const ccSplitOut=sp=>sp?sp.categories.map(c=>({category:c.category,rows:c.rows.filter(x=>x.centre).map(x=>({centre:ccName(x.centre)||x.centre,pct:num(x.pct)}))})):null;
+ const gdOut=r=>({godown:r.gdSplit?'':(byId(MASTERS.godowns,r.godown)?.name||''),godownAllocation:r.gdSplit?r.gdSplit.rows.map(x=>({godown:byId(MASTERS.godowns,x.godown)?.name||x.godown,qty:num(x.qty),unit:gdUnit(r),amount:gdShare(r,x.qty)})):null});
+  const ccOut=(r,on=ccApplies(r))=>(ccLocked()||!on)?{costCentre:'',costAllocation:null}
+    :r.ccSplit?{costCentre:'',costAllocation:ccSplitOut(r.ccSplit)}:{costCentre:ccName(r.costCentre),costAllocation:null};
+  const vendorCc=vendorCcOn()?ccOut({costCentre:state.vendorCostCentre,ccSplit:state.vendorCcSplit},true):{costCentre:'',costAllocation:null};
+  const lines=state.ledgers.filter(r=>num(r.amount)).map(r=>({description:r.description||r.desc||r.text||'',ledger:ledgerNameOf(r.ledger)||r.ledgerSuggestion?.name||'',amount:num(r.amount),dr:num(r.amount),cr:0,...ccOut(r)}));
+  if(state.mode==='item')state.items.filter(r=>num(r.qty)*num(r.rate)).forEach(r=>lines.push({description:r.description||r.desc||r.text||'',ledger:byId(MASTERS.purchaseLedgers,state.purchaseLedger)?.name||state.purchaseLedgerSuggestion?.name||'',amount:num(r.qty)*num(r.rate),dr:num(r.qty)*num(r.rate),cr:0,...ccOut(r),...gdOut(r)}));
+  const payload={sheet:JSON.parse(JSON.stringify({...state,__drafted:state.newMasters.map(m=>({kind:m.kind,master:(NM_LIST[m.kind]?.()||[]).find(x=>x.id===m.id)})).filter(d=>d.master)})),form:{gst:byId(MASTERS.branches,state.branch)?.name||'',voucherType:byId(MASTERS.voucherTypes,state.voucherType)?.name||state.voucherType,voucherNo:state.voucherNo||nextVoucherNo(),invoiceNo:state.supplierInvoiceNo,date:state.billDate,due:state.dueDate,party,costMode:state.ccMode,costClass:ccClass()?.name||'',costCentre:ccName(ccHeader()),partyCostCentre:vendorCc.costCentre,partyCostAllocation:vendorCc.costAllocation,narration:state.narration,lines},amount:calc.grand};
   const key=JSON.stringify(payload);if(key!==sent){sent=key;post('snapshot',payload);}
  };
  const originalExtract=applyExtraction;
@@ -204,7 +213,13 @@
    if(context.sheet){for(const d of context.sheet.__drafted||[]){const list=NM_LIST[d.kind]?.();if(list&&d.master&&!list.some(x=>x.id===d.master.id))list.push(d.master);}state=JSON.parse(JSON.stringify(context.sheet));state.allocated=false;refreshVendorList();}
    else if(context.manual){state=freshState();state.document={name:context.fileName};state.voucherType=context.route==='AR'?'sales':'purchase';state.voucherNo=context.form?.voucherNo||'';}
    else if(context.form){
-    state.voucherNo=context.form.voucherNo;state.supplierInvoiceNo=context.form.invoiceNo;state.billDate=context.form.date;state.dueDate=context.form.due;state.costCentreClass=context.form.costClass;state.billCostCentre=context.form.costCentre;
+    state.voucherNo=context.form.voucherNo;state.supplierInvoiceNo=context.form.invoiceNo;state.billDate=context.form.date;state.dueDate=context.form.due;
+    /* the form holds names; the sheet holds ids. A header answer locks the
+       lines, so whatever the seed put on them goes — as it would on the form */
+    state.ccMode=context.form.costMode||(context.form.costCentre?'centre':'class');
+    state.costCentreClass=ccId(MASTERS.costCentreClasses,context.form.costClass);
+    state.billCostCentre=ccId(MASTERS.costCentres,context.form.costCentre);
+    if(ccLocked())clearLineCcs();
    }
    readyForSnapshots=true;render();snapshot();
   }

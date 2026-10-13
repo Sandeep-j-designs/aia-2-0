@@ -4,8 +4,6 @@ import type React from "react";
 /** Preserve native dialog semantics and the accounting engine's IDs/handlers. */
 export function refineDialogMarkup(doc: Document) {
   const descriptions: Record<string, string> = {
-    "nm-dialog":
-      "Create a reusable record for your books. Required fields are marked *.",
     "st-dialog": "Set the tax rates and when they take effect.",
     "rcm-dialog":
       "Choose the ledger that will receive the reverse-charge posting.",
@@ -52,11 +50,14 @@ export function refineDialogMarkup(doc: Document) {
       .forEach((node) => scroll.append(node));
     head.after(scroll);
     if (dialog.id === "nm-dialog") {
-      const nav = doc.createElement("nav");
-      nav.className = "dialog-section-nav";
-      nav.setAttribute("aria-label", "Master form sections");
-      nav.hidden = true;
-      head.after(nav);
+      // The bill form's own header line (7 Oct 2026): required is the norm,
+      // optional fields say so. Replaces the "* marks required" sentence.
+      const note = doc.createElement("p");
+      note.className = "dialog-req-note";
+      note.textContent = "Required unless marked optional";
+      head.querySelector(".pickdlg__x")?.before(note);
+      // No section tabs (8 Oct 2026): a dozen fields in short sections read
+      // in one scroll, and the tabs only added navigation to them.
     }
   });
   const labels: Record<string, string> = {
@@ -104,7 +105,7 @@ export function useDialogRefinements(
                   label.htmlFor = control.id;
                 if (!control.hasAttribute("aria-label"))
                   control.setAttribute("aria-label", name);
-                if (label.querySelector(".req"))
+                if (field.dataset.req === "1" || label.querySelector(".req"))
                   control.setAttribute("aria-required", "true");
                 control.setAttribute(
                   "aria-invalid",
@@ -113,32 +114,14 @@ export function useDialogRefinements(
               });
             });
           if (dialog.id !== "nm-dialog") return;
-          const nav = dialog.querySelector<HTMLElement>(".dialog-section-nav");
           const sections = [
-            ...dialog.querySelectorAll<HTMLElement>(".nmd__sec"),
+            ...dialog.querySelectorAll<HTMLElement>(".nmd__sec:not(button)"),
           ];
-          if (!nav) return;
-          nav.hidden = sections.length < 2;
-          const signature = sections
-            .map((section) => section.textContent)
-            .join("|");
           sections.forEach((section, index) => {
             section.id = `master-section-${index}`;
             section.setAttribute("role", "heading");
             section.setAttribute("aria-level", "3");
           });
-          if (nav.dataset.sections !== signature) {
-            nav.dataset.sections = signature;
-            nav.replaceChildren(
-              ...sections.map((section, index) => {
-                const button = document.createElement("button");
-                button.type = "button";
-                button.dataset.dialogSection = String(index);
-                button.textContent = section.textContent;
-                return button;
-              })
-            );
-          }
           const save = dialog.querySelector("#nm-save");
           const title =
             dialog.querySelector("#nm-title")?.textContent?.toLowerCase() || "";
@@ -170,18 +153,6 @@ export function useDialogRefinements(
           .closest("dialog")
           ?.querySelector<HTMLButtonElement>(".pickdlg__x")
           ?.click();
-      const button = target?.closest<HTMLElement>("[data-dialog-section]");
-      if (!button) return;
-      const section = button
-        .closest("dialog")
-        ?.querySelector<HTMLElement>(
-          `#master-section-${button.dataset.dialogSection}`
-        );
-      section?.scrollIntoView({ block: "start", behavior: "auto" });
-      const next = section?.nextElementSibling?.querySelector<HTMLElement>(
-        "input:not([disabled]), select:not([disabled]), textarea:not([disabled])"
-      );
-      next?.focus({ preventScroll: true });
     };
     root.addEventListener("click", click);
     update();

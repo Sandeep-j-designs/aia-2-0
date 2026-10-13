@@ -1269,11 +1269,12 @@ const COMPANY = {
      because the account being described is ours. */
   name:'Karbon Business',
   multiCurrency:false,   /* off: currency is stored as INR and never asked */
-  costCentre:false,      /* off: "Cost centres are applicable" is not asked  */
+  costCentre:true,       /* on: the company keeps cost centres, so ledgers say
+                            whether they take one and vouchers allocate them */
   baseCurrency:'INR',
   /* Opening balances are stated as at the company's creation date, so the form
      says which date it means rather than leaving the number undated. */
-  booksFrom:'1 Apr 2025'
+  booksFrom:'1 Apr 2026'
 };
 
 /* --- what this user is allowed to do ----------------------------------------
@@ -1467,9 +1468,12 @@ const MASTERS = {
 
   /* deductee type sets the 194C rate; a missing PAN forces 20% u/s 206AA.
      fyGoods / fyServices are what is already booked against the vendor this
-     financial year — they drive the TDS threshold tests. */
+     financial year — they drive the TDS threshold tests.
+     `costCentre` is the party ledger's "Cost centres are applicable". Tally
+     defaults it to No for a creditor, so only a vendor whose ledger says Yes
+     carries a cost centre on its own line of the bill — Technova does. */
   vendors:[
-    {id:'v-technova',name:'Technova Systems LLP',        group:'Karnataka',  gstin:'29AAGFT1122R1Z8',pan:'AAGFT1122R',state:'KA',credit:15,ledger:'led-purchase-local',treatment:'registered',deductee:'company',   address:'#7, 4th Cross, Koramangala Industrial Layout, Bengaluru — 560034',fyGoods:4920000,fyServices:0},
+    {id:'v-technova',name:'Technova Systems LLP',        group:'Karnataka',  costCentre:true,  gstin:'29AAGFT1122R1Z8',pan:'AAGFT1122R',state:'KA',credit:15,ledger:'led-purchase-local',treatment:'registered',deductee:'company',   address:'#7, 4th Cross, Koramangala Industrial Layout, Bengaluru — 560034',fyGoods:4920000,fyServices:0},
     {id:'v-sunrise', name:'Sunrise Stationers Pvt Ltd',  group:'Karnataka',  gstin:'29AACCS8899P1ZQ',pan:'AACCS8899P',state:'KA',credit:30,ledger:'led-purchase-local',treatment:'registered',deductee:'company',   address:'14, Nandidurga Road, Benson Town, Bengaluru — 560046',fyGoods:860000,fyServices:0},
     {id:'v-globe',   name:'Globe Logistics & Freight',   group:'Karnataka',  gstin:'29AABCG3344H1ZP',pan:'AABCG3344H',state:'KA',credit:7, ledger:'led-purchase-local',treatment:'registered',deductee:'company',   address:'Gate 3, Air Cargo Complex, Devanahalli, Bengaluru — 562110',fyGoods:0,fyServices:640000},
     {id:'v-meridian',name:'Meridian Facility Services',  group:'Karnataka',  gstin:'29AAECM7712J1ZD',pan:'AAECM7712J',state:'KA',credit:30,ledger:'led-purchase-local',treatment:'registered',deductee:'company',   address:'Unit 4, Jakkasandra Extension, Bengaluru — 560034',fyGoods:0,fyServices:1450000},
@@ -1587,27 +1591,56 @@ const MASTERS = {
     {id:'gd-rej', name:'Rejection Store',           group:'Control'}
   ],
 
+  /* --- cost centres, as Tally keeps them -----------------------------------
+     Shared with the rest of the prototype: config/pages/inbox/mock-cost-centres.ts
+     is the source, and this is a hand copy of it because the engine cannot
+     import TypeScript. Change one, change the other.
+
+     `group` is the cost CATEGORY — flat, one per centre, each allocating a
+     line's whole amount on its own. `parent` is the centre it sits Under,
+     which is how Tally builds the tree (Technology > Engineering); a parent
+     can be allocated to as well as its children. */
   costCentres:[
-    {id:'cc-admin', name:'Administration',      group:'Departments'},
-    {id:'cc-fin',   name:'Finance & Accounts',  group:'Departments'},
-    {id:'cc-hr',    name:'Human Resources',     group:'Departments'},
-    {id:'cc-eng',   name:'Engineering',         group:'Departments'},
-    {id:'cc-design',name:'Product & Design',    group:'Departments'},
-    {id:'cc-sales', name:'Sales & Marketing',   group:'Departments'},
-    {id:'cc-cs',    name:'Customer Success',    group:'Departments'},
-    {id:'cc-ops',   name:'Operations',          group:'Departments'},
-    {id:'cc-it',    name:'IT & Infrastructure', group:'Departments'},
-    {id:'cc-legal', name:'Legal & Compliance',  group:'Departments'},
-    {id:'cc-atlas', name:'Project Atlas',       group:'Projects'},
-    {id:'cc-north', name:'Project Northstar',   group:'Projects'}
+    {id:'cc-admin',     name:'Administration',      group:'Department', parent:''},
+    {id:'cc-fin',       name:'Finance & Accounts',  group:'Department', parent:'cc-admin'},
+    {id:'cc-hr',        name:'Human Resources',     group:'Department', parent:'cc-admin'},
+    {id:'cc-legal',     name:'Legal & Compliance',  group:'Department', parent:'cc-admin'},
+    {id:'cc-tech',      name:'Technology',          group:'Department', parent:''},
+    {id:'cc-eng',       name:'Engineering',         group:'Department', parent:'cc-tech'},
+    {id:'cc-design',    name:'Product & Design',    group:'Department', parent:'cc-tech'},
+    {id:'cc-it',        name:'IT & Infrastructure', group:'Department', parent:'cc-tech'},
+    {id:'cc-commercial',name:'Commercial',          group:'Department', parent:''},
+    {id:'cc-sales',     name:'Sales & Marketing',   group:'Department', parent:'cc-commercial'},
+    {id:'cc-cs',        name:'Customer Success',    group:'Department', parent:'cc-commercial'},
+    {id:'cc-ops',       name:'Operations',          group:'Department', parent:''},
+    {id:'cc-atlas',     name:'Project Atlas',       group:'Project',    parent:''},
+    {id:'cc-north',     name:'Project Northstar',   group:'Project',    parent:''},
+    {id:'cc-solvent',   name:'Solvent Plant Expansion', group:'Project', parent:''},
+    {id:'cc-south',     name:'South Zone',          group:'Region',     parent:''},
+    {id:'cc-west',      name:'West Zone',           group:'Region',     parent:''},
+    {id:'cc-northzone', name:'North Zone',          group:'Region',     parent:''},
+    {id:'cc-retail',    name:'Retail',              group:'Sales Channel', parent:''},
+    {id:'cc-wholesale', name:'Wholesale',           group:'Sales Channel', parent:''},
+    {id:'cc-mt',        name:'Modern Trade',        group:'Sales Channel', parent:''},
+    {id:'cc-horeca',    name:'HoReCa',              group:'Sales Channel', parent:''}
   ],
 
+  /* A cost centre class is a saved allocation, not a label: per category, the
+     centres and the share each takes. Picked once in the header, it allocates
+     every applicable line by these percentages and the lines stop asking.
+     Same shape as a line's split, so the two read and display the same way. */
   costCentreClasses:[
-    {id:'ccc-dept', name:'Departmental Split (Admin 40 / Eng 35 / Sales 25)'},
-    {id:'ccc-eng',  name:'Engineering — 100%'},
-    {id:'ccc-ops',  name:'Operations — 100%'},
-    {id:'ccc-rev',  name:'Revenue Share (Sales 60 / Customer Success 40)'},
-    {id:'ccc-atlas',name:'Project Atlas — 100%'}
+    {id:'ccc-dept', name:'Shared overheads', split:{categories:[
+      {category:'Department', rows:[{centre:'cc-admin',pct:40},{centre:'cc-eng',pct:35},{centre:'cc-sales',pct:25}]}]}},
+    {id:'ccc-eng',  name:'Engineering', split:{categories:[
+      {category:'Department', rows:[{centre:'cc-eng',pct:100}]}]}},
+    {id:'ccc-ops',  name:'Operations', split:{categories:[
+      {category:'Department', rows:[{centre:'cc-ops',pct:100}]}]}},
+    {id:'ccc-rev',  name:'Revenue share', split:{categories:[
+      {category:'Department', rows:[{centre:'cc-sales',pct:60},{centre:'cc-cs',pct:40}]}]}},
+    {id:'ccc-atlas',name:'Project Atlas build', split:{categories:[
+      {category:'Department', rows:[{centre:'cc-eng',pct:100}]},
+      {category:'Project',    rows:[{centre:'cc-atlas',pct:100}]}]}}
   ],
 
   /* `nature` is the supply the ledger is for, and it is what the sheet works
@@ -1898,7 +1931,7 @@ let SAMPLE = {
   billDate:'2026-07-28',
   purchaseLedger:'led-purchase-local',
   narration:'Desktop refresh for Engineering — PO/2026/0442. Includes installation, 1-year onsite AMC and disposal of the replaced units, the rack build and power for the staging area, customs clearing on the imported consignment, and an advance against next year’s support renewal. Deposit on the loaner bench is refundable on return.',
-  costCentreClass:'ccc-dept',
+  costCentreClass:'',
   /* What the bill carries past the voucher header. The order reference is on
      the document — it is in the narration above — and the document carries no
      order date, which is exactly the case the conditional rules exist for.
@@ -2193,6 +2226,27 @@ const FIELD_GROUPS = [
 ];
 const fieldById = id=>FIELD_GROUPS.flatMap(g=>g.fields).find(f=>f.id===id);
 
+/* Where a group's fields appear once it is on. There is no Additional Details
+   section: a field joins the part of the form it is about. */
+const XF_WHERE = {order:'additional', consignee:'additional', receipt:'additional', import:'additional'};
+const XF_ORDER = ['order','consignee','receipt','import'];
+const XF_WHERE_LABEL = {additional:'Additional Details'};
+const xfWhere = g=>XF_WHERE[g.id]||'additional';
+/* Inside the party section "Address" and "Pincode" would read as the party's
+   own, so the ship-to fields say whose they are. */
+const XF_INLINE_LABEL = {consigneeName:'Ship to', consigneeAddress:'Ship-to address',
+  consigneeState:'Ship-to state', consigneeCountry:'Ship-to country',
+  consigneePincode:'Ship-to pincode', consigneeGstin:'Ship-to GSTIN', placeOfSupply:'Place of supply',
+  /* the rest in the form's own sentence case */
+  orderNo:'Order no.', orderDate:'Order date', paymentTerms:'Payment terms',
+  otherRefs:'Other references', deliveryTerms:'Delivery terms',
+  receiptNoteNo:'Receipt note no.', receiptNoteDate:'Receipt note date', grnNo:'GRN no.',
+  dispatchedThrough:'Dispatched through', dispatchDest:'Destination', carrier:'Carrier / agent',
+  ladingNo:'LR / lading no.', ladingDate:'LR / lading date',
+  placeOfReceipt:'Place of receipt', vesselFlightNo:'Vessel / flight no.',
+  portOfLoading:'Port of loading', portOfDischarge:'Port of discharge', countryTo:'Country to',
+  boeNo:'Bill of entry no.', boeDate:'Bill of entry date', portCode:'Port code'};
+
 /* A group is off, or it is on with some subset of its fields. Both switches
    matter: turning the group off hides it whole without forgetting which
    fields were chosen inside it. */
@@ -2236,7 +2290,7 @@ let state;
 
 function freshState(){
   return {
-    mode:'item', ccMode:'centre',
+    mode:'item', ccMode:'class',
     branch:'', voucherType:'purchase', voucherNo:'', voucherDate:today(), billDate:'', dueDate:'',
     supplierInvoiceNo:'', costCentreClass:'', billCostCentre:'',
     vendor:'', vendorCostCentre:'', vendorCcSplit:null, billingAddress:'', gstTreatment:'', gstin:'',
@@ -2725,6 +2779,54 @@ function guessHit(row,route){
       best = {target:m.id, words, score};
   });
   return best;
+}
+
+/* Closest stock item, for a goods line no master answers exactly (7 Oct 2026,
+   user chose "closest existing item" over proposing a new one).
+
+   The shortlist is the items filed under the same HSN heading as the printed
+   code — 847150 sits under 8471, as the desktops and the laptop do — or, with
+   no code, the items sharing words with the description. Then, in order:
+   the form the line names (a "tower" is a desktop, a "notebook" a laptop),
+   words in common, and the nearest rate, because two desktops on one heading
+   are told apart by what they cost. Services never answer for goods. */
+const ITEM_FORMS = [
+  {form:'desktop', kw:/\b(desktop|tower|optiplex|vostro|thinkcentre|prodesk|elitedesk|veriton|sff)\b/i},
+  {form:'laptop',  kw:/\b(laptop|notebook|thinkpad|thinkbook|latitude|inspiron|vivobook|zenbook|macbook|ideapad|probook|elitebook)\b/i},
+  {form:'monitor', kw:/\b(monitor|display|led|lcd)\b/i},
+  {form:'printer', kw:/\b(printer|laserjet|mfp)\b/i}
+];
+const formOf = t => ITEM_FORMS.find(f=>f.kw.test(String(t||'')))?.form || '';
+function closestItemHit(row){
+  const code = String(row.billHsn||'').replace(/\D/g,'');
+  const goods = MASTERS.items.filter(m=>m.kind!=='service');
+  const heading = m => code.length>=4 && String(m.hsn||'').slice(0,4)===code.slice(0,4);
+  const want = PRED_WORD(row.description).filter(w=>w.length>3 && !PRED_STOP.has(w));
+  const shared = m => {
+    const have = new Set(PRED_WORD(m.name).filter(w=>w.length>3 && !PRED_STOP.has(w)));
+    return [...new Set(want.filter(w=>have.has(w)))];
+  };
+  let pool = goods.filter(heading);
+  const byCode = pool.length>0;
+  if(!byCode) pool = goods.filter(m=>shared(m).length);
+  if(!pool.length) return null;
+  const form = formOf(row.description);
+  const rate = num(row.rate);
+  const scored = pool.map(m=>({m,
+    form: form && formOf(m.name)===form ? 1 : 0,
+    words: shared(m),
+    gap: rate && m.rate ? Math.abs(m.rate-rate)/Math.max(m.rate,rate) : 1}));
+  scored.sort((a,b)=> b.form-a.form || b.words.length-a.words.length || a.gap-b.gap);
+  const best = scored[0];
+  /* A heading alone, with no form, no words and no rate to go on, is a
+     shelf and not an answer — that line still gets a new master. */
+  if(!best.form && !best.words.length && best.gap>=1) return null;
+  const why = [];
+  if(byCode) why.push(`HSN ${code} falls under ${String(best.m.hsn).slice(0,4)}`);
+  if(best.form) why.push(`reads as a ${best.form}`);
+  else if(best.words.length) why.push(`shares “${best.words.join('”, “')}”`);
+  if(rate && best.m.rate && best.gap<1) why.push(`nearest rate (${money(best.m.rate)})`);
+  return {target:best.m.id, reason:`closest item: ${why.join(', ')}`};
 }
 
 /* The book identifies a master by its name, so a draft whose name is already on
@@ -3629,6 +3731,7 @@ function draftVendor(printed){
     deductee: PAN_STATUS[status] || 'company',
     credit: 30,
     ledger: st && branchState && st===branchState ? 'led-purchase-local' : 'led-purchase-inter',
+    pincode: (String(printed?.address||'').match(/\b(\d{6})\b/)||[])[1] || '',
     address: String(printed?.address||'').trim(),
     fyGoods:0, fyServices:0,
     from:{
@@ -3640,6 +3743,7 @@ function draftVendor(printed){
                        : 'no GSTIN on the bill — an unregistered supplier',
       deductee: status && PAN_STATUS_NAME[status]
         ? `the PAN’s 4th character, ${status}, makes this ${PAN_STATUS_NAME[status]}` : '',
+      pincode:/\b\d{6}\b/.test(String(printed?.address||'')) ? 'the PIN code in the printed address' : '',
       address:printed?.address ? 'the address printed on the bill' : '',
       credit:'', ledger: st ? (st===branchState?'same state as the billed branch':'a different state from the billed branch') : ''
     }
@@ -3702,6 +3806,12 @@ function crossRouteHit(row){
   if(!asLedger) return null;
   const held = byId(MASTERS.expenseLedgers, asLedger.target);
   if(!held) return null;
+  /* A goods HSN the supplier printed outranks a book-wide keyword (7 Oct
+     2026): "Fulmont Premium" bleaching earth, HSN 380290, was being moved to
+     the Insurance ledger on the word "premium". Only this party's own coding
+     may still move a line that carries a goods code. */
+  const printed = String(row.billHsn||'').trim();
+  if(printed && !/^99/.test(printed) && !asLedger.own) return null;
   const asItem = codingHit(row,'item');
   /* The vendor's own corrections break the tie the fixed table cannot. Where
      they have been telling this book their lines are ledgers, an equal reading
@@ -3840,6 +3950,15 @@ function predictRow(row,route){
        holds — the habit is still the evidence, the master is just missing */
     else if(h) pred = {resolution:'new', evidence:'habit',
                        reason:`${count}, to a ${noun} this book no longer holds`};
+  }
+  /* 2½. a goods line no master answers exactly takes the closest stock item we
+        hold, as a suggestion with its reason, rather than minting a new one.
+        Only where nothing above spoke — a habit pointing at a missing master
+        is still that habit's call. */
+  if(!pred && route==='item'){
+    const near = closestItemHit(row);
+    if(near) pred = {resolution:'existing', evidence:'inferred', inferred:true,
+                     target:near.target, reason:near.reason};
   }
   /* 3. no master we hold answers it, so author one. The evidence for that is
         whatever got us here, and the printed code is the strongest of the
@@ -4297,6 +4416,17 @@ function refreshVendorList(){
 
 /* The purchase ledger picker in Bill Details, rebuilt for the same reason: the
    bill can add to this list too. */
+/* Why the purchase ledger is the one it is, while it is still the AI's
+   choice (7 Oct 2026). Kept as a kind, not a sentence, so the reason follows
+   the bill: change the supply states and "local" becomes "interstate". */
+function purchaseLedgerWhy(){
+  if(!state.purchaseLedger || !state.purchaseLedgerAiKind) return '';
+  if(state.purchaseLedgerAiKind==='habit') return 'this vendor\'s past bills post here';
+  if(state.purchaseLedgerAiKind==='capital') return 'most of these goods by value are capital goods by HSN heading';
+  const intra = isIntraState();
+  return intra===true ? 'both parties are in the same state, so it is a local purchase'
+       : intra===false ? 'the parties are in different states, so it is an interstate purchase' : '';
+}
 function refreshPurchaseLedgerList(){
   const sel = $('[data-bind="purchaseLedger"]'); if(!sel) return;
   /* One branch fewer than it had: a purchase ledger this bill created is
@@ -4314,11 +4444,13 @@ function refreshPurchaseLedgerList(){
       options(list,'',state.purchaseLedger)+nmOut(NM_NEW_PURCHASE,'purchase ledger')
     : options(list,'Select Ledger',state.purchaseLedger)+nmOut(NM_NEW_PURCHASE,'purchase ledger');
   sel.value = suggested ? '__purchase-suggestion' : (state.purchaseLedger || '');
+  const aiSlot = $('#purchase-ai');
+  if(aiSlot){ const why = !suggested && purchaseLedgerWhy(); aiSlot.innerHTML = why ? aiMark(why) : ''; }
   const wrap=$('#purchase-picker-state'), tag=$('#purchase-suggest-tag');
   wrap?.classList.toggle('is-suggested',!!suggested);
   if(tag){
     tag.hidden=!suggested;
-    tag.textContent='New';
+    tag.innerHTML=AI_GLYPH+'New';
     tag.className='predtag predtag--new';
     /* The same right that bars every other `+` bars this one. It was the one
        create control on the sheet that stayed pressable without it, and it
@@ -4396,10 +4528,20 @@ function rowHasPred(row,route){
    every predicted row, at rest — which on a forty-line bill is forty
    paragraphs nobody reads. Here it costs nothing until it is asked for, and it
    is asked for on the thing being decided. */
+/* The AI mark (7 Oct 2026, user: "AI suggested or predicted icon throughout
+   the prototype"). One glyph for every value the AI decided and nobody has
+   confirmed: a matched master is the sparkle alone (it replaced the word
+   "Suggested", which on a long bill sat on every line); a proposed master
+   keeps its word, "New", because it asks for an action, with the sparkle in
+   front. The reason stays one press away in the why popover. */
+const AI_GLYPH = '<svg class="ai-glyph" width="14" height="14" aria-hidden="true"><use href="#i-ai"/></svg>';
+const aiMark = (reason, extra='') => `<span class="ai-mark${extra}" tabindex="0" role="img" aria-label="${
+  esc(reason ? 'Suggested by AI: '+reason : 'Suggested by AI')}" title="${
+  esc(reason ? 'Suggested by AI — '+reason : 'Suggested by AI')}">${AI_GLYPH}</span>`;
 const predTag = (p,why) => why
   ? `<button type="button" class="predtag predtag--why predtag--new"
-       data-act="why" aria-expanded="false">New<span class="predtag__why">${why}</span></button>`
-  : `<span class="predtag predtag--new">New</span>`;
+       data-act="why" aria-expanded="false">${AI_GLYPH}New<span class="predtag__why">${why}</span></button>`
+  : `<span class="predtag predtag--new">${AI_GLYPH}New</span>`;
 
 /* The tick means one of two things and says which: use a master, or create
    one. A record that outlives this bill should not be made by a button
@@ -4813,27 +4955,61 @@ function setMode(next){
    That is why the split is validated per category and each has to reach
    100%, rather than everything summing to 100% between them.
    ------------------------------------------------------------------------ */
-/* A cost centre set at header level applies to the whole bill: every other
-   cost centre field shows it and goes read-only behind it. The per-line values
-   are masked rather than overwritten — row.costCentre and any split stay in
-   state, so clearing the header brings each line's own answer back. */
-/* Only a centre that resolves against the masters counts. The inbox seeds this
-   field from the record, and those carry cost centre NAMES ('Engineering')
-   rather than master ids ('cc-eng'), so an unresolvable value has always been
-   possible here. It used to be harmless — it fed a placeholder and nothing
-   else. Now that it drives a lock it has to be checked, or an embedded bill
-   locks every cost centre field to a value it cannot show and cannot set. */
+/* The header holds a class OR one cost centre, never both, and either one is
+   the bill's whole answer: every line and the vendor stop asking, and the
+   values they held are cleared when it is set (see clearLineCcs) — the same
+   rule production follows, so what is shown here is what would be posted.
+   A class mode with nothing picked locks nothing; the lines are still open. */
+/* Only a value that resolves against the masters counts. The inbox seeds these
+   fields from the record by NAME ('Engineering'), so the seed resolves names to
+   ids on the way in (ccId) and anything left over is ignored rather than
+   locking the form to a value it cannot show. */
+const ccClass  = ()=> state.ccMode==='class'  && byId(MASTERS.costCentreClasses,state.costCentreClass)
+  ? byId(MASTERS.costCentreClasses,state.costCentreClass) : null;
 const ccHeader = ()=> state.ccMode==='centre' && byId(MASTERS.costCentres,state.billCostCentre)
   ? state.billCostCentre : '';
-const ccLocked = ()=> state.ccMode==='class' || !!ccHeader();
+const ccLocked = ()=> !!ccClass() || !!ccHeader();
+const ccId = (list,v)=> !v ? '' : (byId(list,v) ? v : (list.find(x=>x.name===v)?.id || ''));
 function ccPlaceholder(){
-  if(state.ccMode!=='class'){
-    const bill = byId(MASTERS.costCentres,state.billCostCentre);
-    return bill ? bill.name+' (bill cost centre)' : 'Select Cost Centre';
-  }
-  const cls = byId(MASTERS.costCentreClasses,state.costCentreClass);
-  return cls ? cls.name : 'Set by class';
+  const cls = ccClass();
+  if(cls) return cls.name+' (class)';
+  const bill = byId(MASTERS.costCentres,ccHeader());
+  return bill ? bill.name+' (bill cost centre)' : 'Select Cost Centre';
 }
+function clearLineCcs(){
+  [...state.items, ...state.ledgers].forEach(r=>{ r.costCentre=''; r.ccSplit=null; });
+  state.vendorCostCentre=''; state.vendorCcSplit=null;
+}
+
+/* Which lines take a cost centre at all is the LEDGER's question, as in Tally:
+   "Cost centres are applicable" on the ledger master. A ledger that says so
+   explicitly is believed; one that does not falls back to Tally's default —
+   Yes on the income and expense side (purchase, expense, blocked-credit
+   ledgers), No on duties & taxes and reverse-charge payables. A stock line
+   posts to the bill's purchase ledger, so it asks that ledger. A line whose
+   ledger is still unknown keeps the cell open — the answer arrives with the
+   ledger, and the value is kept until then. */
+function ledgerCcOn(id){
+  if(!id) return null;
+  const pl = new Set([...MASTERS.expenseLedgers, ...MASTERS.purchaseLedgers, ...MASTERS.itcLedgers]);
+  const l = allLedgers().find(x=>x.id===id); if(!l) return null;
+  if(typeof l.costCentre==='boolean') return l.costCentre;
+  return pl.has(l);
+}
+function ccApplies(row){
+  const id = row && state.items.includes(row) ? state.purchaseLedger : row?.ledger;
+  const known = ledgerCcOn(id);
+  if(known!==null) return known;
+  /* No ledger yet, but the AI has proposed one: the line follows the ledger it
+     is about to post to — an existing master, or the draft's Under group
+     (a TCS payable or a refundable deposit is not on the P&L side). */
+  const p = row?.pred;
+  if(p?.target){ const t = ledgerCcOn(p.target); if(t!==null) return t; }
+  const g = p?.draft?.groupSuggest?.group || p?.draft?.group;   // the suggested Under, else the bucket
+  if(g) return profileFor(g, p.draft.kind)==='pl';
+  return true;
+}
+const vendorCcOn = ()=> !!byId(MASTERS.vendors,state.vendor)?.costCentre;
 
 const CC_SPLIT = '__cc-split';                    // the sentinel option value
 const ccCategories = ()=>[...new Set(MASTERS.costCentres.map(c=>c.group))];
@@ -4846,9 +5022,17 @@ const ccCatDone  = c=>Math.abs(ccCatTotal(c)-100)<0.005 && c.rows.every(r=>r.cen
 const ccSplitDone = s=>!!s && s.categories.length>0 && s.categories.every(ccCatDone);
 const ccSplitCentres = s=>new Set(s.categories.flatMap(c=>c.rows.map(r=>r.centre).filter(Boolean)));
 
+/* "Split · 3 centres" in the cell, which is narrow; production's wording
+   ("2 Departments · 1 Project") and the breakdown go on hover. */
 function ccSplitLabel(s){
   const n = ccSplitCentres(s).size;
-  return `Split — ${n} cost centre${n===1?'':'s'}`;
+  return `Split · ${n} centre${n===1?'':'s'}`;
+}
+function ccSplitCats(s){
+  return s.categories.map(c=>{
+    const n = c.rows.filter(r=>r.centre).length;
+    return `${n} ${c.category}${n===1?'':'s'}`;
+  }).join(' · ');
 }
 function ccSplitDetail(s){
   return s.categories.map(c=>
@@ -4856,16 +5040,43 @@ function ccSplitDetail(s){
       `${byId(MASTERS.costCentres,r.centre)?.name} ${num(r.pct)}%`).join(', ')||'—'}`).join(' · ');
 }
 
+/* The centres as Tally lists them: by category, children indented under the
+   centre they sit Under (three spaces a level — what the dropdown reads as
+   indent). Tree order, so a parent heads its own children. */
+function ccTree(list){
+  const out = [];
+  const walk = (parent,depth)=> list.filter(c=>(c.parent||'')===parent).forEach(c=>{
+    out.push({...c, name:'   '.repeat(depth)+c.name}); walk(c.id,depth+1);
+  });
+  const ids = new Set(list.map(c=>c.id));
+  list.filter(c=>!c.parent || !ids.has(c.parent)).forEach(c=>{
+    out.push(c); walk(c.id,1);
+  });
+  return out;
+}
+const ccOptions = (placeholder,selected,list=MASTERS.costCentres)=>
+  options2(ccTree(list),placeholder,selected);
+
 /* One cost-centre picker, wherever it appears: the centres, then the way to
    split across them. The same markup serves the table rows and the vendor
    card — only the binding attribute differs. */
 function ccSelect({cls, attrs, disabled, placeholder, value, split}){
   return `<select class="${cls}" ${attrs}${disabled?' disabled':''}${
-      split?` title="${esc(ccSplitDetail(split))}"`:''}>
+      split?` title="${esc(ccSplitCats(split)+' — '+ccSplitDetail(split))}"`:''}>
     ${split?`<option value="${CC_SPLIT}" selected>${esc(ccSplitLabel(split))}</option>`:''}
-    ${options2(MASTERS.costCentres, placeholder, split?CC_SPLIT:value)}
-    <option value="${CC_SPLIT}-open">${split?'Edit split…':'Split cost centres…'}</option>
+    ${ccOptions(placeholder, split?CC_SPLIT:value)}
+    ${disabled?'':`<option value="${CC_SPLIT}-open">${split?'Edit split…':'Split cost centres…'}</option>`}
   </select>`;
+}
+
+/* A line that cannot take a cost centre says so instead of offering a picker:
+   its ledger has "Cost centres are applicable" off. Under a header class the
+   locked cell names the class and carries its split on hover. */
+const ccNotApplicable = ()=>
+  `<span class="cr-na" aria-label="Not applicable" title="This ledger does not take cost centres">—</span>`;
+function ccLockedTitle(){
+  const cls = ccClass();
+  return cls ? `Set by the class: ${ccSplitDetail(cls.split)}` : 'Set by the bill cost centre';
 }
 
 /* ---------------------------------------------------------------------------
@@ -4907,15 +5118,17 @@ const aiApplied = (row,route)=>{
 const aiTag = (row,route)=>{
   const why = predReason(row,route);
   return why
-    ? `<button type="button" class="predtag predtag--why predtag--ai" data-act="why" aria-expanded="false">Suggested<span class="predtag__why">${why}</span></button>`
-    : `<span class="predtag predtag--ai">Suggested</span>`;
+    ? `<button type="button" class="predtag predtag--why predtag--ai" data-act="why" aria-expanded="false" aria-label="Suggested by AI. Why?">${AI_GLYPH}<span class="predtag__why">${why}</span></button>`
+    : `<span class="predtag predtag--ai" role="img" aria-label="Suggested by AI">${AI_GLYPH}</span>`;
 };
 
 function ccCell(row){
-  return `<label class="cell cr-cc${ccLocked()?' is-disabled':''}">${ccSelect({
-    cls:'cell__select t-cell', attrs:'data-f="costCentre" aria-label="Cost centre"', disabled:ccLocked(),
-    placeholder:ccPlaceholder(), value:ccLocked()?(ccHeader()||''):row.costCentre,
-    split:ccLocked()?null:row.ccSplit})}</label>`;
+  if(!ccApplies(row)) return ccNotApplicable();
+  const lock = ccLocked();
+  return `<label class="cell cr-cc${lock?' is-disabled':''}"${lock?` title="${esc(ccLockedTitle())}"`:''}>${ccSelect({
+    cls:'cell__select t-cell', attrs:'data-f="costCentre" aria-label="Cost centre"', disabled:lock,
+    placeholder:ccPlaceholder(), value:lock?(ccHeader()||''):row.costCentre,
+    split:lock?null:row.ccSplit})}</label>`;
 }
 
 /* The bill's lines as one table, after the Finops review form (Oct 2026).
@@ -4930,12 +5143,213 @@ const lineFind = s => s && state[s.kind]?.find(r=>r.id===s.id);
 function lineMeta(row,kind){
   const st = hsnState(row, kind==='items'?'item':'ledger');
   const bits = [];
-  if(st.value) bits.push(`HSN ${st.value}`);
+  if(st.value) bits.push(`${/^99\d{4}$/.test(String(st.value).trim()) ? 'SAC' : 'HSN'} ${st.value}`);
   if(kind==='items' && num(row.discount)) bits.push(`Discount ${row.discountType==='pct'?num(row.discount)+'%':money(num(row.discount))}`);
   return bits.join(' · ');
 }
 const crArrow = `<svg width="12" height="12" aria-hidden="true"><use href="#i-chevron"/></svg>`;
 
+/* Warehouse/Godown, a column of the table (7 Oct 2026) rather than only a
+   field in the line's sheet: where the stock lands is checked line by line,
+   like the cost centre beside it. A service is not stocked, nor is a line
+   posted straight to a ledger. */
+/* ---------------------------------------------------------------------------
+   GODOWN SPLIT (7 Oct 2026)
+
+   User: "There should be an option to split warehouse/godowns as well." A
+   stock line can land in more than one godown — twenty tonnes of bleaching
+   earth, twelve to the main store and eight to Peenya. Tally calls this the
+   godown allocation of the line: quantity by godown, at the line's rate, and
+   the quantities have to come to the line's.
+
+   It works like the cost centre split beside it, on purpose: the same
+   footer action in the picker ("Split godowns", split glyph), the same
+   dialog shape ("Allocate Godown"), and "Split · N godowns" in the narrow
+   cell with the breakdown on hover. One godown or a split, never both: the
+   split clears the godown and picking a godown clears the split.
+
+   The split is stored as quantities, not as shares, because quantities are
+   what the stock books read. So a line whose quantity changes after it was
+   split no longer adds up: the cell turns amber and says by how much, the
+   review lists it, and approving refuses until the split is edited again.
+   ------------------------------------------------------------------------ */
+const GD_SPLIT = '__gd-split';                    // the sentinel option value
+let gdDraft = null;
+const r3 = n=>Math.round((num(n)+Number.EPSILON)*1000)/1000;
+const gdQty = s=>r3((s?.rows||[]).reduce((t,r)=>t+num(r.qty),0));
+const gdUnit = row=>byId(MASTERS.items,row.item)?.unit || row.billUnit || row.unit || '';
+const gdQtyText = (n,row)=>`${r3(n).toLocaleString('en-IN')}${gdUnit(row)?' '+gdUnit(row):''}`;
+const gdSplitMatches = row=>!row.gdSplit || Math.abs(gdQty(row.gdSplit)-num(row.qty))<0.0005;
+const gdSplitGodowns = s=>new Set((s?.rows||[]).map(r=>r.godown).filter(Boolean));
+function gdSplitLabel(s){
+  const n = gdSplitGodowns(s).size;
+  return `Split · ${n} godown${n===1?'':'s'}`;
+}
+function gdSplitDetail(row){
+  return (row.gdSplit?.rows||[]).filter(r=>r.godown).map(r=>
+    `${byId(MASTERS.godowns,r.godown)?.name||r.godown} ${gdQtyText(r.qty,row)}`).join(' · ');
+}
+/* The amount a godown's quantity carries: its share of the line's taxable
+   value, so a discount or a stated amount divides with the stock. */
+const gdShare = (row,qty)=>{
+  const q = num(row.qty);
+  return q ? r2(lineOf(row).taxable*num(qty)/q) : 0;
+};
+
+/* One godown picker, in the table and in the line sheet: the godowns, then
+   the way to split across them. A line with no quantity has nothing to split
+   yet, and says so rather than opening an empty allocation. */
+function gdSelect(row,{cls,attrs,placeholder,note}){
+  const split = row.gdSplit;
+  const canSplit = num(row.qty)>0;
+  const title = note || (split ? gdSplitDetail(row) : '');
+  return `<select class="${cls}" ${attrs}${title?` title="${esc(title)}"`:''}>
+    ${split?`<option value="${GD_SPLIT}" selected>${esc(gdSplitLabel(split))}</option>`:''}
+    ${options2(MASTERS.godowns, placeholder, split?GD_SPLIT:row.godown)}
+    <option value="${GD_SPLIT}-open"${canSplit?'':' disabled title="Enter a quantity to split it across godowns"'}>${
+      split?'Edit split…':'Split godowns…'}</option>
+  </select>`;
+}
+/* A split that no longer comes to the line's quantity, said in the cell. */
+function gdMismatchNote(row){
+  if(gdSplitMatches(row)) return '';
+  const diff = r3(gdQty(row.gdSplit)-num(row.qty));
+  return `Split is ${gdQtyText(gdQty(row.gdSplit),row)}, line is ${gdQtyText(row.qty,row)} — ${
+    diff>0?'over by':'short by'} ${gdQtyText(Math.abs(diff),row)}`;
+}
+
+/* Re-reads one godown cell in place: typing a quantity must not re-render
+   the row under the caret. */
+function gdPatchCell(tr,row){
+  const cell = tr?.querySelector('.cr-godown'); if(!cell) return;
+  const off = gdMismatchNote(row);
+  cell.classList.toggle('is-mismatch', !!off);
+  const sel = cell.querySelector('select');
+  if(sel) sel.title = off || gdSplitDetail(row);
+}
+
+function gdSlot(target){
+  const row = state[target.kind]?.find(r=>r.id===target.id);
+  return row || null;
+}
+
+function openGdDialog(target){
+  const row = gdSlot(target); if(!row || !(num(row.qty)>0)) return;
+  gdDraft = {
+    target, tried:false,
+    rows: row.gdSplit
+      ? row.gdSplit.rows.map(r=>({...r,id:uid()}))
+      // the godown already on the line takes the whole quantity to start
+      : [{id:uid(), godown:row.godown||'', qty:num(row.qty)}, {id:uid(), godown:'', qty:0}]
+  };
+  renderGdDialog();
+  $('#gd-dialog').showModal();
+  $('#gd-body [data-gd="godown"]')?.focus();
+}
+
+const gdTick = `<span class="ico ico-12"><svg width="12" height="12"><use href="#i-tick"/></svg></span>`;
+const gdLive = ()=>gdDraft.rows.filter(r=>num(r.qty)>0 || r.godown);
+const gdDraftDone = row=>{
+  const rows = gdLive();
+  return rows.length>0
+    && rows.every(r=>r.godown && num(r.qty)>0)
+    && new Set(rows.map(r=>r.godown)).size===rows.length
+    && Math.abs(gdQty({rows})-num(row.qty))<0.0005;
+};
+/* Said under the row once Save has been tried, and not before: a row being
+   filled in is not a row in error. */
+function gdRowError(r){
+  if(!gdDraft.tried) return '';
+  if(!r.godown && (num(r.qty)>0 || gdLive().length===0)) return 'Choose a godown';
+  if(r.godown && !(num(r.qty)>0)) return 'Enter a quantity';
+  return '';
+}
+function gdMeterHtml(row){
+  const got = gdQty(gdDraft), want = r3(row.qty);
+  const done = Math.abs(got-want)<0.0005;
+  const complete = gdDraftDone(row);
+  const cls = complete?' is-done':got>want?' is-over':(gdDraft.tried?' is-short':'');
+  const txt = complete ? `Allocated${gdTick}` : done ? 'Choose the godowns'
+    : got>want ? `${gdQtyText(got-want,row)} over ${gdQtyText(want,row)}`
+    : `${gdQtyText(want-got,row)} left of ${gdQtyText(want,row)}`;
+  return `<span class="alx__meter alx__meter--wide${cls}"><span class="alx__meter-txt">${txt}</span><span class="alx__bar"><i style="width:${want?Math.min(100,got/want*100):0}%"></i></span></span>`;
+}
+
+/* The meter, the amounts, Fill remaining and the status are all a keystroke
+   changes, so they are patched in place; a rebuild would take the caret. */
+function gdPatch(){
+  const row = gdSlot(gdDraft.target); if(!row) return;
+  $('#gd-body .alx__meter')?.replaceWith(alxNode(gdMeterHtml(row)));
+  gdDraft.rows.forEach(r=>{
+    const amt = $(`#gd-body [data-gdrow="${r.id}"] [data-gd="amt"]`);
+    if(amt) amt.value = num(r.qty) ? inr.format(gdShare(row,r.qty)) : '';
+  });
+  const left = r3(num(row.qty)-gdQty(gdDraft));
+  const fill = $('#gd-body [data-gd="fill"]');
+  if(fill){ fill.hidden = !(left>0.0005); fill.lastChild.textContent = 'Fill remaining'; }
+  const ok = gdDraftDone(row);
+  const st = $('#gd-warn');
+  st.hidden = false;
+  st.className = 'alx__status'+(ok?' is-done':gdDraft.tried?' is-err':'');
+  st.innerHTML = ok ? `${gdTick}The godowns take the whole line`
+    : gdDraft.tried ? `The godowns have to take exactly ${gdQtyText(row.qty,row)}, and every row needs a godown.`
+    : `Allocate a total of ${gdQtyText(row.qty,row)}.`;
+  $('#gd-save').disabled = false;
+}
+
+function renderGdDialog(){
+  const d = gdDraft; if(!d) return;
+  const row = gdSlot(d.target); if(!row) return;
+  const name = (row.item && byId(MASTERS.items,row.item)?.name) || row.description || 'This line';
+  $('#gd-total').innerHTML = `<span class="alx__context-name" title="${esc(name)}">${esc(name)}</span><strong class="alx__context-value">${esc(gdQtyText(row.qty,row))}<small>${esc(money(num(row.rate)))} / ${esc(gdUnit(row)||'unit')}</small></strong>`;
+  const act = document.activeElement;
+  const keep = act && act.dataset?.gd ? {f:act.dataset.gd, row:act.closest('[data-gdrow]')?.dataset.gdrow} : null;
+  const taken = d.rows.map(r=>r.godown).filter(Boolean);
+  const unit = gdUnit(row);
+  const left = r3(num(row.qty)-gdQty(d));
+  $('#gd-body').innerHTML = `<section class="ccc">
+      <div class="ccc__head alx__head--sum"><span class="alx__section-title">Godowns</span>${gdMeterHtml(row)}</div>
+      <div class="alx__rows">
+      <div class="ccrow ccrow--head"><span>Godown / location</span><span>Quantity</span><span>Amount</span><span></span></div>
+      ${d.rows.map(r=>{
+        const err = gdRowError(r);
+        return `<div class="ccrow" data-gdrow="${r.id}">
+        <label class="cell${err==='Choose a godown'?' is-bad':''}"><select class="cell__select t-cell" data-gd="godown" aria-label="Godown">
+          <option value="">Select godown</option>
+          ${MASTERS.godowns.map(g=>`<option value="${g.id}"${g.id===r.godown?' selected':''}${
+            taken.includes(g.id)&&g.id!==r.godown?' disabled':''}>${esc(g.name)}</option>`).join('')}
+        </select></label>
+        <label class="cell cell-num alx__suffix${err==='Enter a quantity'?' is-bad':''}"><input class="cell__input t-cell" data-gd="qty"
+               inputmode="decimal" value="${num(r.qty)||''}" placeholder="0" aria-label="Quantity in this godown">${unit?`<span>${esc(unit)}</span>`:''}</label>
+        <label class="cell cell-num alx__prefix is-disabled"><span>₹</span><input class="cell__input t-cell" data-gd="amt" tabindex="-1"
+               value="${num(r.qty)?inr.format(gdShare(row,r.qty)):''}" placeholder="0.00" aria-label="Amount for this godown" readonly></label>
+        <button type="button" class="alx__icon" data-gd="del-row" aria-label="Remove this godown" title="Remove"${d.rows.length<2?' disabled':''}>${alxTrash}</button>
+        ${err?`<p class="alx__err">${err}</p>`:''}
+      </div>`;}).join('')}
+      <div class="alx__acts">
+        ${d.rows.length < MASTERS.godowns.length
+          ? `<button type="button" class="ccx__add" data-gd="add-row">${plusIco}Add godown</button>` : ''}
+        <div class="alx__remaining">
+        <button type="button" class="ccx__add alx__fill" data-gd="fill"${left>0.0005?'':' hidden'}><span>Fill remaining</span></button>
+        </div>
+      </div>
+      </div>
+    </section>`;
+  gdPatch();
+  if(keep){
+    const el = $(`#gd-body [data-gdrow="${keep.row}"] [data-gd="${keep.f}"]`);
+    if(el){ el.focus(); el.select?.(); }
+  }
+}
+
+function godownCell(row,item,n){
+  if(!item || row.kind==='service')
+    return `<span class="cr-na" aria-label="Not applicable" title="${item?'A service is not stocked':'A ledger line is not stocked'}">—</span>`;
+  const off = gdMismatchNote(row);
+  return `<label class="cell cr-cc cr-godown${off?' is-mismatch':''}">${gdSelect(row,{
+    cls:'cell__select t-cell', attrs:`data-f="godown" aria-label="Line ${n+1} warehouse or godown"`,
+    placeholder:'Select godown', note:off})}</label>`;
+}
 function renderItems(){
   const shown = linesShown();
   const rows = [...shown.items.map(r=>['items',r]), ...shown.ledgers.map(r=>['ledgers',r])];
@@ -4957,7 +5371,15 @@ function renderItems(){
           esc(p ? predName(p) : (master?master.name:row.item))}" placeholder="Choose stock item"><button type="button" class="cellcaret" data-act="pickitem" aria-label="Show item suggestions">${caret}</button>${p?predActions(p):''}</label>`
       : `<label class="cell cr-pick"><input class="cell__input" data-cr-item data-list="items-list" aria-label="Line ${n+1} stock item" value="" placeholder="Add item"><button type="button" class="cellcaret" data-act="pickitem" aria-label="Show item suggestions">${caret}</button></label>`;
     const hsn = hsnState(row,route);
-    const hsnCell = `<label class="cell cr-hsn"><span class="cr-hsn__k">HSN/SAC</span><input class="cell__input${hsn.from==='pred'?' is-pred':''}" data-f="hsn" data-list="hsn-list" autocomplete="off" aria-label="Line ${n+1} HSN or SAC code" value="${esc(hsn.value)}" placeholder="Add code"${hsn.from==='pred'?' title="Read from the description"':''}></label>`;
+    /* The code sits under the column that owns it (7 Oct 2026, user): an
+       item's HSN under Item, a ledger line's SAC under Ledger. A service
+       item is still an item, so its code is labelled SAC there. */
+    const codeKind = v => /^99\d{4}$/.test(String(v||'').trim()) ? 'SAC' : 'HSN';
+    const codeLabel = String(hsnState(row,route).value||'').trim()
+      ? codeKind(hsnState(row,route).value)
+      : (item && row.kind!=='service' ? 'HSN' : 'SAC');
+    const hsnCell = `<label class="cell cr-hsn"><span class="cr-hsn__k">${codeLabel}</span><input class="cell__input${hsn.from==='pred'?' is-pred':''}" data-f="hsn" data-list="hsn-list" autocomplete="off" aria-label="Line ${n+1} ${codeLabel} code" value="${esc(hsn.value)}" placeholder="Add code"${hsn.from==='pred'?' title="Read from the description"':''}>${
+      hsn.from==='pred' ? aiMark('the code was read from the description', ' ai-mark--in') : ''}</label>`;
     const bookLedger = byId(MASTERS.purchaseLedgers,state.purchaseLedger)?.name || state.purchaseLedgerSuggestion?.name || '';
     const ledgerCell = item
       ? `<span class="cr-book" title="Purchase ledger for every stock item line. Change it in Voucher details.">${esc(bookLedger)||'—'}</span>`
@@ -4965,11 +5387,12 @@ function renderItems(){
     return `<tr class="trow cr-tr${row.sel?' is-selected':''}" data-kind="${kind}" data-id="${row.id}">
       <td class="cr-idx">${checkbox(row.sel)}<span>${n+1}</span></td>
       <td class="cr-desc"><input class="cr-in cr-in--text" data-f="description" aria-label="Line ${n+1} description" value="${esc(row.description)}" placeholder="Description" title="${esc(row.description)}"></td>
-      <td class="cr-picker cr-stack" data-unresolved="${item&&!coded&&!p}">${itemCell}${hsnCell}</td>
+      <td class="cr-picker${item?' cr-stack':''}" data-unresolved="${item&&!coded&&!p}">${itemCell}${item?hsnCell:''}</td>
       <td class="cr-num">${item?`<input class="cr-in" data-f="qty" inputmode="decimal" aria-label="Line ${n+1} quantity" value="${row.qty||''}" placeholder="0">`:na}</td>
       <td class="cr-num">${item?`<input class="cr-in" data-f="rate" inputmode="decimal" aria-label="Line ${n+1} rate" value="${row.rate||''}" placeholder="0">`:na}</td>
-      <td class="cr-picker" data-unresolved="${!item&&!coded&&!p}">${ledgerCell}</td>
+      <td class="cr-picker${item?'':' cr-stack'}" data-unresolved="${!item&&!coded&&!p}">${ledgerCell}${item?'':hsnCell}</td>
       <td class="cr-picker">${ccCell(row)}</td>
+      <td class="cr-picker">${godownCell(row,item,n)}</td>
       <td class="cr-amt${invalid?' is-invalid':''}">${money(amount)}</td>
       <td class="cr-act"><button type="button" class="cr-more" data-act="menu" aria-label="Line ${n+1} actions" title="Duplicate or delete"><svg width="16" height="16" aria-hidden="true"><use href="#i-dots"/></svg></button></td>
     </tr>`;
@@ -4978,9 +5401,9 @@ function renderItems(){
   const total = rows.reduce((s,[k,r])=>s+(k==='items'?lineOf(r).taxable:num(r.amount)),0);
   const coded = rows.filter(([k,r])=>k==='items'?r.item:r.ledger).length;
   $('#items-table').innerHTML = `<table class="cr-table" aria-label="Bill lines">
-      <colgroup><col class="c-idx"><col class="c-item"><col class="c-stock"><col class="c-qty"><col class="c-rate"><col class="c-ledger"><col class="c-centre"><col class="c-amt"><col class="c-act"></colgroup>
-      <thead><tr><th scope="col" class="cr-idx">#</th><th scope="col" class="cr-desc">Description</th><th scope="col">Item</th><th scope="col" class="cr-num">Qty</th><th scope="col" class="cr-num">Rate</th><th scope="col">Ledger</th><th scope="col">Cost centre</th><th scope="col" class="cr-amt">Amount</th><th scope="col" class="cr-act"><span class="sr-only">Actions</span></th></tr></thead>
-      <tbody>${body || `<tr><td colspan="9" class="cr-empty">No items yet. Add one from the original bill.</td></tr>`}</tbody>
+      <colgroup><col class="c-idx"><col class="c-item"><col class="c-stock"><col class="c-qty"><col class="c-rate"><col class="c-ledger"><col class="c-centre"><col class="c-godown"><col class="c-amt"><col class="c-act"></colgroup>
+      <thead><tr><th scope="col" class="cr-idx">#</th><th scope="col" class="cr-desc">Description</th><th scope="col">Item</th><th scope="col" class="cr-num">Qty</th><th scope="col" class="cr-num">Rate</th><th scope="col">Ledger</th><th scope="col">Cost centre</th><th scope="col">Warehouse/Godown</th><th scope="col" class="cr-amt">Amount</th><th scope="col" class="cr-act"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>${body || `<tr><td colspan="10" class="cr-empty">No items yet. Add one from the original bill.</td></tr>`}</tbody>
     </table>`;
   const count = $('#cr-items-count'); if(count) count.textContent = rows.length;
   const codedEl = $('#cr-items-coded'); if(codedEl) codedEl.textContent = `${coded} of ${rows.length} coded`;
@@ -5048,10 +5471,9 @@ function renderLineSheet(){
   $('#cr-line-body').innerHTML = `<div class="cr-line" data-kind="${kind}" data-id="${row.id}">
     <p class="cr-sub">Coding</p>
     ${f(item?'Stock item':'Ledger', posts, true)}
-    ${predWhy(row,route)}
     ${f('Cost centre', ccCell(row).replace('cell cr-cc','cell cr-box'), true)}
     ${item?`<div class="cr-fgrid">${f('Type',`<button type="button" class="kindtoggle cr-kind" data-f="kind" data-kind="${row.kind}" title="Switch between goods and service">${service?'Service':'Goods'}</button>`)}
-      ${f('Godown',`<label class="cell cr-box${service?' is-disabled':''}"><select class="cell__select" data-f="godown" aria-label="Godown"${service?' disabled':''}>${options2(MASTERS.godowns,service?'Not applicable':'Select godown',row.godown)}</select></label>`)}</div>`:''}
+      ${f('Godown',`<label class="cell cr-box${service?' is-disabled':''}">${service?`<select class="cell__select" data-f="godown" aria-label="Godown" disabled>${options2(MASTERS.godowns,'Not applicable','')}</select>`:gdSelect(row,{cls:'cell__select',attrs:'data-f="godown" aria-label="Godown"',placeholder:'Select godown',note:gdMismatchNote(row)})}</label>`)}</div>`:''}
     <p class="cr-sub">${item?'Item details':'Line details'}</p>
     ${f('Description',`<label class="cell cr-box"><input class="cell__input" data-f="description" aria-label="Description" value="${esc(row.description)}" placeholder="Item or service"></label>`,true)}
     <div class="cr-fgrid">
@@ -5158,7 +5580,7 @@ const BULK_FIELDS = {
      options:()=>options2(MASTERS.godowns,'Godown/Location','')},
     {f:'costCentre',  kind:'select', w:101, placeholder:'Cost Centre',       label:'Cost centre for selected line items',
      off:()=>ccLocked(), offTitle:()=>`Cost centres are set by ${ccPlaceholder()}`,
-     options:()=>options2(MASTERS.costCentres,'Cost Centre','')},
+     options:()=>ccOptions('Cost Centre','')},
   ],
   ledgers: [
     {f:'description', kind:'text',   w:159, placeholder:'Enter Description', label:'Description for selected ledger lines'},
@@ -5166,7 +5588,7 @@ const BULK_FIELDS = {
      options:()=>bulkLedgerOptions()},
     {f:'costCentre',  kind:'select', w:101, placeholder:'Cost Centre',       label:'Cost centre for selected ledger lines',
      off:()=>ccLocked(), offTitle:()=>`Cost centres are set by ${ccPlaceholder()}`,
-     options:()=>options2(MASTERS.costCentres,'Cost Centre','')},
+     options:()=>ccOptions('Cost Centre','')},
   ],
 };
 
@@ -5293,6 +5715,7 @@ function bulkApply(){
         applyItemMaster(row, master); hit = true; return;
       }
       if(spec.f==='godown' && row.kind==='service') return;   // not a field this row has
+      if(spec.f==='godown') row.gdSplit = null;               // a godown for the line replaces its split
       if(spec.f==='ledger'){
         row.ledger = v; row.pred = null; row.predState = '';
         if(row.hsnFrom!=='user'){ row.hsn=''; row.hsnFrom=''; row.hsnPred=null; row.hsnPredState=''; }
@@ -5300,7 +5723,10 @@ function bulkApply(){
         predictHsn(row,'ledger');
         hit = true; return;
       }
-      if(spec.f==='costCentre'){ row.costCentre = v; row.ccSplit = null; hit = true; return; }
+      if(spec.f==='costCentre'){
+        if(!ccApplies(row)) return;                 // its ledger takes no cost centre
+        row.costCentre = v; row.ccSplit = null; hit = true; return;
+      }
       row[spec.f] = v;
       hit = true;
     });
@@ -5342,7 +5768,7 @@ const taxPredTag = row => {
   const p = row.pred;
   if(!p || row.predState!=='open') return '';
   return `<button type="button" class="predtag predtag--sm predtag--why predtag--new" data-act="why"
-          aria-expanded="false">New<span class="predtag__why"><b>Read off the bill:</b> ${
+          aria-expanded="false">${AI_GLYPH}New<span class="predtag__why"><b>Read off the bill:</b> ${
             esc(p.reason)}. Creates ${esc(taxLedgerName(row))}.</span></button>`;
 };
 const taxPredActs = row => {
@@ -5496,9 +5922,9 @@ let nmDraft = null;                 // {draft, target:{kind,id}|null}
 /* One title for all four, because they make one kind of record. Which ledger it
    is, is what the note underneath says and what the group answers — it is not a
    different dialog. */
-const NM_TITLE = {item:'Create Item Master', ledger:'New Ledger',
-                  purchase:'New Ledger', rcm:'New Ledger',
-                  itc:'New Ledger', tax:'New Ledger', vendor:'Create Vendor'};
+const NM_TITLE = {item:'Create Item', ledger:'Create Ledger',
+                  purchase:'Create Ledger', rcm:'Create Ledger',
+                  itc:'Create Ledger', tax:'Create Ledger', vendor:'Create Vendor'};
 /* NM_NOTE and PROFILE_NOTE lived here — a headline and a paragraph per kind
    of master, written for the banner above each modal's fields. The banner is
    gone from every modal, so they are too. */
@@ -5577,6 +6003,9 @@ const KIND_FALLBACK_PROFILE = {ledger:'pl', purchase:'pl', rcm:'duties', itc:'pl
 const profileFor = (group,kind) =>
   GROUP_BY_NAME[group]?.profile
   || GROUP_BY_NAME[BOOK_SUBGROUPS[group]]?.profile   /* a sub-group is its parent */
+  /* A party filed on a shelf of the book's own (a state, say) is still a
+     party: the shelf sits under Sundry Creditors or Debtors. */
+  || (kind==='vendor' || kind==='customer' ? 'party' : '')
   || KIND_FALLBACK_PROFILE[kind] || 'pl';
 
 /* --- the blocks the profiles are built from --------------------------------
@@ -5915,11 +6344,13 @@ const LEDGER_PROFILES = {
      fields to it. A party's full master is its own form — this is the ledger
      side of one, which is what the Under picker can actually reach. */
   party: (g,kind)=>[
-    ...blk.head(kind,g),
+    {section: kind==='customer' ? 'Customer' : kind==='vendor' ? 'Vendor' : 'Party'},
+    ...blk.head(kind,g).filter(f=>!f.section),
+    ...partyTax(blk.taxReg()),
+    ...blk.address(),
+    {section:'Credit & cost centres'},
     ...blk.balances({creditPeriod:true}),
     ...blk.costCentre(),
-    ...blk.address(),
-    ...blk.taxReg(),
     ...blk.opening()
   ]
 };
@@ -6037,7 +6468,7 @@ const noteOf    = (f,d) => typeof f.note==='function' ? f.note(d) : (f.note||'')
 const groupSuggestNote = d => {
   const s = d.groupSuggest;
   return (s && s.group && s.group!==d.group)
-    ? `This book would file it under ${s.group} — ${s.why}.` : '';
+    ? '' : '';   // said by the suggestion row under the field, with a Use button
 };
 /* The suggested group first in the picker, under its own heading, so taking it
    is picking it. No second control: the field that asks the question is the
@@ -6121,6 +6552,74 @@ const NM_FIELDS = {
 /* `lock` is a value another field has already decided. It is drawn as the
    answer and closed, not hidden — a field that vanishes when something else is
    set looks like a bug, and the point is that the form knows the answer. */
+
+/* --- the master form, reworked (8 Oct 2026) ---------------------------------
+   User: "Master creation dialog box lacks a lot of UX." What changed, and why:
+
+   - One scrolling form, no tabs: a dozen fields do not need navigation.
+   - A party (vendor or customer) leads with its identity: name, Under, then
+     GSTIN, GST treatment and PAN. Treatment is required and the GSTIN is
+     required for any registered treatment, because both decide the tax.
+   - Where a value came from is said beside its label in two words ("From
+     GSTIN", "From the document"), with the full reason on hover. Typing over
+     the value removes it. The one value the AI decides, Under, keeps the AI
+     mark and offers its suggestion with a Use button.
+   - A party already in the book with the same GSTIN is named under Name.
+   - Checks a typo would slip past: the GSTIN check digit, the PAN inside the
+     GSTIN, and the GSTIN's state against the address state. Every fault is
+     said under its own field.
+   - Switches and the fields they open are one bordered list, and the opening
+     balance is folded until it is wanted.
+   ------------------------------------------------------------------------ */
+const TREATMENT_FULL = {registered:'Regular', composition:'Composition',
+                        unregistered:'Unregistered/Consumer', sez:'Regular-SEZ'};
+const TREATMENT_SHORT = Object.fromEntries(Object.entries(TREATMENT_FULL).map(([k,v])=>[v,k]));
+const shortTreatment = t => TREATMENT_SHORT[t] || t;
+const PARTY_KINDS = ['vendor','customer'];
+const isReq = (f,d) => typeof f.req==='function' ? !!f.req(d) : !!f.req;
+const GSTIN_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function gstinCheckOk(g){
+  g = String(g||'').trim().toUpperCase();
+  if(g.length!==15) return false;
+  const sum = [...g.slice(0,14)].reduce((t,c,i)=>{
+    const v = GSTIN_CHARS.indexOf(c)*(i%2?2:1);
+    return t+Math.floor(v/36)+(v%36);
+  },0);
+  return GSTIN_CHARS[(36-(sum%36))%36]===g[14];
+}
+/* Where a value came from, in two words. The full reason stays on hover. */
+function fromCaption(why){
+  const w = String(why||'');
+  if(!w) return '';
+  /* Only what was read: off the document itself, or out of an identifier
+     on it. A default or a prediction is not a reading, and saying "worked
+     out" beside every field was noise. */
+  if(/PIN code/i.test(w)) return 'From address';
+  if(/printed|wording|charged|stated on/i.test(w)) return 'From the document';
+  if(/GSTIN/.test(w)) return 'From GSTIN';
+  if(/\bPAN\b/.test(w)) return 'From PAN';
+  return '';
+}
+/* A party in the book with this GSTIN: the duplicate that matters for a party,
+   whatever it happens to be called. */
+function partyByGstin(d){
+  const g = String(d.gstin||'').trim().toUpperCase();
+  if(g.length!==15) return null;
+  const pool = d.kind==='vendor' ? MASTERS.vendors : d.kind==='customer' ? MASTERS.customers : null;
+  return pool?.find(p=>String(p.gstin||'').toUpperCase()===g) || null;
+}
+/* A party's tax identity, in the order it is read off a document, asked with
+   the party rather than three sections down. */
+const partyTax = list => {
+  const by = k => list.find(f=>f.k===k);
+  return [by('gstin'), by('treatment'), by('pan')].filter(Boolean).map(f=>
+    f.k==='treatment' ? {...f, req:true}
+    : f.k==='gstin' ? {...f, req:d=>!!d.treatment && !/Unregistered|Embassy/.test(d.treatment)}
+    : f);
+};
+const alxNode = h=>{ const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstChild; };
+const alxTrash = `<svg width="16" height="16" aria-hidden="true"><use href="#i-trash"/></svg>`;
+
 function nmControl(f,v,locked){
   const dis = locked!==null && locked!==undefined ? ' disabled' : '';
   if(f.type==='select'){
@@ -6186,7 +6685,7 @@ function renderNmDialog(){
      in the sheet. The title says what is being made and the fields say what it
      will hold; a paragraph restating both was the same information a third
      time, above the thing it was describing. */
-  $('#nm-save').textContent = nmDraft.target ? 'Confirm creation' : 'Confirm creation';
+  $('#nm-save').textContent = {vendor:'Create vendor', customer:'Create customer', item:'Create item'}[d.kind] || 'Create ledger';
   const near = nmDraft.ignoreNear ? null : nearMasterForDraft(d);
   nmDraft.near = near;
   $('#nm-near').hidden = !near;
@@ -6201,7 +6700,13 @@ function renderNmDialog(){
     return spec.slice(i+1).some(n=>n.section ? false : fieldShown(n,d));
   });
 
-  $('#nm-body').innerHTML = live.map(f=>{
+  /* One field. Matches the bill form (7 Oct 2026, user: "match it with the
+     patterns used inside the forms"): required is the norm and unmarked, an
+     optional field says "Optional"; what the AI filled wears the form's teal
+     Suggested tag on the label line with its reason on hover, rather than a
+     line of reasoning under every field. A note is a real caveat and stays. */
+  const cap = s => String(s).charAt(0).toUpperCase()+String(s).slice(1);
+  const fieldHtml = f=>{
     if(f.section) return `<p class="nmd__sec">${esc(f.section)}</p>`;
     const locked = fieldLock(f,d);
     const raw    = locked!==null && locked!==undefined ? locked : d[f.k];
@@ -6211,27 +6716,108 @@ function renderNmDialog(){
                  : raw===undefined||raw===null ? '' : String(raw);
     const from   = d.from?.[f.k];
     const note   = noteOf(f,d);
-    const tail   = `${from?`<span class="nmd__from">${esc(from)}</span>`:''}${
-                     note?`<span class="nmd__note">${esc(note)}</span>`:''}`;
-    const cls    = `${f.wide?' nmd__f--wide':''}${f.sub?' nmd__f--sub':''}${
-                     locked!==null&&locked!==undefined?' is-locked':''}`;
+    const isLocked = locked!==null&&locked!==undefined;
+    /* Nearly every field here is filled from the bill, so a tag on each
+       would be the old noise in a new colour. The header says it once; a
+       field's own reason is on its label, on hover. */
+    const why    = from ? ` title="Suggested: ${esc(from)}"` : '';
+    const ai     = '';
+    const opt    = !isReq(f,d) && !isLocked && !f.readonly && f.type!=='switch' && f.type!=='statutory'
+                   ? '<span class="nmd__opt">Optional</span>' : '';
+    const tail   = note?`<span class="nmd__note">${esc(note)}</span>`:'';
+    /* The AI's own decision on this form: where the record is filed. Said as
+       a suggestion with a way to take it, not as a note beside a value that
+       disagrees with it. */
+    const sug = f.k==='group' && d.groupSuggest?.group && d.groupSuggest.group!==d.group
+      ? `<span class="nmd__sugg">${AI_GLYPH}<span>Suggested: <b>${esc(d.groupSuggest.group)}</b> — ${esc(d.groupSuggest.why)}</span><button type="button" class="nmd__use" data-nmuse="group" data-v="${esc(d.groupSuggest.group)}">Use</button></span>` : '';
+    /* Under Name, for a party with a GSTIN: whether the book already has it. */
+    const g15 = String(d.gstin||'').trim().toUpperCase();
+    const twin = f.k==='name' && PARTY_KINDS.includes(d.kind) && g15.length===15 ? partyByGstin(d) : null;
+    const dup = f.k!=='name' || !PARTY_KINDS.includes(d.kind) || g15.length!==15 ? ''
+      : twin ? `<span class="nmd__dup is-hit"><b>${esc(twin.name)}</b> already has this GSTIN.<button type="button" class="nmd__use" data-nmexisting="${esc(twin.id)}">Use existing</button></span>`
+      : `<span class="nmd__dup">No ${d.kind} with this GSTIN in your books</span>`;
+    const fromTag = from && !isLocked && v && fromCaption(from) ? `<span class="nmd__src" title="${esc('Read from '+from)}">${esc(fromCaption(from))}</span>` : '';
+    const cls    = `${f.wide?' nmd__f--wide':''}${f.sub?' nmd__f--sub':''}${isLocked?' is-locked':''}`;
     /* A switch and a segmented pair are their own control — wrapping them in
-       the 40px box built to hold a line of text would box a button. */
+       the box built to hold a line of text would box a button. */
     if(f.type==='switch')
-      return `<div class="nmd__f nmd__f--switch${cls}" data-nmf="${f.k}">
-        <span class="nmd__swlbl"><label class="nmd__lbl">${esc(f.label)}</label>${
-          note?`<span class="nmd__note">${esc(note)}</span>`:''}</span>${
+      return `<div class="nmd__f nmd__f--switch${cls}" data-nmf="${f.k}" data-req="${isReq(f,d)?1:0}">
+        <span class="nmd__swlbl"><span class="nmd__lblrow"><label class="nmd__lbl"${why}>${esc(f.label)}</label>${ai}</span>${tail}</span>${
         nmControl(f,v,locked)}</div>`;
     const ctl = f.type==='segment' ? `<span class="nmd__seg">${nmControl(f,v,locked)}</span>`
       : f.type==='statutory' ? nmControl(f,v,locked)
       : `<span class="nmd__ctl${f.type==='textarea'?' nmd__ctl--area':''}${
           f.readonly?' nmd__ctl--ro':''}">${nmControl(f,v,locked)}</span>`;
-    return `<div class="nmd__f${cls}" data-nmf="${f.k}">
-      <label class="nmd__lbl">${f.req?'<span class="req">*</span> ':''}${esc(f.label)}</label>
+    return `<div class="nmd__f${cls}" data-nmf="${f.k}" data-req="${isReq(f,d)?1:0}">
+      <span class="nmd__lblrow"><label class="nmd__lbl"${why}>${esc(f.label)}</label>${opt}${ai}${fromTag}</span>
       ${ctl}
-      ${tail}
+      ${tail}${sug}${dup}
     </div>`;
-  }).join('');
+  };
+  /* Grouped the way the bill form groups: a switch and the fields it opens
+     sit in one tinted panel (as a vendor's details sit under the vendor), and
+     a run of plain switches is one bordered list rather than loose rows. */
+  const parts = [];
+  let group = null;
+  let fold = null;
+  live.forEach(f=>{
+    /* The opening balance is asked of every ledger and needed by few, so it
+       is folded until it is wanted, and says what it holds while folded. */
+    if(f.section==='Opening Balance'){
+      const open = !!nmDraft.openingOpen || num(d.opening)>0;
+      const sum = num(d.opening) ? `₹${inr.format(num(d.opening))} ${esc(d.drcr||'')}` : 'None';
+      parts.push(`<button type="button" class="nmd__sec nmd__sec--fold" data-nmfold aria-expanded="${open}">Opening balance<span class="nmd__fold-sum">${sum}</span><span class="ico ico-13 ico--muted"><svg width="13" height="13"><use href="#i-caret"/></svg></span></button>`);
+      fold = {kind:'fold', open, html:[]}; parts.push(fold); group = null;
+      return;
+    }
+    if(f.section) fold = null;
+    if(fold){ fold.html.push(fieldHtml(f)); return; }
+    const html = fieldHtml(f);
+    if(!f.section && f.sub){
+      /* A dependent field right after a plain switch belongs to that switch
+         ("Default Credit Period" under "Maintain balances bill by bill"), so
+         the switch leaves the list and heads the panel. */
+      if(f.type!=='switch' && group?.kind==='switches'){
+        const head = group.html.pop();
+        if(!group.html.length) parts.splice(parts.indexOf(group),1);
+        group = {kind:'sub', html:[head]}; parts.push(group);
+      }else if(f.type==='switch' || group?.kind!=='sub'){ group = {kind:'sub', html:[]}; parts.push(group); }
+      group.html.push(html); return;
+    }
+    if(!f.section && f.type==='switch'){
+      if(group?.kind!=='switches'){ group = {kind:'switches', html:[]}; parts.push(group); }
+      group.html.push(html); return;
+    }
+    group = null;
+    parts.push(html);
+  });
+  /* Switches, and the fields a switch opens, read as one bordered list: a
+     row per switch, its fields inside the same row. Two kinds of panel side
+     by side read as two different controls. */
+  const merged = [];
+  parts.forEach(p=>{
+    if(typeof p==='string' || p.kind==='fold'){ merged.push(p); return; }
+    const items = p.kind==='sub' ? [`<div class="nmd__item nmd__item--open">${p.html.join('')}</div>`]
+                                 : p.html.map(h=>`<div class="nmd__item">${h}</div>`);
+    const last = merged[merged.length-1];
+    if(last && typeof last!=='string' && last.kind==='list') last.html.push(...items);
+    else merged.push({kind:'list', html:items});
+  });
+  $('#nm-body').innerHTML = merged.map(p=>typeof p==='string' ? p
+    : p.kind==='fold' ? `<div class="nmd__fold"${p.open?'':' hidden'}>${p.html.join('')}</div>`
+    : `<div class="nmd__group nmd__group--${p.kind}">${p.html.join('')}</div>`).join('');
+  /* Once, beside the title: the form's teal Suggested tag, for a record the
+     AI has filled in from the document. */
+  let filled = $('#nm-ai');
+  if(!filled){
+    filled = document.createElement('span');
+    filled.id = 'nm-ai';
+    filled.className = 'nmd__ai nmd__ai--head';
+    filled.title = 'Filled in from the document. Hover a field label to see why.';
+    $('#nm-title').after(filled);
+  }
+  filled.innerHTML = AI_GLYPH+'Suggested from this document';
+  filled.hidden = !live.some(f=>!f.section && d.from?.[f.k]);
 
 }
 
@@ -6302,34 +6888,34 @@ function renderStDialog(){
   const has = t => s.types.includes(t);
   const rate = (t,label) => !has(t) ? '' : `
     <div class="nmd__f" data-stf="${t}">
-      <label class="nmd__lbl"><span class="req">*</span> ${label}</label>
+      <span class="nmd__lblrow"><label class="nmd__lbl">${label}</label></span>
       <span class="nmd__ctl"><input data-st="${t}" type="text" inputmode="decimal"
         placeholder="0" value="${esc(s[t])}"><span class="nmd__pre">%</span></span>
     </div>`;
   $('#st-body').innerHTML = `
     <div class="nmd__f nmd__f--wide" data-stf="types">
-      <label class="nmd__lbl"><span class="req">*</span> Tax Type</label>
+      <span class="nmd__lblrow"><label class="nmd__lbl">Tax Type</label></span>
       <span class="nmd__chips">${TAX_TYPES.map(([id,label])=>
         `<button type="button" data-sttype="${id}" aria-pressed="${has(id)}">${label}</button>`).join('')}</span>
     </div>
     ${rate('igst','IGST Rate')}${rate('cgst','CGST Rate')}${rate('sgst','SGST/UTGST Rate')}
     ${!has('cess') ? '' : `
     <div class="nmd__f" data-stf="cessVal">
-      <label class="nmd__lbl"><span class="req">*</span> Cess Valuation Type</label>
+      <span class="nmd__lblrow"><label class="nmd__lbl">Cess Valuation Type</label></span>
       <span class="nmd__ctl"><select data-st="cessVal">${CESS_VALUATION.map(o=>
         `<option value="${esc(o.id)}"${o.id===s.cessVal?' selected':''}>${esc(o.name)}</option>`).join('')}</select>
         <span class="ico ico-13 ico--muted"><svg width="13" height="13"><use href="#i-caret"/></svg></span></span>
     </div>
     ${s.cessVal==='Not Applicable' ? '' : `
     <div class="nmd__f" data-stf="cessRate">
-      <label class="nmd__lbl"><span class="req">*</span> Cess Rate</label>
+      <span class="nmd__lblrow"><label class="nmd__lbl">Cess Rate</label></span>
       <span class="nmd__ctl"><input data-st="cessRate" type="text" inputmode="decimal"
         placeholder="0" value="${esc(s.cessRate)}"><span class="nmd__pre">${
         s.cessVal==='Based on Quantity' ? 'per unit' : s.cessVal==='Based on Value' ? '%' : '% + per unit'
       }</span></span>
     </div>`}`}
     <div class="nmd__f" data-stf="from">
-      <label class="nmd__lbl"><span class="req">*</span> Applicable From</label>
+      <span class="nmd__lblrow"><label class="nmd__lbl">Applicable From</label></span>
       <span class="nmd__ctl"><input data-st="from" type="date" value="${esc(s.from)}"></span>
     </div>`;
 }
@@ -6349,26 +6935,39 @@ function openStDialog(k){
 function stCommit(){
   const s = stDraft?.data; if(!s) return false;
   const w = $('#st-warn');
-  const fail = msg => { w.textContent = msg; w.hidden = false; return false; };
+  /* The refusal is said under the field it is about, as the bill form says
+     its errors (7 Oct 2026): red edge on that field, one 12px line under it,
+     and no band above the form repeating it. */
+  const fail = (msg,k) => {
+    w.hidden = true;
+    $$('#st-body .nmd__f').forEach(el=>{
+      const on = el.dataset.stf===k;
+      el.classList.toggle('is-invalid', on);
+      el.querySelector('.nmd__err')?.remove();
+      if(on) el.insertAdjacentHTML('beforeend', `<p class="nmd__err">${esc(msg)}</p>`);
+    });
+    $(`#st-body [data-stf="${k}"] input, #st-body [data-stf="${k}"] button`)?.focus();
+    return false;
+  };
   const has = t => s.types.includes(t);
   const num_ = t => String(s[t]??'').trim();
 
   if(!has('igst') && !has('cgst') && !has('sgst'))
-    return fail('A ledger carries IGST, or CGST and SGST/UTGST together. Choose at least one.');
+    return fail('A ledger carries IGST, or CGST and SGST/UTGST together. Choose at least one.','types');
   if(has('igst') && (has('cgst') || has('sgst')))
-    return fail('IGST and CGST/SGST are alternatives — a supply is one or the other, never both.');
+    return fail('IGST and CGST/SGST are alternatives — a supply is one or the other, never both.','types');
   /* The pair rule is about a supply's rate details, where charging CGST without
      SGST is half a rate. It is not about an input ledger, which is one head by
      definition — "Input CGST 9%" holds CGST and nothing else, and its opposite
      number is a second ledger rather than a second row in this dialog. */
   if(!s.singleHead && has('cgst') !== has('sgst'))
-    return fail('CGST and SGST/UTGST are charged as a pair. Set both, or neither.');
+    return fail('CGST and SGST/UTGST are charged as a pair. Set both, or neither.','types');
   for(const t of ['igst','cgst','sgst'])
     if(has(t) && !/^\d{1,2}(\.\d{1,2})?$/.test(num_(t)))
-      return fail(`${t.toUpperCase()} rate is a percentage.`);
+      return fail(`${t.toUpperCase()} rate is a percentage.`, t);
   if(has('cess') && s.cessVal!=='Not Applicable' && !/^\d{1,4}(\.\d{1,2})?$/.test(num_('cessRate')))
-    return fail('Cess rate is a number.');
-  if(!s.from) return fail('A rate applies from a date. Give the date it starts.');
+    return fail('Cess rate is a number.','cessRate');
+  if(!s.from) return fail('A rate applies from a date. Give the date it starts.','from');
 
   nmDraft.draft[stDraft.k] = {...s};
   (nmDraft.draft.touched ||= {})[stDraft.k] = true;
@@ -6387,6 +6986,7 @@ function openNmDialog(draft,target,opt={}){
   /* A value the bill supplied counts as answered: it has provenance, and a
      later change of group must not quietly overwrite it with a default. */
   const d = {...draft, from:{...(draft.from||{})}};
+  if(TREATMENT_FULL[d.treatment]) d.treatment = TREATMENT_FULL[d.treatment];
   d.touched = Object.fromEntries(Object.keys(d.from).map(k=>[k,true]));
   if(LEDGER_KIND[d.kind]) applyGroupDefaults(d);
   nmDraft = {draft:d, target:target||null, ignoreNear:false, near:null};
@@ -6413,8 +7013,9 @@ document.addEventListener('input', e=>{
   d[k] = e.target.value;
   (d.touched ||= {})[k] = true;
   if(d.from) delete d.from[k];
-  e.target.closest('.nmd__f')?.querySelector('.nmd__from')?.remove();
+  e.target.closest('.nmd__f')?.querySelector('.nmd__from, .nmd__src')?.remove();
   e.target.closest('.nmd__f')?.classList.remove('is-invalid');
+  e.target.closest('.nmd__f')?.querySelector('.nmd__err')?.remove();
   /* Characters 3–12 of a GSTIN are the PAN inside it. Filling PAN from a GSTIN
      that is still being typed would fill it with a fragment, so it waits for
      all fifteen — and never overwrites a PAN the user has typed themselves. */
@@ -6434,8 +7035,9 @@ document.addEventListener('change', e=>{
   d[k] = e.target.value;
   (d.touched ||= {})[k] = true;
   if(d.from) delete d.from[k];
-  e.target.closest('.nmd__f')?.querySelector('.nmd__from')?.remove();
+  e.target.closest('.nmd__f')?.querySelector('.nmd__from, .nmd__src')?.remove();
   e.target.closest('.nmd__f')?.classList.remove('is-invalid');
+  e.target.closest('.nmd__f')?.querySelector('.nmd__err')?.remove();
   /* Under is re-read when the nature of payment moves, because the section is
      one of the things that decided it — but only while the group is still the
      engine's guess. Once the user has said where this ledger goes, nothing
@@ -6566,9 +7168,9 @@ function nmFaults(d){
     return String(raw ?? '').trim();
   };
 
-  const missing = onForm.filter(f=>f.req && !answer(f));
+  const missing = onForm.filter(f=>isReq(f,d) && !answer(f));
   if(missing.length) return {fields:missing, labels:missing.map(f=>f.label),
-    msg:`${missing.map(f=>f.label).join(' and ')} ${missing.length>1?'are':'is'
+    missing:true, msg:`${missing.map(f=>f.label).join(' and ')} ${missing.length>1?'are':'is'
       } needed before this master can be created.`};
 
   /* A format the field states and the value does not meet. Blank is not a
@@ -6579,6 +7181,19 @@ function nmFaults(d){
 
   /* "Must be unique within the company", checked against every list a ledger
      can be filed in rather than against the one this one is headed for. */
+    /* Checks a typo would slip past, for anything holding a GSTIN. */
+  const fld = k => onForm.find(f=>f.k===k);
+  const g15 = String(d.gstin||'').trim().toUpperCase();
+  if(g15.length===15 && fld('gstin') && !gstinCheckOk(g15))
+    return {fields:[fld('gstin')], msg:'The last character doesn’t match the rest — check for a mistyped character.'};
+  if(g15.length===15 && fld('pan') && String(d.pan||'').trim() && String(d.pan).trim().toUpperCase()!==g15.slice(2,12))
+    return {fields:[fld('pan')], msg:`PAN should be ${g15.slice(2,12)}, characters 3–12 of the GSTIN.`};
+  const st = byId(MASTERS.states,d.state);
+  if(g15.length===15 && fld('state') && st?.gst && st.gst!==g15.slice(0,2)){
+    const reg = MASTERS.states.find(s=>s.gst===g15.slice(0,2));
+    return {fields:[fld('state')], msg:`The GSTIN is registered in ${reg?.name||'state '+g15.slice(0,2)}, not ${st.name}.`};
+  }
+
   const dupe = onForm.filter(f=>f.unique && nameTaken(answer(f),d.kind));
   if(dupe.length) return {fields:dupe, labels:dupe.map(f=>f.label),
     msg:`A ${d.kind==='item'?'item':'ledger'} called “${answer(dupe[0])}” already exists in this company.`};
@@ -6608,22 +7223,41 @@ const cloneDraft = d => JSON.parse(JSON.stringify(d));
 function nmCommit(){
   const d = nmDraft?.draft; if(!d) return false;
   const fault = nmFaults(d);
-  if(fault) return nmReject(fault.fields, fault.msg);
+  if(fault) return nmReject(fault.fields, fault.missing ? '' : fault.msg);
   return nmWrite(d);
+}
+
+/* The line above the form, for a refusal no field can carry: a fault on a
+   field that is not drawn, a missing right, or the save itself failing. Without
+   it the button does nothing and says nothing. */
+function nmWarn(msg){
+  const w = $('#nm-warn');
+  w.textContent = msg; w.hidden = false;
+  w.scrollIntoView({block:'nearest'});
+  return false;
 }
 
 /* One way to refuse: mark the fields, say why once, and put the cursor in the
    first thing that needs fixing. */
 function nmReject(fields,msg){
-  $$('#nm-body .nmd__f').forEach(el=>
-    el.classList.toggle('is-invalid', fields.some(f=>f.k===el.dataset.nmf)));
-  const w = $('#nm-warn');
-  w.textContent = msg;
-  w.hidden = false;
+  /* Said under each field it is about, as the bill form says its errors: a
+     red edge and one line. No band above the form repeating it. */
+  $('#nm-warn').hidden = true;
+  $$('#nm-body .nmd__f').forEach(el=>{
+    const hit = fields.some(f=>f.k===el.dataset.nmf);
+    el.classList.toggle('is-invalid', hit);
+    el.querySelector('.nmd__err')?.remove();
+    if(hit) el.insertAdjacentHTML('beforeend', `<p class="nmd__err">${esc(msg || 'Required')}</p>`);
+  });
+  const first = $(`#nm-body [data-nmf="${fields[0].k}"]`);
+  // a fault inside the folded opening balance opens it
+  if(first?.closest('.nmd__fold[hidden]')){ nmDraft.openingOpen = true; renderNmDialog(); return nmReject(fields,msg); }
+  // nothing on screen to put the line under: say it above the form instead
+  if(!first?.offsetParent) return nmWarn(msg || `${fields.map(f=>f.label).join(' and ')} ${fields.length>1?'are':'is'} needed before this master can be created.`);
+  first?.scrollIntoView({block:'center'});
   $(`#nm-body [data-nmf="${fields[0].k}"] input, #nm-body [data-nmf="${fields[0].k}"] select`)?.focus();
   return false;
 }
-
 /* `opt.silent` is the row writing its own master: no dialog to close, no toast,
    and no render — the caller is mid-prediction and will render once at the end.
    Everything between here and the push is identical either way, which is the
@@ -6632,7 +7266,7 @@ function nmWrite(d,opt){
   /* The last gate, and the only one that matters — every other check on this
      permission is a control drawn differently. This is the function that
      touches the book, so this is where the right is actually required. */
-  if(!canCreate()) return false;
+  if(!canCreate()) return opt?.silent ? false : nmWarn(NO_CREATE);
 
   const t   = opt && 'target' in opt ? opt.target : nmDraft.target;
   const row = rowOfTarget(t);
@@ -6663,7 +7297,7 @@ function nmWrite(d,opt){
     master = {id, name:String(d.name).trim(), group:d.group||BUCKET_GROUP.vendor,
               gstin:String(d.gstin||'').trim().toUpperCase(), pan:String(d.pan||'').trim().toUpperCase(),
               state:d.state, credit:num(d.credit)||30, ledger:d.ledger||'led-purchase-local',
-              treatment:d.treatment||'registered', deductee:d.deductee||'company',
+              treatment:shortTreatment(d.treatment)||'registered', deductee:d.deductee||'company',
               address:String(d.address||'').trim(), fyGoods:0, fyServices:0, isNew:true};
     MASTERS.vendors.push(master);
     refreshVendorList();
@@ -6782,7 +7416,7 @@ let ccDraft = null;
 
 function ccSlot(target){
   if(target.kind==='vendor')
-    return {obj:state, key:'vendorCcSplit', plain:'vendorCostCentre', amount:compute().subTotal};
+    return {obj:state, key:'vendorCcSplit', plain:'vendorCostCentre', amount:compute().grand};
   const row = state[target.kind]?.find(r=>r.id===target.id);
   if(!row) return null;
   return {obj:row, key:'ccSplit', plain:'costCentre',
@@ -6801,6 +7435,8 @@ function openCcDialog(target){
       : [seed ? {id:uid(),category:seed.group,rows:[{id:uid(),centre:seed.id,pct:100}]}
               : blankCcCat(ccCategories()[0])]
   };
+  ccDraft.label = ccLabel(target);
+  ccDraft.tried = false;
   renderCcDialog();
   $('#cc-dialog').showModal();
   $('#cc-body [data-cc="centre"]')?.focus();     // not the close button
@@ -6809,31 +7445,53 @@ function openCcDialog(target){
 const ccShare = pct => ccDraft && ccDraft.amount ? r2(ccDraft.amount*num(pct)/100) : 0;
 const ccTick = `<span class="ico ico-12"><svg width="12" height="12"><use href="#i-tick"/></svg></span>`;
 
-/* The badge, the sibling figure and the Save state are the only things a
-   keystroke changes, so they are patched in place — re-rendering the body on
-   every character would take the caret with it. */
+/* The split dialogs follow the form (8 Oct 2026): a sub-line naming what is
+   being split, a meter per category that says what is left, 38px fields
+   under plain column labels, a bin to remove a row, "Fill remaining", and
+   errors said under the row they are about once Save has been tried. Save is
+   never disabled: a disabled button withholds its reason. */
+function ccLabel(target){
+  if(target.kind==='vendor' || target.kind==='customer')
+    return byId(MASTERS[target.kind+'s']||[], state[target.kind])?.name || 'The party line';
+  const row = state[target.kind]?.find(r=>r.id===target.id);
+  return (row?.item && byId(MASTERS.items,row.item)?.name) || row?.description || 'This line';
+}
+function ccMeter(c){
+  const total = ccCatTotal(c), done = Math.abs(total-100)<0.005;
+  return {total, done, left:r2(100-total), over:total>100};
+}
+function ccMeterHtml(c){
+  const m = ccMeter(c);
+  const complete = ccSplitDone({categories:[c]});
+  const cls = complete?' is-done':m.over?' is-over':(ccDraft?.tried?' is-short':'');
+  const txt = complete ? `100% allocated${ccTick}` : m.done ? 'Choose cost centres' : m.over ? `${r2(m.total-100)}% over` : `${m.left}% left`;
+  return `<span class="alx__meter${cls}"><span class="alx__meter-txt">${txt}</span><span class="alx__bar"><i style="width:${Math.min(100,Math.max(0,m.total))}%"></i></span></span>`;
+}
 function ccPatch(catEl, source){
   const cat = ccDraft.categories.find(c=>c.id===catEl.dataset.cat);
   const rowEl = source.closest('[data-ccrow]');
   const row = cat.rows.find(r=>r.id===rowEl.dataset.ccrow);
   const sib = rowEl.querySelector(source.dataset.cc==='pct' ? '[data-cc="amt"]' : '[data-cc="pct"]');
-  if(sib) sib.value = source.dataset.cc==='pct' ? inr.format(ccShare(row.pct)) : num(row.pct);
-
-  const total = ccCatTotal(cat), done = Math.abs(total-100)<0.005;
-  const badge = catEl.querySelector('.ccc__pct');
-  badge.className = 'ccc__pct'+(done?' is-done':total>100?' is-over':'');
-  badge.innerHTML = total+'%'+(done?ccTick:'');
+  if(sib) sib.value = source.dataset.cc==='pct' ? (num(row.pct)?inr.format(ccShare(row.pct)):'') : (num(row.pct)||'');
+  catEl.querySelector('.alx__meter')?.replaceWith(alxNode(ccMeterHtml(cat)));
+  const left = ccMeter(cat).left, fill = catEl.querySelector('[data-cc="fill"]');
+  if(fill){ fill.hidden = !(left>0.004); fill.lastChild.textContent = 'Fill remaining'; }
   ccFootState();
 }
 function ccFootState(){
   const ok = ccSplitDone({categories:ccDraft.categories});
-  $('#cc-save').disabled = !ok;
-  $('#cc-warn').hidden = ok;
+  const st = $('#cc-warn');
+  st.hidden = false;
+  st.className = 'alx__status'+(ok?' is-done':ccDraft.tried?' is-err':'');
+  st.innerHTML = ok ? `${ccTick}Every category comes to 100%`
+    : ccDraft.tried ? 'Every category has to come to 100%, and every row needs a cost centre.'
+    : 'Allocate 100% in each category.';
+  $('#cc-save').disabled = false;
 }
 
 function renderCcDialog(){
   const d = ccDraft; if(!d) return;
-  $('#cc-total').textContent = 'Total: '+money(d.amount);
+  $('#cc-total').innerHTML = `<span class="alx__context-name" title="${esc(d.label||'This line')}">${esc(d.label||'This line')}</span><strong class="alx__context-value">${esc(money(d.amount))}<small>Line amount</small></strong>`;
   const share = ccShare;
   const taken = d.categories.map(c=>c.category);
   // a full rebuild loses the caret, so put it back where it was
@@ -6843,42 +7501,43 @@ function renderCcDialog(){
        cat:act.closest('[data-cat]')?.dataset.cat} : null;
 
   $('#cc-body').innerHTML = d.categories.map(c=>{
-    const total = ccCatTotal(c);
-    const cls = Math.abs(total-100)<0.005 ? ' is-done' : total>100 ? ' is-over' : '';
+    const left = ccMeter(c).left;
     return `<section class="ccc" data-cat="${c.id}">
       <div class="ccc__head">
-        <span class="ccc__lbl">Category</span>
-        <span class="ccc__pick">
-          <select data-cc="category" aria-label="Cost category">
+        <label class="alx__cat"><span class="alx__lbl">Category</span>
+          <span class="cell"><select class="cell__select t-cell" data-cc="category" aria-label="Cost category">
             ${ccCategories().map(g=>`<option value="${esc(g)}"${g===c.category?' selected':''}${
               taken.includes(g)&&g!==c.category?' disabled':''}>${esc(g)}</option>`).join('')}
-          </select>
-        </span>
-        <span class="ccc__pct${cls}">${total}%${cls===' is-done'?ccTick:''}</span>
-        <button type="button" class="ccc__drop" data-cc="del-cat" aria-label="Remove this category">
-          <span class="ico ico-14"><svg width="14" height="14"><use href="#i-dash"/></svg></span>
-        </button>
+          </select></span></label>
+        ${ccMeterHtml(c)}
+        ${d.categories.length>1 ? `<button type="button" class="alx__icon" data-cc="del-cat" aria-label="Remove the ${esc(c.category)} category" title="Remove category">${alxTrash}</button>` : ''}
       </div>
-
-      <div class="ccrow ccrow--head"><span>Cost Centre</span><span>%</span><span>Amount</span><span></span></div>
-      ${c.rows.map(r=>`<div class="ccrow" data-ccrow="${r.id}">
-        <label class="cell"><select class="cell__select t-cell" data-cc="centre">
-          ${options(ccInCategory(c.category),'Select Cost Centre',r.centre)}
+      <div class="alx__rows">
+      <div class="ccrow ccrow--head"><span>Cost centre</span><span>Share</span><span>Amount</span><span></span></div>
+      ${c.rows.map(r=>{
+        const bad = d.tried && !r.centre;
+        return `<div class="ccrow" data-ccrow="${r.id}">
+        <label class="cell${bad?' is-bad':''}"><select class="cell__select t-cell" data-cc="centre" aria-label="Cost centre"${bad?' aria-invalid="true"':''}>
+          ${options(ccTree(ccInCategory(c.category)),'Select cost centre',r.centre)}
         </select></label>
-        <label class="cell cell-num"><input class="cell__input t-cell" data-cc="pct"
-               inputmode="decimal" value="${num(r.pct)}" aria-label="Share in percent"></label>
-        <label class="cell cell-num${d.amount?'':' is-disabled'}"><input class="cell__input t-cell" data-cc="amt"
-               inputmode="decimal" value="${inr.format(share(r.pct))}" aria-label="Share in rupees"></label>
-        <button type="button" class="ccrow__del" data-cc="del-row" aria-label="Remove this cost centre">
-          <span class="ico ico-14"><svg width="14" height="14"><use href="#i-dash"/></svg></span>
-        </button>
-      </div>`).join('')}
-
-      <button type="button" class="ccx__add" data-cc="add-row">${plusIco}Add cost centre</button>
+        <label class="cell cell-num alx__suffix"><input class="cell__input t-cell" data-cc="pct"
+               inputmode="decimal" value="${num(r.pct)||''}" placeholder="0" aria-label="Share in percent"><span>%</span></label>
+        <label class="cell cell-num alx__prefix${d.amount?'':' is-disabled'}"><span>₹</span><input class="cell__input t-cell" data-cc="amt"
+               inputmode="decimal" value="${num(r.pct)?inr.format(share(r.pct)):''}" placeholder="0.00" aria-label="Share in rupees"></label>
+        <button type="button" class="alx__icon" data-cc="del-row" aria-label="Remove this cost centre" title="Remove"${c.rows.length<2?' disabled':''}>${alxTrash}</button>
+        ${bad?'<p class="alx__err">Choose a cost centre</p>':''}
+      </div>`;}).join('')}
+      <div class="alx__acts">
+        <button type="button" class="ccx__add" data-cc="add-row">${plusIco}Add cost centre</button>
+        <div class="alx__remaining">
+        <button type="button" class="ccx__add alx__fill" data-cc="fill"${left>0.004?'':' hidden'}><span>Fill remaining</span></button>
+        </div>
+      </div>
+      </div>
     </section>`;
   }).join('') +
   (d.categories.length < ccCategories().length
-    ? `<button type="button" class="ccx__add ccx__add--cat" data-cc="add-cat">${plusIco}Add New Category</button>`
+    ? `<div class="alx__category-action"><button type="button" class="ccx__add ccx__add--cat" data-cc="add-cat">${plusIco}Add another category</button></div>`
     : '');
 
   ccFootState();
@@ -7029,7 +7688,7 @@ function renderBreakdown(calc){
      to before the ledgers, and what it comes to after them. Neither has a
      section to fold, so both hold the slot open and leave it empty. */
   let html = `
-    <div class="bd-row">
+    <div class="bd-row" data-bd="sub">
       <span class="bd-lbl bd-lbl--sub">Sub total</span>
       <div class="bd-row__amt">${fig('bd-sub',money(calc.subTotal))}<span class="bd-slot"></span></div>
     </div>
@@ -7040,7 +7699,7 @@ function renderBreakdown(calc){
      statement: the GST total greys out because it leaves the Grand Total, and
      the ledger it posts to is settled in the dialog, so all the row carries
      beside the switch is the way back into that dialog. */
-  html += `<section class="bd-sec">
+  html += `<section class="bd-sec" data-bd="gst">
       <div class="bd-row">
         <div class="bd-row__lead">
           <span class="bd-lbl">GST</span>
@@ -7079,7 +7738,7 @@ function renderBreakdown(calc){
               <span class="bd-mode__dot"></span>${d.label}
             </label>`).join('');
 
-  html += `<section class="bd-sec">
+  html += `<section class="bd-sec" data-bd="ded">
       <div class="bd-row">
         <div class="bd-row__lead">
           <div class="bd-modes" role="radiogroup" aria-label="What this bill withholds">${dedRadios}</div>
@@ -7104,7 +7763,7 @@ function renderBreakdown(calc){
      or a freight charge is not a percentage of anything — so the rate slot on
      these rows is held open and empty rather than filled with a number the
      adjustment does not have. */
-  html += `<section class="bd-sec">
+  html += `<section class="bd-sec" data-bd="adj">
       <div class="bd-row">
         <div class="bd-row__lead"><span class="bd-lbl">Adjustments</span></div>
         <div class="bd-row__amt">
@@ -7146,7 +7805,7 @@ function renderBreakdown(calc){
     ${rule}`;
 
   html += `
-    <div class="bd-row">
+    <div class="bd-row" data-bd="grand">
       <span class="bd-lbl bd-lbl--grand">Grand Total</span>
       <div class="bd-row__amt">${fig('bd-grand',money(calc.grand),' bd-fig--grand')}<span class="bd-slot"></span></div>
     </div>`;
@@ -7154,7 +7813,7 @@ function renderBreakdown(calc){
   /* the write-off names its ledger once one is chosen, and asks for one until
      then — the only place in the sheet that decision is visible */
   if(calc.gstIneligible)
-    html += `<p class="bd-note">${money(calc.gstIneligible)} GST is not claimable as input credit — ${
+    html += `<p class="bd-note" data-bd="note">${money(calc.gstIneligible)} GST is not claimable as input credit — ${
       state.itcLedger ? 'it is charged to '+esc(itcLedgerName())+'.'
                       : 'choose the expense ledger it is charged to.'}</p>`;
 
@@ -7188,26 +7847,206 @@ function extraFilled(){
 const listOf = names => names.length<2 ? (names[0]||'')
   : names.slice(0,-1).join(', ') + ' or ' + names[names.length-1];
 
-function renderAddl(){
-  const groups = fcLive().length, filled = extraFilled();
-  const bad = extraProblems();
-  $('#addl').hidden = groups===0;
-  if($('#addl').hidden) return;
-
-  /* The count, and nothing else. Which fields and why is the dialog's business
-     — it can show them against the controls they belong to, where a sentence
-     out here can only describe them. Like every other error on the sheet, this
-     one waits for an allocate: an unfinished bill is not a wrong one yet. */
-  const show = state.validated && bad.length>0;
-  $('#addl').classList.toggle('is-invalid', show);
-  $('#addl-sub').textContent = show
-    ? `${bad.length} mandatory field${bad.length===1?'':'s'} missing`
-    : `${groups} section${groups===1?'':'s'} available` +
-      (filled ? ` · ${filled} field${filled===1?'':'s'} filled` : '');
-
-  $('#addl-btn-text').textContent =
-    show ? 'Resolve Details' : filled ? 'Edit Details' : 'Add Details';
+/* The optional groups, one row each in the section they belong to. The row
+   says what the group holds; pressing it opens the group in the Additional
+   Fields dialog, on its own — the fields themselves are not laid out on the
+   form, which would bury the voucher under thirty rows most bills leave empty. */
+const XF_GROUP_LABEL = {consignee:'Ship to', order:'Order references',
+  receipt:'Receipt & dispatch', import:'Import & customs'};
+function xfValueText(f, v){
+  if(String(v??'').trim()==='') return '';
+  if(f.type==='date') return fmtDate(v);
+  if(f.type==='select'){
+    const o = byId(MASTERS[f.list]||[], v);
+    return o ? (o.plain || o.name) : v;
+  }
+  return String(v).replace(/\s+/g,' ').trim();
 }
+function xfSummary(g){
+  const vals = g.fields.map(f=>xfValueText(f, state.extra[f.id])).filter(Boolean);
+  if(!vals.length) return '';
+  const shown = vals.slice(0,3).join(' · ');
+  return vals.length>3 ? `${shown} · +${vals.length-3} more` : shown;
+}
+let xfKey = '';
+/* Edit opens the group in place, under its row (7 Oct 2026): the user wanted
+   the vendor details' inline panel here too, not a dialog. Its fields write
+   straight to state.extra — no draft and no Save, as every other field on the
+   sheet behaves. Customise fields keeps its dialog: that one is settings. */
+let xfOpen = '', xfShown = '';
+function xfInlineControl(f){
+  const v = state.extra[f.id] ?? '';
+  if(f.type==='date') return `<label class="control">
+      <span class="t-value" data-xid="${f.id}" data-placeholder="${esc(f.ph)}">${v?esc(fmtDate(v)):esc(f.ph)}</span>
+      <span class="ico ico-12 ico--muted"><svg width="10.5" height="11.5"><use href="#i-calendar"/></svg></span>
+      <input type="date" class="control__date" data-xi="${f.id}" value="${esc(v)}" aria-label="${esc(f.name)}">
+    </label>`;
+  if(f.type==='select') return `<label class="control">
+      <select class="control__select t-value" data-xi="${f.id}" aria-label="${esc(f.name)}">
+        ${options(MASTERS[f.list], f.ph, v)}</select>
+    </label>`;
+  /* one line here, like every box beside it — the panel is a grid of equals */
+  return `<label class="control">
+      <input class="control__input t-value" type="text" data-xi="${f.id}" value="${esc(v)}"
+             placeholder="${esc(f.ph)}" aria-label="${esc(f.name)}"${f.mode?` inputmode="${f.mode}"`:''}>
+    </label>`;
+}
+function renderXfInline(owing){
+  const live = fcLive();
+  if(xfOpen && !live.some(g=>g.id===xfOpen)) xfOpen = '';
+  /* an unfinished group opens itself, as the vendor's details do */
+  const id = xfOpen || owing[0]?.group.id || '';
+  let panel = $('#xf-inline');
+  $$('[data-xgroup-row]').forEach(row=>{
+    const on = row.dataset.xgroupRow===id;
+    row.classList.toggle('is-open', on);
+    row.querySelector('.xf-summary')?.setAttribute('aria-expanded', String(on));
+  });
+  if(!id){ panel?.remove(); xfShown = ''; return; }
+  const g = FIELD_GROUPS.find(x=>x.id===id);
+  const row = $(`[data-xgroup-row="${id}"]`);
+  if(!row) return;
+  if(!panel || xfShown!==id || !panel.isConnected){
+    xfShown = id;
+    if(!panel){
+      panel = document.createElement('div');
+      panel.id = 'xf-inline';
+      panel.className = 'xf-inline';
+      panel.setAttribute('role','group');
+    }
+    panel.remove();
+    /* under the line of rows the opened one sits on, not under the last line */
+    const top = row.getBoundingClientRect().top;
+    const peers = [...row.parentNode.querySelectorAll(':scope > [data-xgroup-row]')]
+      .filter(r=>Math.abs(r.getBoundingClientRect().top-top)<2);
+    peers[peers.length-1].after(panel);
+    const c = fieldConfig[g.id];
+    panel.setAttribute('aria-label', XF_GROUP_LABEL[g.id]||g.name);
+    /* every field the same quarter, no notes under a box: a note would push its
+       row out of line. "Mandatory when Order No. is filled." becomes a
+       Required tag beside the label, shown only while that is true; the
+       sentence itself is the tag's title */
+    const reqTag = f=>f.req
+      ? ` <span class="xf-req" data-req-on="${f.req}" title="${esc(f.note||`Mandatory when ${fieldById(f.req).name} is filled.`)}" hidden>Required</span>`
+      : '';
+    panel.innerHTML = g.fields.filter(f=>c.fields[f.id]).map(f=>
+      `<div class="field" data-xifield="${f.id}">
+        <p class="t-label">${esc(f.name)}${reqTag(f)}</p>
+        ${xfInlineControl(f)}
+        <p class="field__error"></p>
+      </div>`).join('');
+    const a = row.getBoundingClientRect(), b = panel.getBoundingClientRect();
+    panel.style.setProperty('--xf-notch', `${Math.max(16, a.left-b.left+24)}px`);
+  }
+  panel.querySelectorAll('[data-req-on]').forEach(t=>{
+    t.hidden = String(state.extra[t.dataset.reqOn]??'').trim()==='';
+  });
+  const bad = new Set(owing.filter(p=>p.group.id===id).map(p=>p.field.id));
+  panel.querySelectorAll('[data-xifield]').forEach(el=>{
+    const f = fieldById(el.dataset.xifield);
+    const on = bad.has(f.id);
+    el.classList.toggle('is-invalid', on);
+    el.querySelector('.field__error').textContent =
+      on ? `Required once ${fieldById(f.req).name} is filled.` : '';
+  });
+}
+function xfSet(id, v){
+  /* a value the user changes is theirs now, whatever the document said */
+  if(state.extraFrom[id]==='bill' && v!==state.extra[id]) delete state.extraFrom[id];
+  if(String(v).trim()===''){ delete state.extra[id]; delete state.extraFrom[id]; }
+  else state.extra[id] = v;
+}
+document.addEventListener('input', e=>{
+  const id = e.target.dataset?.xi;
+  if(!id || !e.target.closest('#xf-inline') || !apLive()) return;
+  xfSet(id, e.target.value);
+  renderAddl();
+});
+document.addEventListener('change', e=>{
+  const id = e.target.dataset?.xi;
+  if(!id || !e.target.closest('#xf-inline') || !apLive()) return;
+  xfSet(id, e.target.value);
+  if(e.target.type==='date'){
+    const disp = $(`#xf-inline [data-xid="${id}"]`);
+    disp.textContent = e.target.value ? fmtDate(e.target.value) : disp.dataset.placeholder;
+  }
+  /* the ship-to on a purchase is one of our own locations, so naming it
+     answers the fields under it — overwriting only what is still blank */
+  if(id==='consigneeName'){
+    const b = byId(MASTERS.branches, e.target.value);
+    if(b){
+      const fill = (k,v)=>{ if(!String(state.extra[k]??'').trim()) state.extra[k] = v; };
+      fill('consigneeAddress', b.address);
+      fill('consigneeState',   b.state);
+      fill('consigneeCountry', 'IN');
+      fill('consigneePincode', b.pin);
+      fill('consigneeGstin',   b.gstin);
+      fill('placeOfSupply',    b.state);
+      xfShown = '';                 // redraw the panel with what it filled in
+    }
+  }
+  render();
+});
+function renderAddl(){
+  const live = fcLive();
+  const key = JSON.stringify(live.map(g=>g.id));
+  if(key!==xfKey){
+    xfKey = key;
+    xfShown = '';
+    $$('[data-xf-slot]').forEach(slot=>slot.replaceChildren());
+    if(!live.length) $$('[data-xf-slot]').forEach(slot=>slot.insertAdjacentHTML('beforeend',
+      '<p class="xf-empty">No additional fields are switched on. Use Customise fields to add order, ship-to, receipt or import details.</p>'));
+    [...live].sort((a,b)=>XF_ORDER.indexOf(a.id)-XF_ORDER.indexOf(b.id)).forEach(g=>{
+      const slot = $(`[data-xf-slot="${xfWhere(g)}"]`); if(!slot) return;
+      slot.insertAdjacentHTML('beforeend',
+        `<div class="field xf-group" data-xgroup-row="${g.id}">
+          <p class="t-label">${esc(XF_GROUP_LABEL[g.id]||g.name)}</p>
+          <button type="button" class="control xf-summary" data-xf-open="${g.id}"
+                  aria-label="Edit ${esc(XF_GROUP_LABEL[g.id]||g.name)}"
+                  aria-expanded="false" aria-controls="xf-inline">
+            <span class="t-value xf-summary__text"></span>
+            <span class="xf-summary__act">Edit</span>
+          </button>
+          <p class="field__error"></p>
+        </div>`);
+    });
+  }
+  /* The ship-to in another state than the destination of supply: GST follows
+     the place of supply, so say it where the supply states are checked. */
+  const note = $('#xf-tax-note');
+  if(note){
+    const cs = state.extra.consigneeState, ds = state.destState;
+    const on = live.some(g=>g.id==='consignee') && cs && ds && cs!==ds;
+    note.hidden = !on;
+    note.innerHTML = on
+      ? `Ship-to state is ${esc(byId(MASTERS.states,cs)?.plain||cs)}, not ${esc(byId(MASTERS.states,ds)?.plain||ds)}. Check which one GST should follow. <button type="button" class="xf-note-btn" data-xf-open="consignee">Review ship to</button>`
+      : '';
+  }
+  /* like every other error on the sheet, these wait for an approve attempt */
+  const owing = state.validated ? extraProblems() : [];
+  live.forEach(g=>{
+    const row = $(`[data-xgroup-row="${g.id}"]`); if(!row) return;
+    const text = xfSummary(g);
+    const t = row.querySelector('.xf-summary__text');
+    t.textContent = text || 'Add';
+    t.classList.toggle('is-empty', !text);
+    row.querySelector('.xf-summary__act').textContent = text ? 'Edit' : '+ Add';
+    const n = owing.filter(p=>p.group.id===g.id).length;
+    row.classList.toggle('is-invalid', n>0);
+    row.querySelector('.field__error').textContent =
+      n ? `${n} mandatory field${n===1?'':'s'} missing` : '';
+  });
+  renderXfInline(owing);
+}
+document.addEventListener('click', e=>{
+  const btn = e.target.closest?.('[data-xf-open]'); if(!btn || !apLive()) return;
+  /* the row's own button opens and closes its group; the ship-to note only opens */
+  const id = btn.dataset.xfOpen;
+  xfOpen = btn.classList.contains('xf-summary') && xfShown===id ? '' : id;
+  renderAddl();
+  if(xfOpen && !btn.classList.contains('xf-summary'))
+    $('#xf-inline')?.scrollIntoView({block:'nearest', behavior:'smooth'});
+});
 
 function renderHeader(){
   renderAddl();
@@ -7276,8 +8115,8 @@ function renderHeader(){
 
 /* The toggle does not just enable one control or the other — it decides what
    the control *is*. On Class it lists the saved templates; on Cost Centre it
-   lists the centres and stands as the bill's default. No split here: a split
-   belongs to a line with an amount to divide, not to the bill's default. */
+   lists the centres and becomes the bill's one cost centre. No split here: a
+   class IS the header's split. Either answer clears and locks the lines. */
 function renderCcPick(){
   const sel = $('#cc-pick'); if(!sel || document.activeElement===sel) return;
   /* The toggle's own position, NOT ccLocked() — a header cost centre locks every
@@ -7287,17 +8126,27 @@ function renderCcPick(){
   sel.dataset.bind = cls ? 'costCentreClass' : 'billCostCentre';
   sel.setAttribute('aria-label', cls ? 'Cost centre class' : 'Cost centre for the whole bill');
   sel.innerHTML = cls
-    ? options(MASTERS.costCentreClasses,'Select Cost Centre Class',state.costCentreClass)
-    : options2(MASTERS.costCentres,'Select Cost Centre',state.billCostCentre);
+    ? options(MASTERS.costCentreClasses.map(c=>({...c, name:`${c.name} — ${ccSplitDetail(c.split)}`})),
+              'Select Cost Centre Class',state.costCentreClass)
+    : ccOptions('Select Cost Centre',state.billCostCentre);
   sel.value = (cls ? state.costCentreClass : state.billCostCentre) || '';
   /* an unanswered picker shows its prompt, not a blank field */
   if(sel.selectedIndex<0) sel.selectedIndex = 0;
 }
-/* the vendor's own cost centre — the whole bill's worth, so it splits too */
+/* the vendor's own cost centre — the whole bill's worth, so it splits too.
+   Only asked when the vendor's ledger takes cost centres; a vendor whose
+   ledger does not has nothing to allocate on its line, and any value is
+   dropped so it cannot be posted against a ledger that refuses it. */
 function renderVendorCc(){
-  const box = $('#vendor-cc'); if(!box || box.contains(document.activeElement)) return;
+  const field = $('#vendor-cc-field'), box = $('#vendor-cc');
+  if(!box || box.contains(document.activeElement)) return;
+  const on = vendorCcOn();
+  if(field) field.hidden = !on;
+  field?.closest('.cr-row')?.toggleAttribute('hidden', !on);   // the inbox lays it out as a row
+  if(!on){ state.vendorCostCentre=''; state.vendorCcSplit=null; box.innerHTML=''; return; }
   const lock = ccLocked();
   box.classList.toggle('is-disabled', lock);
+  box.title = lock ? ccLockedTitle() : '';
   box.innerHTML = ccSelect({
     cls:'control__select t-value', attrs:'data-bind="vendorCostCentre"', disabled:lock,
     placeholder:lock?ccPlaceholder():'Select Cost Centre',
@@ -7513,6 +8362,11 @@ function validate(paint){
   need('rcmLedger', !state.reverseCharge || !!state.rcmLedger, 'Reverse Charge Ledger', 'Choose the ledger the reverse charge posts to');
   need('itcLedger', !gstLines().some(itcBlocked) || !!state.itcLedger, 'Ineligible ITC Ledger', 'Choose the ledger ineligible GST is expensed to');
 
+  /* A godown split that no longer comes to its line's quantity: the stock
+     books would receive more, or less, than the bill says arrived. */
+  state.items.filter(r=>!isAutoBlank(r,'items') && r.gdSplit && !gdSplitMatches(r)).forEach(r=>
+    errs.push({key:'__godown', name:'Godown split', msg:gdMismatchNote(r)}));
+
   const calc = compute();
   if(calc.subTotal<=0) errs.push({key:'__rows',name:state.mode==='item'?'Item Details':'Ledgers',msg:'Add at least one line with a value'});
 
@@ -7521,10 +8375,17 @@ function validate(paint){
   extraProblems().forEach(p=>errs.push({key:'__extra', name:p.field.name,
     msg:`${p.field.name} is required once ${p.trigger.name} is filled`}));
 
-  if(paint){
-    const keys = new Set(errs.map(e=>e.key));
-    $$('[data-field]').forEach(f=>f.classList.toggle('is-invalid', keys.has(f.dataset.field)));
-  }
+  /* Painted only once approving has been tried — but always CLEARED otherwise.
+     It used to skip the DOM entirely when not painting, so reading a document
+     into the form (which resets `validated`) left the red edges from the last
+     approve on fields that were now filled (7 Oct 2026). */
+  const keys = paint ? new Set(errs.map(e=>e.key)) : new Set();
+  $$('[data-field]').forEach(f=>f.classList.toggle('is-invalid', keys.has(f.dataset.field)));
+  /* A proposed vendor is not a missing one: say what to do with the proposal. */
+  const partyErr = $('[data-field="vendor"] > .field__error');
+  if(partyErr) partyErr.textContent = state.vendorSuggestion
+    ? 'Add this new vendor with +, or pick an existing one'
+    : 'Select the vendor';
   return errs;
 }
 
@@ -7539,11 +8400,12 @@ const FIELD_GROUP = {
   vendor:'Vendor Details', gstTreatment:'Vendor Details', gstin:'Vendor Details',
   sourceState:'Vendor Details', destState:'Vendor Details',
   purchaseLedger:'Item Details', rcmLedger:'Taxes', itcLedger:'Taxes',
+  __godown:'Item Details',
   __extra:'Additional Details'
 };
 const GROUP_ANCHOR = {
   'Bill Details':'#sec-bill', 'Vendor Details':'#sec-vendor',
-  'Additional Details':'#addl',
+  'Additional Details':'[data-xfield-inline].is-invalid',
   'Item Details':'#block-items', 'Ledgers':'#block-ledgers', 'Taxes':'#breakdown'
 };
 const groupOf = e => e.key==='__rows'
@@ -7605,7 +8467,12 @@ function jumpToGroup(group){
   if(field){ field.querySelector('select,input,textarea')?.focus({preventScroll:true}); return; }
   /* the strip is the sheet's stand-in for the dialog, so its button takes focus
      — it opens on Enter, but landing here does not open anything by itself */
-  if(group==='Additional Details'){ $('#btn-add-details').focus({preventScroll:true}); return; }
+  if(group==='Additional Details'){
+    const f = $('[data-xfield-inline].is-invalid');
+    f?.scrollIntoView({behavior:'smooth',block:'center'});
+    f?.querySelector('input,select,textarea')?.focus({preventScroll:true});
+    return;
+  }
   /* the two tax ledgers are settled in dialogs, so there is nothing to focus */
   if(group==='Taxes') openItcDialog();
 }
@@ -7644,6 +8511,8 @@ document.addEventListener('input', e=>{
 document.addEventListener('change', e=>{
   const el = e.target, bind = el.dataset.bind;
   if(!bind || el.closest('.table')) return;
+  /* picked by hand: the purchase ledger is no longer the AI's */
+  if(bind==='purchaseLedger' && el.value && !el.value.startsWith('__')) state.purchaseLedgerAiKind = '';
   if(el.type==='date'){
     state[bind] = el.value;
     if(bind==='billDate'){
@@ -7687,6 +8556,8 @@ document.addEventListener('change', e=>{
        accounts", because a book with seven of them has no way to guess. */
     if(bind==='purchaseLedger') fbRecordPurchaseLedger(state.vendor, el.value);
     if(bind==='costCentreClass' && el.value) state.ccMode='class';   // picking a class applies it
+    /* the header answers for the whole bill, so the lines' own answers go */
+    if((bind==='costCentreClass' || bind==='billCostCentre') && el.value) clearLineCcs();
     /* naming the vendor is naming the evidence, so any line still waiting for
        an answer is read again against them — the rows already answered are
        left alone, which is predictRow's own rule */
@@ -7745,6 +8616,24 @@ function syncRcmLedger(){
    the local/interstate pair moves: the other five are chosen for what the
    supply *is* — an import, an SEZ sale, a reverse charge — and none of those
    stops being true because the two states differ. */
+function suggestCapitalLedger(){
+  const goods = state.items.filter(r=>r.kind!=='service' && (r.item || r.billHsn));
+  if(!goods.length) return;
+  const heading = r => String(byId(MASTERS.items,r.item)?.hsn || r.billHsn || '').slice(0,4);
+  const value = r => num(r.qty)*num(r.rate) || num(r.amount);
+  /* The heading list is the engine's own, and it files printers and toner
+     under one code — so a consumable on a capital heading, or anything under
+     ₹5,000 a unit, is an expense purchase and not an asset. */
+  const consumable = r => /\b(toner|cartridge|ink|cable|paper|refill|spares?)\b/i.test(r.description||'');
+  const capital = goods.filter(r=>CAPITAL_CHAPTERS.includes(heading(r)) && !consumable(r)
+                                  && num(r.rate)>=5000)
+                       .reduce((s,r)=>s+value(r),0);
+  const all = goods.reduce((s,r)=>s+value(r),0);
+  if(!all || capital/all < 0.5) return;
+  const led = MASTERS.purchaseLedgers.find(l=>l.nature==='capital');
+  if(led){ state.purchaseLedger = led.id; state.purchaseLedgerAiKind = 'capital'; }
+}
+
 function syncLedgerToSupply(){
   const intra = isIntraState();
   const cur = byId(MASTERS.purchaseLedgers, state.purchaseLedger);
@@ -7829,6 +8718,8 @@ document.addEventListener('input', e=>{
     if(kind==='items' && f!=='amountOverride'){
       setSibling('[data-f="amountOverride"]', inr.format(lineOf(row).taxable));
     }
+    // a split line's godown cell says, as you type, whether it still adds up
+    if(kind==='items' && f==='qty' && row.gdSplit) gdPatchCell(ctx.tr,row);
     const calc = compute();
     if(e.target.closest('#breakdown')) patchTotals(calc); else renderBreakdown(calc);
     renderErrBanner(validate(state.validated));
@@ -7992,6 +8883,15 @@ document.addEventListener('change', e=>{
     openNmDialog(wanted===NM_NEW_LEDGER ? draftLedger(row) : draftPurchaseLedger(),
                  {kind, id:row.id});
     return;
+  }
+
+  /* the last option in a godown picker is not a godown */
+  if(f==='godown'){
+    if(e.target.value===GD_SPLIT+'-open'){ openGdDialog({kind, id:row.id}); render(); return; }
+    if(e.target.value===GD_SPLIT){ render(); return; }      // re-picked what it already shows
+    row.godown = e.target.value;
+    row.gdSplit = null;                                     // one answer at a time
+    render(); return;
   }
 
   /* the last option in a cost centre picker is not a cost centre */
@@ -8372,14 +9272,18 @@ const cselDrop = (()=>{
 
   const paint = ()=>{
     const q = find ? find.value.trim().toLowerCase() : '';
-    const isNm = it=>String(it.value||'').startsWith('__nm-');
+    /* Footer actions, not answers: "Create new …" and "Split cost centres…".
+       They sit in the fixed foot under the list, are never filtered by search,
+       and each carries its own glyph. */
+    const isSplit = it=>it.value===CC_SPLIT+'-open' || it.value===GD_SPLIT+'-open';
+    const isNm = it=>String(it.value||'').startsWith('__nm-') || isSplit(it);
     const shown = items.map((it,i)=>[it,i]).filter(([it])=>
       it.group ? true : (!isNm(it) && (!q || it.label.toLowerCase().includes(q))));
     const nm = items.map((it,i)=>[it,i]).filter(([it])=>!it.group && isNm(it));
     const foot = panel.querySelector('.cselp__foot');
     foot.hidden = !nm.length;
     foot.innerHTML = nm.map(([it,i])=>`<button type="button" class="cselp__opt cselp__create${it.disabled?' is-off':''}" data-i="${i}" role="option"${
-      it.title?` title="${esc(it.title)}"`:''}${it.disabled?' aria-disabled="true"':''}><svg width="14" height="14" aria-hidden="true"><use href="#i-plus"/></svg><span class="cselp__lbl">${
+      it.title?` title="${esc(it.title)}"`:''}${it.disabled?' aria-disabled="true"':''}><svg width="14" height="14" aria-hidden="true"><use href="#${isSplit(it)?'i-split':'i-plus'}"/></svg><span class="cselp__lbl">${
       esc(it.label.replace(/^\+\s*/,'').replace(/…$/,''))}</span></button>`).join('');
     /* a group heading with everything under it filtered away is a heading
        over nothing, so it goes too */
@@ -9163,7 +10067,13 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMenu(); });
 $$('.control__date').forEach(inp=>inp.addEventListener('click',()=>inp.showPicker?.()));
 $$('[data-display]').forEach(el=>{ el.dataset.placeholder = el.textContent; });
 
-$('#cc-toggle').addEventListener('click',()=>{ state.ccMode = state.ccMode==='class'?'centre':'class'; render(); });
+/* switching what the header holds starts it empty — a class and a centre are
+   two different answers, and neither carries over into the other */
+$('#cc-toggle').addEventListener('click',()=>{
+  state.ccMode = state.ccMode==='class'?'centre':'class';
+  state.costCentreClass=''; state.billCostCentre='';
+  render();
+});
 $$('.segmented button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 $('#btn-add-item').addEventListener('click',()=>{ state.items.push({...blankItem(),added:true}); render(); focusNewLine('items'); });
 $('#btn-add-ledger').addEventListener('click',()=>{ state.ledgers.push({...blankLedger(),added:true}); render(); focusNewLine('ledgers'); });
@@ -9504,6 +10414,7 @@ function applyExtraction(file){
      extraction proposes is a guess about the supply; the account this vendor's
      bills have most often gone to is a decision somebody made, repeatedly. */
   state.purchaseLedger    = (v && fbPurchaseLedgerHit(v.id)?.id) || SAMPLE.purchaseLedger;
+  state.purchaseLedgerAiKind = (v && fbPurchaseLedgerHit(v.id)) ? 'habit' : 'supply';
   state.narration         = SAMPLE.narration;
   state.costCentreClass   = SAMPLE.costCentreClass;
   /* with no vendor master, what the document printed is all the sheet has —
@@ -9605,6 +10516,12 @@ function applyExtraction(file){
      What the gate actually did was leave the sheet blank: no line proposals, no
      GST, no withholding, on the one bill most in need of all three. */
   if(state.vendor || state.vendorSuggestion) runPredictions();
+  /* The purchase ledger the item lines post to, predicted from what they are
+     (7 Oct 2026). A vendor's own past choice still wins; otherwise a bill
+     whose goods are mostly capital goods by HSN heading — computers,
+     monitors, machinery, furniture — goes to Purchase — Capital Goods, and
+     everything else stays on local / interstate by the two states. */
+  if(!(v && fbPurchaseLedgerHit(v.id))) suggestCapitalLedger();
   if(!state.items.length)   state.items   = [blankItem()];
   if(!state.ledgers.length) state.ledgers = [blankLedger()];
   state.stashedItems = null;
@@ -10946,9 +11863,45 @@ const nmClose = ()=>{ nmDraft = null; $('#nm-dialog').close(); render(); };
 $('#nm-x').addEventListener('click', nmClose);
 $('#nm-cancel').addEventListener('click', nmClose);
 $('#nm-dialog').addEventListener('cancel', e=>{ e.preventDefault(); nmClose(); });
+/* The master form's own actions: take the suggested Under, use the party the
+   book already has, open the folded opening balance. */
+$('#nm-body').addEventListener('click',e=>{
+  const use = e.target.closest('[data-nmuse]');
+  if(use && nmDraft){
+    const sel = $(`#nm-body [data-nm="${use.dataset.nmuse}"]`);
+    if(sel){
+      if(![...sel.options].some(o=>o.value===use.dataset.v)) sel.add(new Option(use.dataset.v,use.dataset.v));
+      sel.value = use.dataset.v;
+      sel.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    return;
+  }
+  const twin = e.target.closest('[data-nmexisting]');
+  if(twin && nmDraft){
+    const kind = nmDraft.draft.kind;
+    const party = $(`[data-bind="${kind}"]`);
+    const pool = kind==='vendor' ? MASTERS.vendors : MASTERS.customers;
+    const hit = byId(pool||[], twin.dataset.nmexisting);
+    nmDraft = null; $('#nm-dialog').close();
+    if(party && hit){
+      if(![...party.options].some(o=>o.value===hit.id)) party.add(new Option(hit.name,hit.id));
+      party.value = hit.id;
+      party.dispatchEvent(new Event('change',{bubbles:true}));
+      toast(`Using ${hit.name}, already in your books`,'ok');
+    }
+    return;
+  }
+  if(e.target.closest('[data-nmfold]') && nmDraft){
+    nmDraft.openingOpen = !(e.target.closest('[data-nmfold]').getAttribute('aria-expanded')==='true');
+    renderNmDialog();
+    if(nmDraft.openingOpen) $('#nm-body .nmd__fold input')?.focus();
+  }
+});
+
 $('#nm-form').addEventListener('submit', e=>{
   e.preventDefault();                          // the form validates itself, in its own words
-  nmCommit();
+  try{ nmCommit(); }
+  catch(err){ console.error(err); nmWarn('This couldn’t be created because of an error on our side. Try again.'); }
 });
 $('#nm-create-anyway').addEventListener('click',()=>{
   if(!nmDraft) return;
@@ -11042,6 +11995,9 @@ document.addEventListener('input', e=>{
   const k = e.target.dataset?.st; if(!k || !stDraft) return;
   stDraft.data[k] = e.target.value;
   $('#st-warn').hidden = true;
+  /* typing answers the error under this field, so it goes */
+  const f = e.target.closest('.nmd__f');
+  f?.classList.remove('is-invalid'); f?.querySelector('.nmd__err')?.remove();
 });
 document.addEventListener('change', e=>{
   const k = e.target.dataset?.st; if(!k || !stDraft) return;
@@ -11099,13 +12055,74 @@ $('#itc-form').addEventListener('submit',()=>{
 $('#rcm-dialog').addEventListener('close',()=>render());
 $('#itc-dialog').addEventListener('close',()=>render());
 
+/* --- the godown allocation dialog ---------------------------------------- */
+$('#gd-x').addEventListener('click',()=>$('#gd-dialog').close());
+$('#gd-cancel').addEventListener('click',()=>$('#gd-dialog').close());
+$('#gd-dialog').addEventListener('close',()=>{ gdDraft = null; render(); });
+$('#gd-save').addEventListener('click',()=>{
+  const d = gdDraft, row = d && gdSlot(d.target);
+  if(!row) return;
+  if(!gdDraftDone(row)){
+    d.tried = true; renderGdDialog();
+    ($('#gd-body .is-bad select, #gd-body .is-bad input') || $('#gd-body [data-gd="qty"]'))?.focus();
+    return;
+  }
+  const rows = d.rows.filter(r=>r.godown && num(r.qty)>0).map(r=>({godown:r.godown, qty:r3(r.qty)}));
+  // one godown taking the whole line is not a split: it is the line's godown
+  if(rows.length===1){ row.godown = rows[0].godown; row.gdSplit = null; }
+  else { row.gdSplit = {rows}; row.godown = ''; }
+  $('#gd-dialog').close();
+  toast(rows.length===1 ? 'Godown set' : 'Allocated across '+rows.length+' godowns','ok');
+});
+const gdRowOf = el=>gdDraft?.rows.find(r=>r.id===el.closest('[data-gdrow]')?.dataset.gdrow);
+$('#gd-body').addEventListener('input',e=>{
+  if(e.target.dataset.gd!=='qty') return;
+  const r = gdRowOf(e.target); if(!r) return;
+  r.qty = e.target.value.replace(/[^\d.]/g,'');
+  gdPatch();
+});
+$('#gd-body').addEventListener('change',e=>{
+  if(e.target.dataset.gd!=='godown') return;
+  const r = gdRowOf(e.target); if(!r) return;
+  r.godown = e.target.value;
+  renderGdDialog();                     // the other rows' lists drop what it took
+});
+$('#gd-body').addEventListener('click',e=>{
+  const b = e.target.closest('[data-gd="add-row"],[data-gd="del-row"],[data-gd="fill"]'); if(!b || !gdDraft) return;
+  if(b.dataset.gd==='fill'){
+    const row = gdSlot(gdDraft.target); if(!row) return;
+    const left = r3(num(row.qty)-gdQty(gdDraft));
+    if(left>0){ const t = [...gdDraft.rows].reverse().find(r=>!num(r.qty)) || gdDraft.rows[gdDraft.rows.length-1]; t.qty = r3(num(t.qty)+left); }
+    renderGdDialog();
+    return;
+  }
+  if(b.dataset.gd==='add-row'){
+    const row = gdSlot(gdDraft.target);
+    // the new row starts with what is still unallocated
+    const left = row ? Math.max(0, r3(num(row.qty)-gdQty(gdDraft))) : 0;
+    const add = {id:uid(), godown:'', qty:left};
+    gdDraft.rows.push(add);
+    renderGdDialog();
+    $(`#gd-body [data-gdrow="${add.id}"] [data-gd="godown"]`)?.focus();
+    return;
+  }
+  const r = gdRowOf(b); if(!r || gdDraft.rows.length<2) return;
+  gdDraft.rows = gdDraft.rows.filter(x=>x!==r);
+  renderGdDialog();
+});
+
 /* --- the cost centre allocation dialog ------------------------------------ */
 $('#cc-x').addEventListener('click',()=>$('#cc-dialog').close());
 $('#cc-cancel').addEventListener('click',()=>$('#cc-dialog').close());
 $('#cc-dialog').addEventListener('close',()=>{ ccDraft = null; render(); });
 
 $('#cc-save').addEventListener('click',()=>{
-  const d = ccDraft; if(!d || !ccSplitDone({categories:d.categories})) return;
+  const d = ccDraft; if(!d) return;
+  if(!ccSplitDone({categories:d.categories})){
+    d.tried = true; renderCcDialog();
+    ($('#cc-body .is-bad select') || $('#cc-body .alx__meter:not(.is-done)')?.closest('.ccc')?.querySelector('[data-cc="pct"]'))?.focus();
+    return;
+  }
   const slot = ccSlot(d.target); if(!slot) return;
   slot.obj[slot.key]   = {categories:d.categories};
   slot.obj[slot.plain] = '';                    // the split is the answer now
@@ -11142,6 +12159,11 @@ $('#cc-body').addEventListener('click',e=>{
   }else{
     const {cat,row} = ccFind(e.target);
     if(f==='add-row') cat.rows.push(blankCcRow());
+    if(f==='fill'){
+      // what is left goes to the last row still empty, or to the last row
+      const left = ccMeter(cat).left;
+      if(left>0){ const t = [...cat.rows].reverse().find(r=>!num(r.pct)) || cat.rows[cat.rows.length-1]; t.pct = r2(num(t.pct)+left); }
+    }
     if(f==='del-row'){
       cat.rows = cat.rows.filter(r=>r!==row);
       if(!cat.rows.length) cat.rows = [blankCcRow()];
@@ -11163,6 +12185,11 @@ let fcDraft = null, fcTab = FIELD_GROUPS[0].id;
 
 const fcSwitch = (on,label,attrs)=>`<button type="button" class="switch" role="switch"
   aria-checked="${on?'true':'false'}" aria-label="${esc(label)}" ${attrs}></button>`;
+/* how much of a group is on, for the rail's meter: an off group is empty */
+const fcPct = g=>{
+  const c = fcDraft[g.id];
+  return c.on ? Math.round(g.fields.filter(f=>c.fields[f.id]).length/g.fields.length*100) : 0;
+};
 const fcCount = g=>{
   const c = fcDraft[g.id];
   return c.on ? `${g.fields.filter(f=>c.fields[f.id]).length}/${g.fields.length}` : 'Off';
@@ -11179,20 +12206,24 @@ function openFieldConfig(){
 
 function renderFcDialog(){
   $('#fc-nav').innerHTML = FIELD_GROUPS.map(g=>
-    `<button type="button" role="tab" data-fc-tab="${g.id}" aria-selected="${g.id===fcTab}">
-       ${esc(g.name)}<span class="fcd__n">${fcCount(g)}</span></button>`).join('');
+    `<button type="button" role="tab" data-fc-tab="${g.id}" aria-selected="${g.id===fcTab}"${fcDraft[g.id].on?'':' class="is-off"'}>
+       <span class="fcd__line"><span class="fcd__nm">${esc(g.name)}</span><span class="fcd__n">${fcCount(g)}</span></span>
+       <span class="fcd__bar" aria-hidden="true"><i style="width:${fcPct(g)}%"></i></span></button>`).join('');
 
   const g = FIELD_GROUPS.find(x=>x.id===fcTab), c = fcDraft[g.id];
   $('#fc-panel').innerHTML =
-    `<div class="fcrow fcrow--master">
-       <span class="fcrow__lbl">${esc(g.name)}</span>
-       ${fcSwitch(c.on, `Show ${g.name} on the bill`, 'data-fc="group"')}
+    `<section class="fcd__group"><div class="fcrow fcrow--master">
+       <span class="fcrow__lbl">${esc(g.name)}<span class="fcrow__note">Shown in the ${esc(XF_WHERE_LABEL[xfWhere(g)])} section</span></span>
+       ${fcSwitch(c.on, `Show ${g.name} on the form`, 'data-fc="group"')}
      </div>` +
-    g.fields.map(f=>`<div class="fcrow${c.on?'':' is-off'}">
+    /* the field switches are one bordered list, as a run of switches is on
+       the bill form (7 Oct 2026) */
+    `<div class="fcd__cols" aria-hidden="true"><span>Field</span><span>Show</span></div>
+     <div class="fcd__list">${g.fields.map(f=>`<div class="fcrow${c.on?'':' is-off'}">
        <span class="fcrow__lbl">${esc(f.name)}${
          f.note?`<span class="fcrow__note">${esc(f.note)}</span>`:''}</span>
        ${fcSwitch(c.fields[f.id], f.name, `data-fc="field" data-fid="${f.id}"`)}
-     </div>`).join('');
+     </div>`).join('')}</div></section>`;
 
   fcSyncFoot();
 }
@@ -11215,7 +12246,11 @@ function fcConflicts(){
 function fcSyncFoot(){
   FIELD_GROUPS.forEach(g=>{
     const el = $(`#fc-nav [data-fc-tab="${g.id}"] .fcd__n`);
-    if(el) el.textContent = fcCount(g);
+    if(!el) return;
+    el.textContent = fcCount(g);
+    const tab = el.closest('[data-fc-tab]');
+    tab.classList.toggle('is-off', !fcDraft[g.id].on);
+    tab.querySelector('.fcd__bar i').style.width = fcPct(g)+'%';
   });
   const clash = fcConflicts();
   const warn = $('#fc-warn');
@@ -11281,11 +12316,17 @@ $('#fc-save').addEventListener('click',()=>{
    it off in Field Configuration, Cancel included. */
 let afDraft = null, afTab = null, afOpen = true;   // afOpen: the From Your Bill card
 
-function openAdditional(){
+function openAdditional(only){
   const live = fcLive();
   if(!live.length) return;
   afDraft = {values:{...state.extra}, cfg:fcClone(fieldConfig)};
+  if(only && live.some(g=>g.id===only)) afTab = only;
   if(!live.some(g=>g.id===afTab)) afTab = live[0].id;
+  /* opened from a group's row: that group alone. Which groups exist at all is
+     Customise fields' question, so the rail and the on/off switch stay out. */
+  $('#af-dialog').classList.toggle('afd--single', !!only);
+  const g = FIELD_GROUPS.find(x=>x.id===afTab);
+  $('#af-title').textContent = only ? (XF_GROUP_LABEL[g.id]||g.name) : 'Additional Fields';
   $('#af-sub').textContent = byId(MASTERS.voucherTypes,state.voucherType)?.name || 'Purchase';
   renderAfDialog();
   $('#af-dialog').showModal();
@@ -11353,7 +12394,9 @@ function renderAfDialog(){
 function renderAfPanel(){
   const g = FIELD_GROUPS.find(x=>x.id===afTab), c = afDraft.cfg[g.id];
   const fields = g.fields.filter(f=>c.fields[f.id]);
-  $('#af-panel').innerHTML = fromYourBill() + `
+  /* the bill's own answers only matter beside the ship-to */
+  const single = $('#af-dialog').classList.contains('afd--single');
+  $('#af-panel').innerHTML = (single && g.id!=='consignee' ? '' : fromYourBill()) + `
     <div class="afg">
       <h3 class="afg__ttl">${esc(g.name)}</h3>
       <span class="afg__switch">${c.on?'Disable all':'Enable all'}
@@ -11381,7 +12424,10 @@ function reqProblems(values, cfg){
       String(values[f.id]??'').trim()==='')
     .map(f=>({group:g, field:f, trigger:fieldById(f.req)})));
 }
-const afProblems    = ()=>reqProblems(afDraft.values, afDraft.cfg);
+/* opened on one group, the dialog answers for that group only — another
+   group's unfinished pair is not this dialog's to block on */
+const afProblems    = ()=>reqProblems(afDraft.values, afDraft.cfg)
+  .filter(p=>!$('#af-dialog').classList.contains('afd--single') || p.group.id===afTab);
 const extraProblems = ()=>reqProblems(state.extra, fieldConfig);
 function afCheck(){
   const bad = afProblems();
@@ -11392,12 +12438,10 @@ function afCheck(){
     el.classList.toggle('is-invalid', on);
     if(on) el.querySelector('.field__error').textContent = `Required once ${f.req && fieldById(f.req).name} is filled.`;
   });
-  const warn = $('#af-warn');
-  warn.hidden = !bad.length;
-  /* the same sentence the sheet uses. Which sections they are in is the rail's
-     job now, so the band does not have to list them */
-  if(bad.length) warn.textContent =
-    `${bad.length} mandatory field${bad.length===1?'':'s'} missing`;
+  /* No band above the fields (7 Oct 2026): each missing field says so in a
+     12px line under its own box, and the rail's dot says which group still
+     owes one. A count across the top only repeated them. */
+  $('#af-warn').hidden = true;
 
   /* the rail marks itself as fields are settled, without a full re-render that
      would take the caret out of whatever is being typed into */
@@ -11413,7 +12457,7 @@ function afCheck(){
   $('#af-save').disabled = bad.length>0;
 }
 
-$('#btn-add-details').addEventListener('click', openAdditional);
+$('#btn-add-details')?.addEventListener('click', openAdditional);   // no strip any more; fields are inline
 
 $('#af-nav').addEventListener('click', e=>{
   const btn = e.target.closest('[data-af-tab]'); if(!btn) return;
@@ -11802,9 +12846,18 @@ function boot(){
   if(!readyForSnapshots||!context)return;
   const calc=compute();
   const party=(byId(MASTERS.vendors,state.vendor)||state.vendorSuggestion||{}).name||'';
-  const lines=state.ledgers.filter(r=>num(r.amount)).map(r=>({description:r.description||r.desc||r.text||'',ledger:ledgerNameOf(r.ledger)||r.ledgerSuggestion?.name||'',amount:num(r.amount),dr:num(r.amount),cr:0}));
-  if(state.mode==='item')state.items.filter(r=>num(r.qty)*num(r.rate)).forEach(r=>lines.push({description:r.description||r.desc||r.text||'',ledger:byId(MASTERS.purchaseLedgers,state.purchaseLedger)?.name||state.purchaseLedgerSuggestion?.name||'',amount:num(r.qty)*num(r.rate),dr:num(r.qty)*num(r.rate),cr:0}));
-  const payload={sheet:JSON.parse(JSON.stringify({...state,__drafted:state.newMasters.map(m=>({kind:m.kind,master:(NM_LIST[m.kind]?.()||[]).find(x=>x.id===m.id)})).filter(d=>d.master)})),form:{gst:byId(MASTERS.branches,state.branch)?.name||'',voucherType:byId(MASTERS.voucherTypes,state.voucherType)?.name||state.voucherType,voucherNo:state.voucherNo||nextVoucherNo(),invoiceNo:state.supplierInvoiceNo,date:state.billDate,due:state.dueDate,party,costClass:state.costCentreClass,costCentre:state.billCostCentre,narration:state.narration,lines},amount:calc.grand};
+  /* Cost centres leave as NAMES, like every value on the inbox's form. A line
+     posts its own answer only when its ledger takes one and no header class or
+     centre has answered for the whole bill — the same rule the cells draw. */
+  const ccName=id=>byId(MASTERS.costCentres,id)?.name||'';
+  const ccSplitOut=sp=>sp?sp.categories.map(c=>({category:c.category,rows:c.rows.filter(x=>x.centre).map(x=>({centre:ccName(x.centre)||x.centre,pct:num(x.pct)}))})):null;
+ const gdOut=r=>({godown:r.gdSplit?'':(byId(MASTERS.godowns,r.godown)?.name||''),godownAllocation:r.gdSplit?r.gdSplit.rows.map(x=>({godown:byId(MASTERS.godowns,x.godown)?.name||x.godown,qty:num(x.qty),unit:gdUnit(r),amount:gdShare(r,x.qty)})):null});
+  const ccOut=(r,on=ccApplies(r))=>(ccLocked()||!on)?{costCentre:'',costAllocation:null}
+    :r.ccSplit?{costCentre:'',costAllocation:ccSplitOut(r.ccSplit)}:{costCentre:ccName(r.costCentre),costAllocation:null};
+  const vendorCc=vendorCcOn()?ccOut({costCentre:state.vendorCostCentre,ccSplit:state.vendorCcSplit},true):{costCentre:'',costAllocation:null};
+  const lines=state.ledgers.filter(r=>num(r.amount)).map(r=>({description:r.description||r.desc||r.text||'',ledger:ledgerNameOf(r.ledger)||r.ledgerSuggestion?.name||'',amount:num(r.amount),dr:num(r.amount),cr:0,...ccOut(r)}));
+  if(state.mode==='item')state.items.filter(r=>num(r.qty)*num(r.rate)).forEach(r=>lines.push({description:r.description||r.desc||r.text||'',ledger:byId(MASTERS.purchaseLedgers,state.purchaseLedger)?.name||state.purchaseLedgerSuggestion?.name||'',amount:num(r.qty)*num(r.rate),dr:num(r.qty)*num(r.rate),cr:0,...ccOut(r),...gdOut(r)}));
+  const payload={sheet:JSON.parse(JSON.stringify({...state,__drafted:state.newMasters.map(m=>({kind:m.kind,master:(NM_LIST[m.kind]?.()||[]).find(x=>x.id===m.id)})).filter(d=>d.master)})),form:{gst:byId(MASTERS.branches,state.branch)?.name||'',voucherType:byId(MASTERS.voucherTypes,state.voucherType)?.name||state.voucherType,voucherNo:state.voucherNo||nextVoucherNo(),invoiceNo:state.supplierInvoiceNo,date:state.billDate,due:state.dueDate,party,costMode:state.ccMode,costClass:ccClass()?.name||'',costCentre:ccName(ccHeader()),partyCostCentre:vendorCc.costCentre,partyCostAllocation:vendorCc.costAllocation,narration:state.narration,lines},amount:calc.grand};
   const key=JSON.stringify(payload);if(key!==sent){sent=key;post('snapshot',payload);}
  };
  const originalExtract=applyExtraction;
@@ -11814,7 +12867,13 @@ function boot(){
    if(context.sheet){for(const d of context.sheet.__drafted||[]){const list=NM_LIST[d.kind]?.();if(list&&d.master&&!list.some(x=>x.id===d.master.id))list.push(d.master);}state=JSON.parse(JSON.stringify(context.sheet));state.allocated=false;refreshVendorList();}
    else if(context.manual){state=freshState();state.document={name:context.fileName};state.voucherType=context.route==='AR'?'sales':'purchase';state.voucherNo=context.form?.voucherNo||'';}
    else if(context.form){
-    state.voucherNo=context.form.voucherNo;state.supplierInvoiceNo=context.form.invoiceNo;state.billDate=context.form.date;state.dueDate=context.form.due;state.costCentreClass=context.form.costClass;state.billCostCentre=context.form.costCentre;
+    state.voucherNo=context.form.voucherNo;state.supplierInvoiceNo=context.form.invoiceNo;state.billDate=context.form.date;state.dueDate=context.form.due;
+    /* the form holds names; the sheet holds ids. A header answer locks the
+       lines, so whatever the seed put on them goes — as it would on the form */
+    state.ccMode=context.form.costMode||(context.form.costCentre?'centre':'class');
+    state.costCentreClass=ccId(MASTERS.costCentreClasses,context.form.costClass);
+    state.billCostCentre=ccId(MASTERS.costCentres,context.form.costCentre);
+    if(ccLocked())clearLineCcs();
    }
    readyForSnapshots=true;render();snapshot();
   }

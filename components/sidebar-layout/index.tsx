@@ -100,7 +100,7 @@ const NAV: NavNode[] = [
     id: "compliance",
     label: "Compliance",
     icon: <Percent />,
-    children: [{ id: "gst", label: "GST Returns", path: "/gst-reconciliation", tag: "GSTR-2B" }],
+    children: [{ id: "gst", label: "GST Reconciliation", path: "/gst-reconciliation" }],
   },
   { kind: "item", id: "banking", label: "Banking", path: "/bank", icon: <Landmark /> },
   { kind: "item", id: "configuration", label: "Sync Management", path: "/configuration", icon: <RefreshCw /> },
@@ -115,7 +115,7 @@ export const NAV_TRAIL: Record<string, Crumb[]> = {
   "journal-vouchers": ["Accounting", "Journal Vouchers"],
   "chart-of-accounts": ["Accounting", "Chart of Accounts"],
   inventory: ["Inventory", "Stock items"],
-  gst: ["Compliance", "GST Returns"],
+  gst: ["Compliance", "GST Reconciliation"],
   banking: ["Banking", "Bank accounts"],
 };
 
@@ -350,20 +350,11 @@ const SidebarLayout = ({
           })}
         </nav>
 
-        {!collapsed && (
-          <div className="mx-3 mb-3 mt-auto flex items-center gap-2 border-t border-[#ffffff14] pt-3">
-            <span className="grid size-[29px] flex-none place-items-center rounded-sm border border-[#ffffff16] bg-[#ffffff0d] text-[12px] text-[#dfebff]">
-              {companyName.trim().charAt(0).toUpperCase()}
-            </span>
-            <div className="min-w-0">
-              <b className="block truncate text-[12px] font-medium text-[#d8e3f5]">{companyName}</b>
-              <span className="mt-0.5 block text-[12px] text-[#8da2bf]">Accounts workspace</span>
-            </div>
-          </div>
-        )}
+        {/* No company card here (8 Oct 2026): the organisation chip in the
+            top bar already names it. */}
         <div
           className={cn(
-            "flex flex-none items-center border-t border-[var(--nav-line)] py-3",
+            "mt-auto flex flex-none items-center border-t border-[var(--nav-line)] py-3",
             collapsed ? "justify-center" : "justify-end px-3"
           )}
         >

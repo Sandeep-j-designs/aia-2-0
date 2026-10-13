@@ -1,7 +1,6 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ComboBox } from "@/components/common/combo-box";
 import RupeeInput from "@/components/common/rupee-input";
@@ -9,7 +8,13 @@ import { cn } from "@/lib/utils";
 import { DR_CR_OPTIONS } from "@/config/pages/inbox/chart-of-accounts";
 import type { LedgerFormValues } from "@/schemas/inbox/chart-of-accounts";
 import type { Option } from "@/types/pages/inbox/chart-of-accounts";
-import { DateField, Field, Req, T } from "@/components/inbox/v2/ui";
+import { Label as LabelPrimitive } from "@/components/ui/label";
+import {
+  DateField,
+  FieldError,
+  OptionalTag,
+  T,
+} from "@/components/inbox/v2/ui";
 
 /**
  * The ledger form's field vocabulary: one shape per control, so the eight
@@ -40,54 +45,215 @@ export const valueAt = (values: LedgerFormValues, name: FieldName): unknown =>
       values
     );
 
-const ErrorText = ({ message }: { message?: string }) =>
-  message ? (
-    <p role="alert" className="text-[12px] leading-4 text-pi-danger">
-      {message}
-    </p>
-  ) : null;
-
-const Label = ({
-  children,
-  required,
-}: {
-  children: React.ReactNode;
-  required?: boolean;
-}) => (
-  <>
-    {required ? <Req /> : null}
-    {children}
-  </>
-);
-
 const idOf = (name: FieldName) => `coa-${name.replace(/\./g, "-")}`;
 
-type TextFieldProps = {
-  f: FormApi;
-  name: FieldName;
-  label: string;
-  required?: boolean;
-  placeholder?: string;
-  disabled?: boolean;
-  /** Strip what the field never accepts, as production's onChange does. */
-  filter?: (raw: string) => string;
-  maxLength?: number;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-  type?: string;
-  /** "+91" ahead of a phone number. */
-  prefix?: string;
-  /** "days" or "%" after the figure. */
-  suffix?: string;
-  /** Span both columns of the card. */
-  wide?: boolean;
-  multiline?: boolean;
+/* ------------------------------------------------------------- the grid
+   Symmetric field grids (7 Oct 2026, carried over from the bill form): a
+   card is a twelve-track grid and every field in it takes the same share —
+   quarters by default, thirds or halves where a card holds fewer fields —
+   so every box sits on the same column lines. The boxes are the review
+   form's (38px, 14px text) and the gaps its 16px rows / 20px columns
+   (7 Oct 2026: every form matches the AP/AR/JV review forms). The card says how
+   many columns it runs; a field may claim more tracks (a long legal name)
+   or a fixed start (the GST row keeps its columns while a field hides). */
+
+const GridSpan = React.createContext(3);
+
+export type Cols = 2 | 3 | 4;
+
+/** Halves for one or two fields, thirds beyond — the review form never runs
+ *  quarters (8 Oct 2026: a quarter cut "Indirect Expenses" short). */
+export const colsFor = (count: number): Cols => (count <= 2 ? 2 : 3);
+
+/** Inline grid placement; collapses to one column under sm. */
+const placement = (span: number, start?: number): React.CSSProperties =>
+  ({
+    "--span": span,
+    "--start": start ?? "auto",
+  }) as React.CSSProperties;
+
+const PLACED = "col-span-full sm:[grid-column:var(--start)/span_var(--span)]";
+
+/**
+ * A form section, the review form's (7 Oct 2026): no card, a 14px/600 brand
+ * heading with a hairline above it, and the symmetric grid under it. The
+ * first section has no hairline (`first`, since the journey's intro sits
+ * before it in the DOM) and carries the "All fields required" note on its
+ * heading line (`aside`). `form-section` + the h2 are how FormJourney finds
+ * its steps.
+ */
+export const FormCard = ({
+  title,
+  cols = 3,
+  first,
+  aside,
+  children,
+  className,
+}: {
+  title?: string;
+  cols?: Cols;
+  first?: boolean;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <section
+    className={cn(
+      "form-section scroll-mt-6",
+      !first && "border-t border-pi-line pt-5",
+      className
+    )}
+  >
+    {title || aside ? (
+      <div className="mb-4 flex min-h-5 items-center justify-between gap-4">
+        {title ? <h2 className={SECTION_HEAD}>{title}</h2> : <span />}
+        {aside}
+      </div>
+    ) : null}
+    <GridSpan.Provider value={12 / cols}>
+      <FieldGrid>{children}</FieldGrid>
+    </GridSpan.Provider>
+  </section>
+);
+
+/** The section heading: ui.tsx FieldCard's. */
+export const SECTION_HEAD = "text-[14px] font-semibold leading-5 text-pi-brand";
+
+/** The bare twelve-track grid, for a block inside a card (party tabs). */
+export const FieldGrid = ({
+  cols,
+  children,
+}: {
+  cols?: Cols;
+  children: React.ReactNode;
+}) => {
+  const grid = (
+    <div className="grid grid-cols-1 items-start gap-x-5 gap-y-4 sm:grid-cols-12">
+      {children}
+    </div>
+  );
+  return cols ? (
+    <GridSpan.Provider value={12 / cols}>{grid}</GridSpan.Provider>
+  ) : (
+    grid
+  );
 };
+
+export type CellProps = {
+  /** Tracks of twelve; the card's share when absent. */
+  span?: number;
+  /** A fixed first track, so a column holds while a neighbour hides. */
+  start?: number;
+};
+
+/**
+ * One grid cell: a one-line label over one box — `.modern-field`, so the box
+ * is the review form's 38px and the label sits 6px above it. The label never
+ * wraps (ellipsis, full text in its title). A note that used to wrap under
+ * the box ("set by …", "from GSTIN") is a faint 12px tag beside the label
+ * instead, drawn only while it applies, with the whole sentence in its title
+ * — so no box is pushed out of its row (7 Oct 2026).
+ *
+ * Required is the norm and unmarked; `optional` adds the faint "Optional".
+ * The error is one 12px line under the box, which turns its edge red.
+ */
+export const FieldCell = ({
+  label,
+  optional,
+  tag,
+  tagTitle,
+  htmlFor,
+  error,
+  span,
+  start,
+  hideLabel,
+  children,
+}: CellProps & {
+  label: string;
+  optional?: boolean;
+  tag?: string;
+  tagTitle?: string;
+  htmlFor?: string;
+  error?: string;
+  /** Column heads already name it (the GST rows after the first). */
+  hideLabel?: boolean;
+  children: React.ReactNode;
+}) => {
+  const share = React.useContext(GridSpan);
+  return (
+    <div
+      className={cn("modern-field flex min-w-0 flex-col", PLACED)}
+      style={placement(span ?? share, start)}
+      data-invalid={error ? "true" : undefined}
+    >
+      <div
+        className={cn(
+          "flex h-4 min-w-0 items-center gap-2",
+          hideLabel && "sm:sr-only"
+        )}
+      >
+        <LabelPrimitive
+          htmlFor={htmlFor}
+          title={label}
+          // The tag gives way first; the label truncates only when it alone
+          // overflows the column.
+          className={cn(T.label, "max-w-full shrink-0 truncate")}
+        >
+          {label}
+        </LabelPrimitive>
+        {optional ? <OptionalTag /> : null}
+        {tag ? (
+          <span
+            title={tagTitle}
+            className="min-w-0 truncate text-[12px] leading-4 text-pi-faint"
+          >
+            {tag}
+          </span>
+        ) : null}
+      </div>
+      {children}
+      {error ? <FieldError>{error}</FieldError> : null}
+    </div>
+  );
+};
+
+/** A tag shown only while it applies. */
+export type FieldTag = { tag?: string; tagTitle?: string };
+
+type TextFieldProps = CellProps &
+  FieldTag & {
+    f: FormApi;
+    name: FieldName;
+    label: string;
+    required?: boolean;
+    /**
+     * "Optional" beside the label. Defaults to any field neither required
+     * nor locked; a setting that always holds a value passes false.
+     */
+    optional?: boolean;
+    placeholder?: string;
+    disabled?: boolean;
+    /** Strip what the field never accepts, as production's onChange does. */
+    filter?: (raw: string) => string;
+    maxLength?: number;
+    inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+    type?: string;
+    /** "+91" ahead of a phone number. */
+    prefix?: string;
+    /** "days" or "%" after the figure. */
+    suffix?: string;
+    /** Span the card's full width. */
+    wide?: boolean;
+    multiline?: boolean;
+    hideLabel?: boolean;
+  };
 
 export const TextField = ({
   f,
   name,
   label,
   required,
+  optional,
   placeholder,
   disabled,
   filter,
@@ -98,35 +264,47 @@ export const TextField = ({
   suffix,
   wide,
   multiline,
+  span,
+  start,
+  tag,
+  tagTitle,
+  hideLabel,
 }: TextFieldProps) => {
   const message = f.error(name);
   const value = String(valueAt(f.values, name) ?? "");
   const id = idOf(name);
   const change = (raw: string) => f.set(name, filter ? filter(raw) : raw);
   return (
-    <Field
-      label={<Label required={required}>{label}</Label>}
+    <FieldCell
+      label={label}
+      optional={optional ?? (!required && !disabled)}
       htmlFor={id}
-      hint={<ErrorText message={message} />}
-      className={cn(wide && "sm:col-span-2")}
+      error={message}
+      span={wide ? 12 : span}
+      start={start}
+      tag={tag}
+      tagTitle={tagTitle}
+      hideLabel={hideLabel}
     >
       {multiline ? (
+        // One line at rest like every other box, the full text while it
+        // has focus — the JV narration's rule (7 Oct 2026).
         <Textarea
           id={id}
           value={value}
           placeholder={placeholder}
           disabled={disabled}
           aria-invalid={!!message}
+          rows={1}
           onChange={(e) => change(e.target.value)}
-          className={cn(
-            "min-h-[72px] text-[13px]",
-            message && "border-destructive-foreground"
-          )}
+          // !min-h: .modern-field gives a textarea two lines; this one
+          // keeps one at rest, level with the boxes beside it.
+          className="h-[38px] !min-h-[38px] resize-none overflow-hidden px-3 py-[8px] leading-5 focus:h-24 focus:overflow-auto"
         />
       ) : (
         <div className="relative">
           {prefix ? (
-            <span className="pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-[13px] text-pi-faint">
+            <span className="pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-[14px] text-pi-faint">
               {prefix}
             </span>
           ) : null}
@@ -144,13 +322,13 @@ export const TextField = ({
             className={cn(prefix && "pl-11", suffix && "pr-12")}
           />
           {suffix ? (
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] text-pi-faint">
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[14px] text-pi-faint">
               {suffix}
             </span>
           ) : null}
         </div>
       )}
-    </Field>
+    </FieldCell>
   );
 };
 
@@ -176,6 +354,7 @@ export const RateField = ({
   disabled,
   suffix = "%",
   max = 100,
+  span,
 }: {
   f: FormApi;
   name: FieldName;
@@ -185,6 +364,7 @@ export const RateField = ({
   disabled?: boolean;
   suffix?: string;
   max?: number;
+  span?: number;
 }) => (
   <TextField
     f={f}
@@ -196,25 +376,30 @@ export const RateField = ({
     inputMode="decimal"
     maxLength={6}
     suffix={suffix}
+    span={span}
     filter={rateFilter(max)(String(valueAt(f.values, name) ?? ""))}
   />
 );
 
-type ComboFieldProps = {
-  f: FormApi;
-  name: FieldName;
-  label: string;
-  title: string;
-  options: Option[];
-  optionGroups?: { label?: React.ReactNode; options: Option[] }[];
-  required?: boolean;
-  disabled?: boolean;
-  hasSearch?: boolean;
-  hideClearButton?: boolean;
-  /** Runs after the value is written — for fields that clear others. */
-  onPicked?: (value: string) => void;
-  wide?: boolean;
-};
+type ComboFieldProps = CellProps &
+  FieldTag & {
+    f: FormApi;
+    name: FieldName;
+    label: string;
+    title: string;
+    options: Option[];
+    optionGroups?: { label?: React.ReactNode; options: Option[] }[];
+    required?: boolean;
+    /** As TextField's: defaults to neither required nor locked. */
+    optional?: boolean;
+    disabled?: boolean;
+    hasSearch?: boolean;
+    hideClearButton?: boolean;
+    /** Runs after the value is written — for fields that clear others. */
+    onPicked?: (value: string) => void;
+    wide?: boolean;
+    hideLabel?: boolean;
+  };
 
 export const ComboField = ({
   f,
@@ -224,6 +409,7 @@ export const ComboField = ({
   options,
   optionGroups,
   required,
+  optional,
   disabled,
   hasSearch,
   // The shared ComboBox draws its clear button inside the trigger button,
@@ -231,14 +417,24 @@ export const ComboField = ({
   hideClearButton = true,
   onPicked,
   wide,
+  span,
+  start,
+  tag,
+  tagTitle,
+  hideLabel,
 }: ComboFieldProps) => {
   const message = f.error(name);
   return (
-    <Field
-      label={<Label required={required}>{label}</Label>}
+    <FieldCell
+      label={label}
+      optional={optional ?? (!required && !disabled)}
       htmlFor={idOf(name)}
-      hint={<ErrorText message={message} />}
-      className={cn(wide && "sm:col-span-2")}
+      error={message}
+      span={wide ? 12 : span}
+      start={start}
+      tag={tag}
+      tagTitle={tagTitle}
+      hideLabel={hideLabel}
     >
       <ComboBox
         id={idOf(name)}
@@ -256,56 +452,113 @@ export const ComboField = ({
         hasSearch={hasSearch ?? options.length > 8}
         hideClearButton={hideClearButton}
         invalid={!!message}
-        triggerClassName="w-full"
+        // The ComboBox trigger carries no combobox role, so .modern-field's
+        // sizing misses it; it takes the form box here.
+        triggerClassName="h-[38px] w-full rounded-[6px] text-[14px] shadow-none [&_small]:text-[14px]"
       />
-    </Field>
+    </FieldCell>
   );
 };
 
-/** A labelled switch on one line, as production's Additional Fields draw it. */
+/**
+ * Yes/no settings, the review form's way (7 Oct 2026): a run of switches is
+ * one bordered list — label left, switch right, a hairline between rows —
+ * spanning the section's width. Production draws these in its Additional
+ * Fields.
+ */
+export const SwitchList = ({
+  label,
+  children,
+}: {
+  /** Names the group for assistive tech. */
+  label?: string;
+  children: React.ReactNode;
+}) => (
+  <div
+    role="group"
+    aria-label={label}
+    className="col-span-full overflow-hidden rounded-lg border border-pi-line bg-background"
+  >
+    {children}
+  </div>
+);
+
+/** One row of a SwitchList. A tag beside the label says why it is locked. */
 export const SwitchRow = ({
   label,
   checked,
   onChange,
   disabled,
   error,
-}: {
+  tag,
+  tagTitle,
+}: FieldTag & {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
   error?: string;
-}) => (
-  <div className="flex flex-col gap-2 sm:col-span-2">
-    <label className="flex items-center justify-between gap-4">
-      <span className={cn(T.value, "text-foreground")}>{label}</span>
+}) => {
+  const id = React.useId();
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-4 border-t border-pi-line px-4 py-2.5 first:border-t-0">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <LabelPrimitive
+            htmlFor={id}
+            title={label}
+            className={cn(
+              "shrink-0 truncate text-[13px] font-normal leading-5",
+              disabled ? "text-pi-faint" : "text-pi-ink"
+            )}
+          >
+            {label}
+          </LabelPrimitive>
+          {tag ? (
+            <span
+              title={tagTitle}
+              className="min-w-0 truncate text-[12px] leading-4 text-pi-faint"
+            >
+              {tag}
+            </span>
+          ) : null}
+        </div>
+        {error ? <FieldError>{error}</FieldError> : null}
+      </div>
       <Switch
+        id={id}
         checked={checked}
         disabled={disabled}
         onCheckedChange={onChange}
         aria-invalid={!!error}
       />
-    </label>
-    <ErrorText message={error} />
-  </div>
-);
+    </div>
+  );
+};
 
-/** "Set/Alter HSN Code" and its kin: the label first, the switch after it. */
-export const InlineSwitch = ({
+/** "Set/Alter HSN Code" and its kin: a row like any other. */
+export const InlineSwitch = SwitchRow;
+
+/**
+ * The fields a switch reveals, in a tinted panel under its list, on the
+ * section's grid (7 Oct 2026).
+ */
+export const SwitchPanel = ({
+  cols = 3,
   label,
-  checked,
-  onChange,
-  disabled,
+  children,
 }: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  disabled?: boolean;
+  cols?: Cols;
+  label?: string;
+  children: React.ReactNode;
 }) => (
-  <label className="flex items-center gap-3 sm:col-span-2">
-    <span className={T.label}>{label}</span>
-    <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
-  </label>
+  <div
+    role="group"
+    aria-label={label}
+    className="col-span-full rounded-lg border border-pi-line bg-pi-head-bg p-4"
+  >
+    <FieldGrid cols={cols}>{children}</FieldGrid>
+  </div>
 );
 
 export const DateInputField = ({
@@ -317,16 +570,20 @@ export const DateInputField = ({
   name: FieldName;
   label: string;
 }) => (
-  <Field label={label} hint={<ErrorText message={f.error(name)} />}>
+  <FieldCell label={label} optional htmlFor={idOf(name)} error={f.error(name)}>
     <DateField
       id={idOf(name)}
       value={String(valueAt(f.values, name) ?? "").slice(0, 10)}
       onChange={(iso) => f.set(name, iso)}
     />
-  </Field>
+  </FieldCell>
 );
 
-/** Opening Balance: the rupee figure and a Dr/Cr segmented control. */
+/**
+ * Opening Balance: one box, the rupee figure with its Dr/Cr side as a small
+ * toggle at the box's end (8 Oct 2026) — the side belongs to the figure, so
+ * it is not a field of its own.
+ */
 export const OpeningBalanceFields = ({
   f,
   required,
@@ -334,44 +591,47 @@ export const OpeningBalanceFields = ({
   f: FormApi;
   required?: boolean;
 }) => (
-  <>
-    <Field
-      label={<Label required={required}>Opening Balance</Label>}
-      hint={<ErrorText message={f.error("openingBalanceAmount")} />}
-    >
+  <FieldCell
+    label="Opening Balance"
+    optional={!required}
+    error={f.error("openingBalanceAmount")}
+  >
+    <div className="relative">
       <RupeeInput
         aria-label="Opening Balance"
         value={Number(f.values.openingBalanceAmount || 0)}
         onChange={(value) => f.set("openingBalanceAmount", String(value))}
         hasError={!!f.error("openingBalanceAmount")}
+        className="pr-[92px]"
       />
-    </Field>
-    <Field label="Dr/Cr">
-      <Tabs
-        value={f.values.drCr}
-        onValueChange={(value) => f.set("drCr", value)}
+      <div
+        role="radiogroup"
+        aria-label="Dr/Cr"
+        className="absolute inset-y-[5px] right-[5px] flex rounded-[5px] bg-pi-head-bg p-0.5"
       >
-        <TabsList
-          aria-label="Dr/Cr"
-          className="flex h-9 w-full rounded-sm border border-pi-line-2 bg-background p-0 shadow-contact"
-        >
-          {DR_CR_OPTIONS.map((option, index) => (
-            <TabsTrigger
+        {DR_CR_OPTIONS.map((option) => {
+          const on = f.values.drCr === option.value;
+          return (
+            <button
               key={option.value}
-              value={option.value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => f.set("drCr", option.value)}
               className={cn(
-                "h-full flex-1 rounded-none text-[13px] font-medium text-pi-body hover:text-pi-ink data-[state=active]:bg-pi-brand-tint data-[state=active]:text-pi-brand data-[state=active]:shadow-none",
-                index === 0 && "rounded-l-sm border-r border-pi-line-2",
-                index === DR_CR_OPTIONS.length - 1 && "rounded-r-sm"
+                "w-10 rounded-[4px] text-[12px] font-medium leading-4 transition-colors",
+                on
+                  ? "bg-background text-pi-ink shadow-[0_0_0_1px_var(--pi-line-2)]"
+                  : "text-pi-faint hover:text-pi-ink"
               )}
             >
               {option.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-    </Field>
-  </>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  </FieldCell>
 );
 
 /** Digits only, cut to a length — production's filterNumberOnly. */

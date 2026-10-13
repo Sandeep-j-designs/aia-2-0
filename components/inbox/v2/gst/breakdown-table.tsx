@@ -3,12 +3,12 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import {
-  TABLE_CLASS,
   nextSort,
   sortRows,
   type SortState,
@@ -16,49 +16,77 @@ import {
 import { T } from "@/components/inbox/v2/ui";
 import { ROW_GROUND } from "@/components/inbox/v2/banking/page-parts";
 import {
-  Count,
   GROUPED_HEADER_CLASS,
-  GroupHead,
   HeadCell,
-  Money,
+  PIN_LEAD,
+  PIN_LEAD_HEAD,
 } from "./table-parts";
 
 /**
- * The shape Month View and Vendor View share: a leading column, then
- * groups of numeric sub-columns under a label (Invoice Count, Taxable Value,
- * Tax Value, Status Breakdown), every sub-column sortable.
+ * The reconciliation ledger (13 Oct 2026), shared by Summary, By Month and
+ * By Vendor: a leading column, then groups of figure columns (2B beside PR),
+ * then single columns such as the tax gap.
+ *
+ * It reads as a ledger, not a spreadsheet: rows are ruled, columns are not,
+ * except where a group begins. Group names are small caps over the 2B / PR
+ * labels. Rows can sit in labelled sections with their own subtotal
+ * (Summary's Matched / Needs attention), and a Total closes the table.
  */
 
-export type BreakdownColumn<R> = {
-  field: keyof R & string;
+export type LedgerColumn<R> = {
+  id: string;
   label: string;
-  kind: "count" | "money";
+  /** The cell. `strong` is a subtotal or total row. */
+  render: (row: R, strong: boolean) => React.ReactNode;
+  /** Present: the column sorts by this figure (flat tables only). */
+  sortValue?: (row: R) => number;
+  /** A fixed width, for a column whose content is not a figure. */
+  width?: number;
 };
 
-export type BreakdownGroup<R> = {
+export type LedgerGroup<R> = {
+  /** Absent: a single column whose own label spans both header rows. */
+  label?: string;
+  cols: LedgerColumn<R>[];
+};
+
+export type LedgerSection<R> = {
   label: string;
-  cols: BreakdownColumn<R>[];
+  subtotal: R;
+  rows: R[];
 };
 
 type Props<R> = {
-  /** The leading column: its label over the group row, and its sub-label. */
-  lead: { group: string; label?: string; width: number };
-  groups: BreakdownGroup<R>[];
-  rows: R[];
+  lead: { label: string; width: number };
+  groups: LedgerGroup<R>[];
+  /** A flat table… */
+  rows?: R[];
+  /** …or one in labelled sections. */
+  sections?: LedgerSection<R>[];
   rowKey: (row: R) => string;
   renderLead: (row: R) => React.ReactNode;
   total?: R;
   onRowClick?: (row: R) => void;
   rowTitle?: string;
-  /** Row height: the vendor rows carry a GSTIN subline. */
+  /** Two-line leads (vendor + GSTIN) get the taller row. */
   tall?: boolean;
   minWidth: number;
 };
 
-const BreakdownTable = <R,>({
+/** The small-caps voice the group names and section labels share. */
+const CAPS =
+  "text-[11px] font-semibold uppercase leading-4 tracking-[0.06em] text-pi-faint";
+/** Where a group begins: the one vertical rule a row carries. */
+const GROUP_RULE = "border-l border-l-pi-line-2";
+
+const LEDGER_TABLE =
+  "table-auto border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line";
+
+const LedgerTable = <R,>({
   lead,
   groups,
   rows,
+  sections,
   rowKey,
   renderLead,
   total,
@@ -67,113 +95,187 @@ const BreakdownTable = <R,>({
   tall,
   minWidth,
 }: Props<R>) => {
-  const cols = groups.flatMap((g) => g.cols);
-  type Field = (typeof cols)[number]["field"];
-  const [sort, setSort] = useState<SortState<Field>>(null);
-
+  const cols = groups.flatMap((g) =>
+    g.cols.map((c, i) => ({ ...c, starts: i === 0 }))
+  );
+  const [sort, setSort] = useState<SortState<string>>(null);
+  const flat = !sections;
   const sorted = useMemo(
     () =>
-      sortRows(
-        rows,
-        sort,
-        Object.fromEntries(
-          cols.map((c) => [c.field, (r: R) => Number(r[c.field as keyof R])])
-        ) as Record<Field, (r: R) => number>
-      ),
-    [rows, sort]
+      flat && rows
+        ? sortRows(
+            rows,
+            sort,
+            Object.fromEntries(
+              cols
+                .filter((c) => c.sortValue)
+                .map((c) => [c.id, c.sortValue as (r: R) => number])
+            )
+          )
+        : (rows ?? []),
+    [rows, sort, flat]
   );
 
-  // Precision Indigo rows are 56px; a two-line lead (the vendor rows'
-  // GSTIN subline) gets the reference's 64px book row.
   const height = tall ? "h-16" : "h-14";
-  const numbers = (row: R, bold = false) =>
-    cols.map((c) => {
-      const value = Number(row[c.field as keyof R]);
-      return (
-        <TableCell
-          key={c.field}
-          className={cn(height, "px-4 py-0 align-middle", T.cell, ROW_GROUND)}
-        >
-          {c.kind === "count" ? (
-            <Count value={value} className={cn(bold && "font-semibold")} />
-          ) : (
-            <Money value={value} className={cn(bold && "font-semibold")} />
-          )}
-        </TableCell>
-      );
-    });
+  const figures = (row: R, strong: boolean) =>
+    cols.map((c) => (
+      <TableCell
+        key={c.id}
+        style={c.width ? { width: c.width } : undefined}
+        className={cn(
+          height,
+          "whitespace-nowrap px-4 py-0 align-middle",
+          T.cell,
+          c.starts && GROUP_RULE,
+          strong && "font-semibold [&_.fig]:font-semibold",
+          !strong && ROW_GROUND
+        )}
+      >
+        {c.render(row, strong)}
+      </TableCell>
+    ));
+
+  const line = (row: R, indent = false) => (
+    <TableRow
+      key={rowKey(row)}
+      onClick={onRowClick ? () => onRowClick(row) : undefined}
+      title={rowTitle}
+      className={cn(
+        "group hover:bg-transparent",
+        onRowClick && "cursor-pointer"
+      )}
+    >
+      <TableCell
+        className={cn(
+          height,
+          "whitespace-nowrap py-0 pr-4 align-middle",
+          indent ? "pl-8" : "pl-6",
+          T.cell,
+          PIN_LEAD,
+          ROW_GROUND
+        )}
+      >
+        {renderLead(row)}
+      </TableCell>
+      {figures(row, false)}
+    </TableRow>
+  );
 
   return (
-    <Table
-      className={cn(TABLE_CLASS, "table-auto")}
-      style={{ minWidth, width: "100%" }}
-    >
+    <Table className={cn(LEDGER_TABLE, "w-full")} style={{ minWidth }}>
       <colgroup>
         <col style={{ width: lead.width }} />
         {cols.map((c) => (
-          <col key={c.field} />
+          <col key={c.id} style={c.width ? { width: c.width } : undefined} />
         ))}
       </colgroup>
       <TableHeader className={GROUPED_HEADER_CLASS}>
         <TableRow className="hover:bg-transparent">
-          <GroupHead
-            label={lead.group}
-            rowSpan={lead.label ? undefined : 2}
-            align="left"
-          />
-          {groups.map((g) => (
-            <GroupHead key={g.label} label={g.label} colSpan={g.cols.length} />
-          ))}
+          <TableHead
+            rowSpan={2}
+            style={{ width: lead.width, minWidth: lead.width }}
+            className={cn("h-9 px-6 py-0 align-middle", CAPS, PIN_LEAD_HEAD)}
+          >
+            {lead.label}
+          </TableHead>
+          {groups.map((g) =>
+            g.label ? (
+              <TableHead
+                key={g.label}
+                colSpan={g.cols.length}
+                className={cn(
+                  "h-9 px-4 py-0 text-center align-bottom",
+                  CAPS,
+                  GROUP_RULE
+                )}
+              >
+                <span className="block pb-2">{g.label}</span>
+              </TableHead>
+            ) : (
+              <TableHead
+                key={g.cols[0].id}
+                rowSpan={2}
+                style={g.cols[0].width ? { width: g.cols[0].width } : undefined}
+                className={cn(
+                  "h-9 px-4 py-0 text-right align-middle",
+                  CAPS,
+                  GROUP_RULE
+                )}
+              >
+                {g.cols[0].label}
+              </TableHead>
+            )
+          )}
         </TableRow>
         <TableRow className="hover:bg-transparent">
-          {lead.label ? <HeadCell label={lead.label} /> : null}
-          {cols.map((c) => (
-            <HeadCell
-              key={c.field}
-              label={c.label}
-              align="right"
-              sort={sort?.key === c.field ? sort.dir : "none"}
-              onSort={() => setSort((s) => nextSort(s, c.field))}
-            />
-          ))}
+          {groups
+            .filter((g) => g.label)
+            .flatMap((g) =>
+              g.cols.map((c, i) => (
+                <HeadCell
+                  key={c.id}
+                  label={c.label}
+                  align="right"
+                  className={cn("h-9", i === 0 && GROUP_RULE)}
+                  sort={
+                    flat && c.sortValue
+                      ? sort?.key === c.id
+                        ? sort.dir
+                        : "none"
+                      : undefined
+                  }
+                  onSort={() => setSort((s) => nextSort(s, c.id))}
+                />
+              ))
+            )}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {sorted.map((row) => (
-          <TableRow
-            key={rowKey(row)}
-            onClick={onRowClick ? () => onRowClick(row) : undefined}
-            title={rowTitle}
-            className={cn(
-              "group hover:bg-transparent",
-              onRowClick && "cursor-pointer"
-            )}
-          >
-            <TableCell
-              className={cn(
-                height,
-                "px-4 py-0 align-middle",
-                T.cell,
-                ROW_GROUND
-              )}
-            >
-              {renderLead(row)}
-            </TableCell>
-            {numbers(row)}
-          </TableRow>
-        ))}
+        {sections
+          ? sections.map((sec) => (
+              <React.Fragment key={sec.label}>
+                <TableRow className="bg-pi-head-bg hover:bg-pi-head-bg">
+                  <TableCell
+                    className={cn(
+                      "h-11 px-6 py-0 align-middle text-pi-ink",
+                      CAPS,
+                      "text-pi-ink",
+                      PIN_LEAD,
+                      "bg-pi-head-bg"
+                    )}
+                  >
+                    {sec.label}
+                  </TableCell>
+                  {cols.map((c) => (
+                    <TableCell
+                      key={c.id}
+                      className={cn(
+                        "h-11 whitespace-nowrap px-4 py-0 align-middle",
+                        T.cell,
+                        c.starts && GROUP_RULE,
+                        "font-semibold [&_.fig]:font-semibold"
+                      )}
+                    >
+                      {c.render(sec.subtotal, true)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {sec.rows.map((r) => line(r, true))}
+              </React.Fragment>
+            ))
+          : sorted.map((r) => line(r))}
         {total && (
-          <TableRow className="bg-pi-head-bg hover:bg-pi-head-bg">
+          <TableRow className="bg-pi-head-bg hover:bg-pi-head-bg [&>td]:border-t [&>td]:border-t-pi-line-strong">
             <TableCell
               className={cn(
-                "h-14 px-4 py-0 align-middle",
-                T.cell,
-                "font-semibold text-pi-ink"
+                "h-14 px-6 py-0 align-middle text-[13px] font-semibold text-pi-ink",
+                PIN_LEAD,
+                "bg-pi-head-bg"
               )}
             >
               Total
             </TableCell>
-            {numbers(total, true)}
+            {figures(total, true)}
           </TableRow>
         )}
       </TableBody>
@@ -181,4 +283,4 @@ const BreakdownTable = <R,>({
   );
 };
 
-export default BreakdownTable;
+export default LedgerTable;

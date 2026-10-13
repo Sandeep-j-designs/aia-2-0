@@ -28,6 +28,7 @@ export default function EditableCell({
   onClosed,
   onCreate,
   createNoun = "option",
+  className,
 }: {
   label: string;
   value: string;
@@ -52,6 +53,8 @@ export default function EditableCell({
   onCreate?: (query: string) => void;
   /** What the create row makes, e.g. "vendor". */
   createNoun?: string;
+  /** Extra classes for the trigger, e.g. to align it with its column. */
+  className?: string;
 }) {
   if (!editable)
     return (
@@ -85,7 +88,8 @@ export default function EditableCell({
               // arcs and two gaps where the sides should be. Inset also
               // matches the grid cursor, which rings the cell the same way.
               "flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-md px-1 text-left text-xs font-normal hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-              open && "bg-accent/60 ring-1 ring-inset ring-ring"
+              open && "bg-accent/60 ring-1 ring-inset ring-ring",
+              className
             )}
             title={value || `Select ${label}`}
           >

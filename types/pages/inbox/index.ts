@@ -223,6 +223,10 @@ export type JvLine = {
 };
 
 export type InboxJv = {
+  /** The note's own reference, as printed on it. */
+  referenceNo?: string;
+  /** The date the note carries ("08 Sep 2026"). */
+  date?: string;
   narration: string;
   lines: JvLine[];
 };
@@ -345,4 +349,45 @@ export type RouteMeta = {
 
 export type ChannelMeta = {
   label: string;
+};
+
+/* --------------------------------------------------------- Source document */
+
+/**
+ * Where one extracted value sits on the source document. Fractions of the page
+ * (0–1) from its top-left corner, as extraction services return a field's
+ * bounding box — independent of the size the page is drawn at.
+ */
+export type SourceRegion = {
+  /** 1-based. */
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type SourcePage = {
+  /** A rendered image of the page. */
+  image: string;
+  /** The page's natural size in CSS px; the regions scale against it. */
+  width: number;
+  height: number;
+};
+
+/**
+ * The document an inbox item was read from: its original file, its pages as
+ * images, and where every extracted value came from.
+ *
+ * Region keys are the extraction's field names: `seller.*` / `buyer.*` (name,
+ * gstin, address), `doc.*` (number, date, dueDate, placeOfSupply, poNo,
+ * narration), `totals.*` (taxable, cgst, sgst, igst, grand), `line.N` for a
+ * whole line and `line.N.*` (desc, hsn, qty, rate, amount; ledger, dr, cr on a
+ * journal) for its cells.
+ */
+export type SourceDocument = {
+  /** The original file. */
+  pdf: string;
+  pages: SourcePage[];
+  regions: Record<string, SourceRegion>;
 };

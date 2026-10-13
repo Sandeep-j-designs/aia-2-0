@@ -1,5 +1,8 @@
 import React, { useState } from "react";
-import { Plus } from "@/components/icons";
+import { ChevronDown, Split, X } from "@/components/icons";
+import ComboBoxPanel, {
+  COMBO_BOX_POPOVER_CLASS,
+} from "@/components/common/combo-box/panel";
 import {
   Popover,
   PopoverContent,
@@ -7,129 +10,206 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
-  COST_CENTRES,
-  COST_CENTRE_CLASSES,
-  costCentreClassByName,
-} from "@/config/pages/inbox/journal-masters";
+  COST_CATEGORIES,
+  type CostAllocation,
+  allocationDetail,
+  allocationLabel,
+  allocationShortLabel,
+  centresInCategory,
+  costCentreTree,
+} from "@/config/pages/inbox/mock-cost-centres";
 
 /**
- * The Allocation column.
+ * The Cost centre column.
  *
  * Ported from Prototypes/Journals (components/journal-voucher/common/
- * allocation-cell). One change: the Inbox's `Form` holds display strings
- * rather than master ids — `gst` is a branch name, `ledger` is a ledger name —
- * so the cost centre is stored and matched by name for the same reason.
+ * allocation-cell), then brought in line with Tally and production:
  *
- * A line only offers an allocation once it carries a figure. There is nothing
- * to allocate before that, so an unfilled line shows a dash — the rule the
- * frames draw, where the 35,000 line offers "Cost Centre +" and the blank line
- * beside it shows "-".
+ * - **Only lines whose ledger takes cost centres** offer one — the ledger's
+ *   "Cost centres are applicable". Any other line shows a faint dash.
+ * - **A header class or cost centre answers for every line**, so the cell is
+ *   locked and names it; the split shows on hover.
+ * - **One centre or a split.** The picker lists the centres by category, the
+ *   tree indented; "Split cost centres", in the picker's footer like every
+ *   create action, opens the split under the line (LedgerLines draws it — a
+ *   panel in place since 7 Oct 2026, not a dialog), which divides the line
+ *   per category. A split reads "Split · 3 centres"; the breakdown is on
+ *   hover.
+ * - **Empty reads as a field, not a call to action** (7 Oct): "Select cost
+ *   centre" in the faint placeholder ink, the way the bill table's cells
+ *   ask, rather than a tinted pill with a + in it.
  *
- * The pill is a control, not a badge: an unset line offers a brand-tint chip
- * ("Cost Centre +"), a set one reads as a neutral field-edge chip.
+ * A line only offers an allocation once it carries a figure — there is
+ * nothing to allocate before that.
+ *
+ * Values are names, as everywhere on the Inbox's `Form`.
  */
 
 type Props = {
-  /** The line's current allocation, as a cost centre name. */
+  /** One cost centre for the line, by name. */
   value: string;
-  hasAmount: boolean;
-  /** The voucher's cost centre class, by name. Narrows what is on offer. */
-  costClass: string;
+  /** A split, when the line has one. Wins over `value`. */
+  allocation?: CostAllocation | null;
+  /** The line's amount — what a split divides. 0 means nothing to allocate. */
+  amount: number;
+  /** Whether the line's ledger takes cost centres at all. */
+  applicable: boolean;
+  /** The header's class or cost centre, when one is set: label and hover. */
+  locked?: { label: string; detail: string } | null;
   readOnly?: boolean;
-  onChange: (costCentre: string) => void;
+  /** Whether the line's split is open under it. */
+  splitting?: boolean;
+  /** Opens (or re-opens) the split under the line. */
+  onSplit?: () => void;
+  onChange: (patch: {
+    costCentre: string;
+    costAllocation: CostAllocation | null;
+  }) => void;
 };
+
+const faint = "text-[13px] text-pi-faint";
+
+/** The centres by category, each tree indented under the centre it sits in. */
+const OPTION_GROUPS = COST_CATEGORIES.map((cat) => ({
+  label: cat.name,
+  options: costCentreTree(centresInCategory(cat.name)).map(
+    ({ centre, depth }) => ({
+      value: centre.name,
+      label: depth ? (
+        <span style={{ paddingLeft: depth * 16 }}>{centre.name}</span>
+      ) : (
+        centre.name
+      ),
+    })
+  ),
+}));
 
 const AllocationCell = ({
   value,
-  hasAmount,
-  costClass,
+  allocation,
+  amount,
+  applicable,
+  locked,
   readOnly,
+  splitting,
+  onSplit,
   onChange,
 }: Props) => {
   const [open, setOpen] = useState(false);
 
-  if (!hasAmount)
+  if (!amount)
     return (
-      <span
-        className="text-[13px] text-pi-faint"
-        aria-label="No allocation"
-      >
+      <span className={faint} aria-label="No allocation">
         -
       </span>
     );
+
+  if (!applicable)
+    return (
+      <span
+        className={faint}
+        aria-label="Not applicable"
+        title="This ledger does not take cost centres"
+      >
+        —
+      </span>
+    );
+
+  if (locked)
+    return (
+      <span
+        className="block truncate text-[13px] text-pi-body"
+        title={locked.detail}
+      >
+        {locked.label}
+      </span>
+    );
+
+  const split = allocation?.length ? allocation : null;
+  const shown = split ? allocationShortLabel(split) : value;
+  const hover = split
+    ? `${allocationLabel(split)} — ${allocationDetail(split)}`
+    : undefined;
 
   // A read-only voucher still has to say what it was allocated to; it just has
   // no picker behind it.
   if (readOnly)
     return (
-      <span className="text-[13px] text-pi-ink">
-        {value || <span className="text-pi-faint">-</span>}
+      <span className="block truncate text-[13px] text-pi-ink" title={hover}>
+        {shown || <span className="text-pi-faint">-</span>}
       </span>
     );
 
-  // A chosen class narrows what the line may be allocated to; with no class on
-  // the voucher, every centre is on offer.
-  const klass = costCentreClassByName(costClass);
-  const options = klass
-    ? COST_CENTRES.filter((centre) => centre.classId === klass.id)
-    : COST_CENTRES;
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex h-7 items-center gap-2 rounded-sm border px-3 text-[12px] font-medium shadow-contact",
-            value
-              ? "border-pi-line-2 bg-pi-surface-panel text-pi-ink hover:border-pi-line-strong"
-              : "border-pi-brand-border bg-pi-brand-tint text-pi-brand hover:border-pi-brand"
-          )}
-        >
-          {value || "Cost Centre"}
-          {value ? null : <Plus className="h-3.5 w-3.5" />}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-56 rounded-md border-pi-line p-1 shadow-pi-2"
-      >
-        {options.map((centre) => (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
           <button
-            key={centre.id}
             type="button"
+            title={hover}
+            aria-expanded={splitting || undefined}
             className={cn(
-              "flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-[13px] text-pi-ink",
-              "hover:bg-pi-row-hover",
-              centre.name === value && "bg-pi-brand-tint"
+              "inline-flex h-8 w-full min-w-0 items-center gap-2 rounded-sm border border-transparent px-2 text-left text-[13px] hover:border-pi-line-2 hover:bg-pi-surface-panel",
+              shown ? "text-pi-ink" : "text-pi-faint",
+              splitting && "border-pi-brand bg-pi-surface-panel"
             )}
-            onClick={() => {
-              onChange(centre.name);
-              setOpen(false);
-            }}
           >
-            {centre.name}
-            <span className="text-[12px] text-pi-faint">
-              {
-                COST_CENTRE_CLASSES.find((k) => k.id === centre.classId)?.name
-              }
+            {split ? <Split className="h-3.5 w-3.5 shrink-0" /> : null}
+            <span className="min-w-0 flex-1 truncate">
+              {shown || "Select cost centre"}
             </span>
+            <ChevronDown className="h-3.5 w-3.5 flex-none text-pi-faint" />
           </button>
-        ))}
-        {value ? (
-          <button
-            type="button"
-            className="w-full rounded-sm px-2 py-2 text-left text-[13px] text-pi-danger hover:bg-pi-danger-bg"
-            onClick={() => {
-              onChange("");
+        </PopoverTrigger>
+        {/*
+          The same panel every picker in the app opens (search, grouped list,
+          fixed footer), so "Split cost centres" sits in the footer exactly
+          where "Create ledger" sits in the ledger picker.
+        */}
+        <PopoverContent
+          align="start"
+          className={cn("w-72", COMBO_BOX_POPOVER_CLASS)}
+        >
+          <ComboBoxPanel<string>
+            title="Cost centre"
+            searchPlaceholder="Search cost centres"
+            size="sm"
+            isMultiSelect={false}
+            options={[]}
+            optionGroups={OPTION_GROUPS}
+            selectedValues={split || !value ? [] : [value]}
+            onSelect={(option) => {
+              onChange({
+                costCentre: String(option.value),
+                costAllocation: null,
+              });
               setOpen(false);
             }}
-          >
-            Clear allocation
-          </button>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+            actionLabel={split ? "Edit split" : "Split cost centres"}
+            actionIcon={Split}
+            onAction={() => {
+              setOpen(false);
+              onSplit?.();
+            }}
+          />
+          {shown ? (
+            <div className="border-t border-pi-line bg-background p-1">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-[13px] font-medium text-pi-danger hover:bg-pi-danger-bg"
+                onClick={() => {
+                  onChange({ costCentre: "", costAllocation: null });
+                  setOpen(false);
+                }}
+              >
+                <X className="h-4 w-4 flex-none" />
+                Clear cost centre
+              </button>
+            </div>
+          ) : null}
+        </PopoverContent>
+      </Popover>
+    </>
   );
 };
 

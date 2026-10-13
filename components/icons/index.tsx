@@ -9,8 +9,10 @@
  *     - `TickAi`: a tick drawn from a plotted node, meaning the machine checked it.
  *     - `TickYou`: a heavier hand tick, meaning a person checked it.
  *     - `NeedsYou`: a dashed ring waiting for a mark.
- *   `Sparkles` and `Sparkle` resolve to `TickAi`, so every "AI did this" moment
- *   uses the same mark.
+ * - The AI mark is `Sparkle` (Lucide's single sparkle), with `Sparkles` and
+ *   `AiMark` resolving to it (7 Oct 2026, user's choice over `TickAi`). It is
+ *   drawn by `components/inbox/v2/ai-mark.tsx` wherever a value is still the
+ *   AI's decision; `TickAi` stays for "the machine checked it" moments.
  *
  * Exports keep the lucide-react and Radix icon names the codebase already uses,
  * so a feature file swaps its import line and nothing else.
@@ -110,9 +112,24 @@ export const NeedsYou = make(
     strokeWidth={1.9}
   />
 );
-export const Sparkles = TickAi;
-export const Sparkle = TickAi;
-export const AiMark = TickAi;
+/**
+ * Lucide "sparkles", paths verbatim, drawn duotone (7 Oct 2026, user: the
+ * single outline sparkle "looks very simple"): the main star carries a soft
+ * fill of its own colour under the stroke, and the two plus accents stay
+ * strokes. Same geometry in the engines' `#i-ai` symbol.
+ */
+export const SPARKLE_PATH =
+  "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z";
+export const SPARKLE_ACCENTS = "M20 3v4M22 5h-4M4 17v2M5 18H3";
+export const Sparkle = make(
+  "Sparkle",
+  <>
+    <path d={SPARKLE_PATH} fill="currentColor" fillOpacity={0.22} />
+    <path d={SPARKLE_ACCENTS} />
+  </>
+);
+export const Sparkles = Sparkle;
+export const AiMark = Sparkle;
 
 /* Navigation -------------------------------------------------------------- */
 export const ChevronDown = make("ChevronDown", <path d="m6 9 6 6 6-6" />);
@@ -531,6 +548,11 @@ export const Maximize = make(
 export const Minimize = make(
   "Minimize",
   <path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5" />
+);
+/** Scan brackets over ruled lines: find a value's source on the document. */
+export const ScanText = make(
+  "ScanText",
+  <path d="M4 8.5V6a2 2 0 0 1 2-2h2.5M15.5 4H18a2 2 0 0 1 2 2v2.5M20 15.5V18a2 2 0 0 1-2 2h-2.5M8.5 20H6a2 2 0 0 1-2-2v-2.5M8.5 10h7M8.5 14h4.5" />
 );
 export const Play = make("Play", <path d="M7.5 5.25 18.5 12l-11 6.75Z" />);
 export const MonitorPlay = make(

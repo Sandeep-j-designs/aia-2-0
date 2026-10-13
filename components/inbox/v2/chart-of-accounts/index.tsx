@@ -70,17 +70,6 @@ const ChartOfAccounts = ({
         coaActions.deleteLedger(company, node.accountUuid);
         notify("Ledger deleted successfully");
       }}
-      onSync={(ids) => {
-        const count = coaActions.sync(company, ids, (done) =>
-          notify(
-            `Sync finished\n${done} ${done === 1 ? "ledger is" : "ledgers are"} now in Tally.`
-          )
-        );
-        if (count)
-          notify("Sync started\nAIA will tell you here when it finishes.");
-        else
-          notify("Nothing to sync\nEvery ledger is already in Tally.", "info");
-      }}
       notify={notify}
     />
   );

@@ -1,4 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react";
+import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import {
   EXTRACTED_ROWS,
   VOUCHER_TYPE_LABEL,
@@ -230,6 +231,26 @@ export const bankingActions = {
         transactions: [...state.transactions, ...added],
       });
       onExtracted(done, added.length);
+      // Extraction can take up to 30 minutes; the notice outlives the toast.
+      // DEV: raised server-side when the statement's workflow reaches extracted.
+      notificationActions.push(
+        {
+          companyId: company,
+          kind: "statement_extracted",
+          data: {
+            file: fileName,
+            count: added.length,
+            account: ledger.ledgerName,
+          },
+          target: {
+            href: `/inbox?module=BANK&account=${encodeURIComponent(ledgerId)}`,
+            label: ledger.ledgerName,
+          },
+          actor: { kind: "ai" },
+          refs: [uploaded.bankStmtStatusUuid],
+        },
+        { toast: false }
+      );
     }, EXTRACTION_MS);
   },
 

@@ -4,7 +4,6 @@ import {
   Cloud,
   CloudAlert,
   CloudUpload,
-  Sparkles,
   Undo2,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ import {
   ACTIONS_WIDTH,
   SELECT_WIDTH,
 } from "@/components/inbox/v2/table-sizing";
-import { AmountText, T } from "@/components/inbox/v2/ui";
+import { AmountText, CELL_TRIGGER, T } from "@/components/inbox/v2/ui";
 import { TRANSACTION_SIZES } from "./table-sizing";
 import {
   CellBox,
@@ -47,6 +46,7 @@ import {
   type SortState,
 } from "./table-parts";
 import { ROW_GROUND } from "./page-parts";
+import { AiMark } from "../ai-mark";
 
 /**
  * One account's transactions — the Tally columns of production's
@@ -76,6 +76,20 @@ const LABEL: Record<TxnColumn, string> = {
   type: "Type",
   ledger: "Ledger",
   amount: "Amount",
+};
+
+/**
+ * Ink per column, as the Inbox reads a row: what the transaction is
+ * (description) and what it is worth (amount) in ink at 500; the fields that
+ * describe it in body ink.
+ */
+const CELL_INK: Partial<Record<TxnColumn, string>> = {
+  date: "text-pi-body",
+  gst: "text-pi-body",
+  description: "font-medium text-pi-ink",
+  type: "text-pi-body",
+  ledger: "text-pi-body",
+  amount: "font-medium text-pi-ink",
 };
 
 export const TYPE_BY_LABEL: Record<string, TallyVoucherPaymentType> = {
@@ -177,7 +191,7 @@ const VoucherInput = ({
   return (
     <input
       value={draft}
-      placeholder="Enter Voucher No."
+      placeholder="Voucher no."
       aria-label="Voucher No."
       onClick={(e) => e.stopPropagation()}
       onChange={(e) => setDraft(e.target.value)}
@@ -212,7 +226,7 @@ type Props = {
   ) => void;
   onToggleReady: (txn: BankTransaction) => void;
   onUnbuilt: (what: string) => void;
-  empty: { title: string; body?: string };
+  empty: React.ComponentProps<typeof EmptyBlock>;
   /** The active company — its ledgers and GST registrations fill the pickers. */
   company: string;
 };
@@ -270,6 +284,7 @@ const TransactionsTable = ({
       case "gst":
         return (
           <EditableCell
+            className={CELL_TRIGGER}
             label="GST Registration"
             value={txn.companyGstLabel}
             options={gstRegistrations.map((g) => g.label)}
@@ -313,17 +328,11 @@ const TransactionsTable = ({
         return (
           <span className="flex min-w-0 items-center gap-1">
             <span className="inline-flex w-3.5 flex-none justify-center">
-              {ai ? (
-                <Tooltip message="Categorised by AIA">
-                  <Sparkles
-                    aria-label="Categorised by AIA"
-                    className="h-3.5 w-3.5 text-pi-brand"
-                  />
-                </Tooltip>
-              ) : null}
+              {ai ? <AiMark reason="categorised from this payee and narration" /> : null}
             </span>
             <span className="min-w-0 flex-1">
               <EditableCell
+                className={CELL_TRIGGER}
                 label="Transaction Type"
                 value={
                   txn.paymentType ? VOUCHER_TYPE_LABEL[txn.paymentType] : ""
@@ -361,6 +370,7 @@ const TransactionsTable = ({
       case "ledger":
         return (
           <EditableCell
+            className={CELL_TRIGGER}
             label="Ledger"
             value={txn.ledgersNameList[0] ?? ""}
             groups={ledgerGroupsFor(
@@ -397,7 +407,7 @@ const TransactionsTable = ({
             <span className="truncate tabular-nums">
               <AmountText value={Number(txn.transactionAmountLc)} />
             </span>
-            <span className="text-[12px] leading-4 text-pi-faint">
+            <span className="text-[12px] font-normal leading-4 text-pi-faint">
               {displayCrDr(txn)}
             </span>
           </span>
@@ -455,7 +465,7 @@ const TransactionsTable = ({
           <TableRow>
             <TableHead
               style={{ width: SELECT_WIDTH }}
-              className="sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
+              className="pin-edge-l sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
             >
               <Checkbox
                 aria-label="Select every transaction on this page"
@@ -490,7 +500,7 @@ const TransactionsTable = ({
             ))}
             <TableHead
               style={{ width: ACTIONS_WIDTH }}
-              className="sticky right-0 z-10 h-11 bg-pi-head-bg px-2 py-0 align-middle"
+              className="pin-edge-r sticky right-0 z-10 h-11 bg-pi-head-bg px-2 py-0 align-middle"
             >
               <span
                 className={cn(
@@ -526,7 +536,7 @@ const TransactionsTable = ({
                 <TableCell
                   onClick={(e) => e.stopPropagation()}
                   className={cn(
-                    "sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
+                    "pin-edge-l sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
                     ground(true),
                     ticked && "shadow-[inset_2px_0_0_var(--pi-brand)]"
                   )}
@@ -557,6 +567,7 @@ const TransactionsTable = ({
                     className={cn(
                       "h-14 overflow-hidden px-4 py-0 align-middle",
                       T.cell,
+                      CELL_INK[key],
                       ground(false),
                       key === "amount" && "text-right"
                     )}
@@ -567,7 +578,7 @@ const TransactionsTable = ({
                 <TableCell
                   onClick={(e) => e.stopPropagation()}
                   className={cn(
-                    "sticky right-0 z-[1] h-14 px-2 py-0 text-center align-middle",
+                    "pin-edge-r sticky right-0 z-[1] h-14 px-2 py-0 text-center align-middle",
                     ground(true)
                   )}
                 >
@@ -578,7 +589,7 @@ const TransactionsTable = ({
           })}
         </TableBody>
       </Table>
-      {!rows.length && <EmptyBlock title={empty.title} body={empty.body} />}
+      {!rows.length && <EmptyBlock {...empty} />}
     </div>
   );
 };

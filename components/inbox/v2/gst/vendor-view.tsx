@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { Building2 } from "@/components/icons";
+import { createPortal } from "react-dom";
 import type { Gstr2bVendorViewTableData } from "@/types/pages/inbox/gst";
 import { EmptyBlock, Pager } from "@/components/inbox/v2/banking/table-parts";
 import { T } from "@/components/inbox/v2/ui";
 import { cn } from "@/lib/utils";
-import { Pinned, TableCard } from "@/components/inbox/v2/banking/page-parts";
-import BreakdownTable, { type BreakdownGroup } from "./breakdown-table";
+import { TableCard } from "@/components/inbox/v2/banking/page-parts";
+import LedgerTable, { type LedgerGroup } from "./breakdown-table";
+import { Count, Rupees, StatusMix } from "./table-parts";
 
 /**
  * Vendor View — production's vendor-view: one row per supplier GSTIN with
@@ -13,51 +16,123 @@ import BreakdownTable, { type BreakdownGroup } from "./breakdown-table";
  * PROTOTYPE: a vendor row opens Invoice View filtered to that GSTIN.
  */
 
-const GROUPS: BreakdownGroup<Gstr2bVendorViewTableData>[] = [
-  {
-    label: "Invoice Count",
-    cols: [
-      { field: "gstr2bCount", label: "2B", kind: "count" },
-      { field: "prCount", label: "PR", kind: "count" },
-    ],
-  },
-  {
-    label: "Taxable Value (₹)",
-    cols: [
-      { field: "gstr2bTaxableValue", label: "2B", kind: "money" },
-      { field: "prTaxableValue", label: "PR", kind: "money" },
-    ],
-  },
-  {
-    label: "Tax Value (₹)",
-    cols: [
-      { field: "gstr2bTaxValue", label: "2B", kind: "money" },
-      { field: "prTaxValue", label: "PR", kind: "money" },
-    ],
-  },
-  {
-    label: "Status Breakdown",
-    cols: [
-      { field: "matchStatusMatched", label: "Matched", kind: "count" },
-      {
-        field: "matchStatusAiProbableMatch",
-        label: "AI Probable Match",
-        kind: "count",
-      },
-      { field: "matchStatusMissing", label: "Missing", kind: "count" },
-    ],
-  },
-];
+type Breakdown = {
+  gstr2bCount: number;
+  prCount: number;
+  gstr2bTaxableValue: number;
+  prTaxableValue: number;
+  gstr2bTaxValue: number;
+  prTaxValue: number;
+  diffTaxValue: number;
+  matchStatusMatched: number;
+  matchStatusAiProbableMatch: number;
+  matchStatusMissing: number;
+};
+
+/**
+ * The ledger's columns for a month or a vendor: 2B beside PR for invoices,
+ * taxable value and tax, the tax gap, and the status mix as one small bar.
+ * Whole rupees; the invoice lines carry the paise.
+ */
+export const breakdownGroups = <R extends Breakdown>(
+  sortable: boolean
+): LedgerGroup<R>[] => {
+  const by = (f: (r: R) => number) => (sortable ? f : undefined);
+  return [
+    {
+      label: "Invoices",
+      cols: [
+        {
+          id: "c2b",
+          label: "2B",
+          render: (r) => <Count value={r.gstr2bCount} />,
+          sortValue: by((r) => r.gstr2bCount),
+        },
+        {
+          id: "cpr",
+          label: "PR",
+          render: (r) => <Count value={r.prCount} />,
+          sortValue: by((r) => r.prCount),
+        },
+      ],
+    },
+    {
+      label: "Taxable value",
+      cols: [
+        {
+          id: "t2b",
+          label: "2B",
+          render: (r) => <Rupees value={r.gstr2bTaxableValue} />,
+          sortValue: by((r) => r.gstr2bTaxableValue),
+        },
+        {
+          id: "tpr",
+          label: "PR",
+          render: (r) => <Rupees value={r.prTaxableValue} />,
+          sortValue: by((r) => r.prTaxableValue),
+        },
+      ],
+    },
+    {
+      label: "Tax",
+      cols: [
+        {
+          id: "x2b",
+          label: "2B",
+          render: (r) => <Rupees value={r.gstr2bTaxValue} />,
+          sortValue: by((r) => r.gstr2bTaxValue),
+        },
+        {
+          id: "xpr",
+          label: "PR",
+          render: (r) => <Rupees value={r.prTaxValue} />,
+          sortValue: by((r) => r.prTaxValue),
+        },
+      ],
+    },
+    {
+      cols: [
+        {
+          id: "gap",
+          label: "Tax gap",
+          width: 132,
+          render: (r) => <Rupees value={r.diffTaxValue} signed />,
+        },
+      ],
+    },
+    {
+      cols: [
+        {
+          id: "mix",
+          label: "Matched",
+          width: 196,
+          render: (r) => (
+            <StatusMix
+              matched={r.matchStatusMatched}
+              probable={r.matchStatusAiProbableMatch}
+              missing={r.matchStatusMissing}
+            />
+          ),
+        },
+      ],
+    },
+  ];
+};
+
+const GROUPS = breakdownGroups<Gstr2bVendorViewTableData>(true);
 
 type Props = {
   rows: Gstr2bVendorViewTableData[];
   searching: boolean;
   onOpenVendor: (gstin: string) => void;
+  /** Below the page scroller (gst/index.tsx): the pager is portalled there. */
+  pagerSlot: HTMLElement | null;
 };
 
-const VendorView = ({ rows, searching, onOpenVendor }: Props) => {
+const VendorView = ({ rows, searching, onOpenVendor, pagerSlot }: Props) => {
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  // 25, as every other table in the app opens.
+  const [pageSize, setPageSize] = useState(25);
   useEffect(() => setPage(0), [rows.length]);
   const pageRows = rows.slice(page * pageSize, (page + 1) * pageSize);
 
@@ -65,14 +140,14 @@ const VendorView = ({ rows, searching, onOpenVendor }: Props) => {
     <>
       <TableCard>
         <div className="min-w-0 flex-1">
-          <BreakdownTable
-            lead={{ group: "Vendor Name/GSTIN", width: 280 }}
+          <LedgerTable
+            lead={{ label: "Vendor", width: 264 }}
             groups={GROUPS}
             rows={pageRows}
             rowKey={(r) => r.gstin}
             tall
             renderLead={(r) => (
-              <span className="flex min-w-0 flex-col">
+              <span className="flex min-w-0 max-w-[216px] flex-col">
                 <span
                   className="truncate font-medium text-pi-ink"
                   title={r.vendorName}
@@ -88,21 +163,32 @@ const VendorView = ({ rows, searching, onOpenVendor }: Props) => {
           />
           {!rows.length && (
             <EmptyBlock
-              title={searching ? "No vendors match your search" : "No vendors"}
-              body={searching ? "Try a vendor name or GSTIN." : undefined}
+              {...(searching
+                ? {
+                    title: "No vendors match your search",
+                    body: "Try a vendor name or GSTIN.",
+                    filters: [],
+                  }
+                : {
+                    icon: Building2,
+                    title: "No vendors in this period",
+                    body: "Vendors appear here once the purchase register or GSTR-2B has invoices for the period.",
+                  })}
             />
           )}
         </div>
       </TableCard>
-      <Pinned>
-        <Pager
-          page={page}
-          pageSize={pageSize}
-          total={rows.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-      </Pinned>
+      {pagerSlot &&
+        createPortal(
+          <Pager
+            page={page}
+            pageSize={pageSize}
+            total={rows.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />,
+          pagerSlot
+        )}
     </>
   );
 };

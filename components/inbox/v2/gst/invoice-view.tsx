@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Ellipsis,
   Link,
@@ -39,9 +40,7 @@ import {
   GSTR2B_MATCH_TYPE_ORDER,
   INVOICE_FILTER_COPY,
   ITC_ACTION_OPTIONS,
-  ITC_TABLE_CONFIG,
   REMARK_KEY_BY_COLUMN,
-  TAX_DIFF_TABLE_COLUMNS,
   type Gstr2bMatchTypeValueType,
   type ITC_ACTION_VALUES_VALUE_TYPE,
   type RemarkKey,
@@ -71,7 +70,7 @@ import {
   invoiceTypeOf,
   rowId,
 } from "@/utils/pages/inbox/gst";
-import { AmountText, T } from "@/components/inbox/v2/ui";
+import { AmountText, CELL_TRIGGER, T } from "@/components/inbox/v2/ui";
 import {
   ROW_GROUND,
   Pinned,
@@ -85,6 +84,7 @@ import {
   HeadCell,
   MatchStatusPill,
   MultiSelectFilter,
+  SummaryStrip,
   TwoLine,
 } from "./table-parts";
 
@@ -95,8 +95,15 @@ import {
  * on both lines. ITC and the actions are pinned right.
  */
 
+/** The strip compares totals, so it reads in whole rupees (13 Oct 2026). */
+const WholeRupees = ({ value }: { value: number }) => (
+  <span className="fig">
+    {value < 0 && "−"}₹
+    {new Intl.NumberFormat("en-IN").format(Math.round(Math.abs(value)))}
+  </span>
+);
+
 type ColumnKey =
-  | "srNo"
   | "matchType"
   | "source"
   | "invoiceType"
@@ -116,8 +123,7 @@ type AmountKey =
   "invoiceAmount" | "taxableAmount" | "sgst" | "cgst" | "igst" | "cess";
 
 const COLUMNS: { key: ColumnKey; label: string; width: number }[] = [
-  { key: "srNo", label: "Sr.No", width: 72 },
-  { key: "matchType", label: "Reco Status", width: 164 },
+  { key: "matchType", label: "Reco Status", width: 200 },
   { key: "source", label: "Source", width: 80 },
   { key: "invoiceType", label: "Invoice Type", width: 156 },
   { key: "gstin", label: "GSTIN", width: 178 },
@@ -195,6 +201,8 @@ type Props = {
   filters: InvoiceTableFilterState;
   onFiltersChange: (next: InvoiceTableFilterState) => void;
   notify: (message: string, kind?: "success" | "error" | "info") => void;
+  /** Below the page scroller (gst/index.tsx): the pager is portalled there. */
+  pagerSlot: HTMLElement | null;
 };
 
 const InvoiceView = ({
@@ -204,6 +212,7 @@ const InvoiceView = ({
   filters,
   onFiltersChange,
   notify,
+  pagerSlot,
 }: Props) => {
   const [sort, setSort] = useState<SortState<ColumnKey>>(null);
   const [page, setPage] = useState(0);
@@ -395,13 +404,20 @@ const InvoiceView = ({
     </Button>
   );
 
+  /* Nothing on a side is a faint em dash, the tables' one mark for none
+     (13 Oct 2026); a full-ink hyphen read as a value. */
+  const none = (
+    <span aria-label="None" className="text-pi-faint">
+      —
+    </span>
+  );
   const text = (value?: string) =>
     value ? (
       <span className="truncate" title={value}>
         {value}
       </span>
     ) : (
-      "-"
+      none
     );
   const money = (value?: number) =>
     value ? (
@@ -409,11 +425,11 @@ const InvoiceView = ({
         <AmountText value={value} />
       </span>
     ) : (
-      "-"
+      none
     );
 
   const invoiceType = (d: InvoiceViewData | null, amendable: boolean) => {
-    if (!d) return "-";
+    if (!d) return none;
     if (!amendable || !d.sheetType || !AMENDED_SHEET_TYPES.has(d.sheetType))
       return text(d.documentType);
     return (
@@ -430,14 +446,8 @@ const InvoiceView = ({
     const { gstr2b, pr } = row;
     const ink = red(row, key);
     switch (key) {
-      case "srNo":
-        return (
-          <span className="block text-center tabular-nums text-pi-faint">
-            {shownPage * pageSize + index + 1}
-          </span>
-        );
       case "matchType":
-        return <MatchStatusPill matchType={row.matchType} />;
+        return <MatchStatusPill matchType={row.matchType} className="-ml-2" />;
       case "source":
         return (
           <TwoLine
@@ -474,16 +484,16 @@ const InvoiceView = ({
         return (
           <TwoLine
             className={cn("tabular-nums", ink)}
-            top={gstr2b ? gstDate(gstr2b.invoiceDate) : "-"}
-            bottom={pr ? gstDate(pr.invoiceDate) : "-"}
+            top={gstr2b ? gstDate(gstr2b.invoiceDate) : none}
+            bottom={pr ? gstDate(pr.invoiceDate) : none}
           />
         );
       case "invoiceNo":
         return (
           <TwoLine
             className={cn(ink)}
-            top={gstr2b ? text(gstr2b.invoiceNo) : pr ? linkButton(row) : "-"}
-            bottom={pr ? text(pr.invoiceNo) : gstr2b ? linkButton(row) : "-"}
+            top={gstr2b ? text(gstr2b.invoiceNo) : pr ? linkButton(row) : none}
+            bottom={pr ? text(pr.invoiceNo) : gstr2b ? linkButton(row) : none}
           />
         );
       case "rcm":
@@ -506,7 +516,7 @@ const InvoiceView = ({
                   }}
                 />
               ) : (
-                "-"
+                none
               )
             }
             bottom=""
@@ -524,126 +534,88 @@ const InvoiceView = ({
     }
   };
 
-  const SINGLE = new Set<ColumnKey>(["srNo", "matchType"]);
+  const SINGLE = new Set<ColumnKey>(["matchType"]);
 
   return (
-    // A fragment, not a column: the strips and the pager pin against the
-    // page's horizontal scroll, and a sticky box cannot leave its parent.
+    // A fragment, not a column: the strips pin against the page's horizontal
+    // scroll, and a sticky box cannot leave its parent.
     <>
-      {/* Tax difference and ITC strips. */}
-      <Pinned className="flex flex-wrap gap-3 px-[var(--inset-page)] pb-4">
-        <div className="min-w-[520px] flex-[3] overflow-hidden rounded-lg border border-pi-line bg-background shadow-contact">
-          <Table className="border-separate border-spacing-0 [&_th]:border-b [&_th]:border-pi-line">
-            <TableHeader className="bg-pi-head-bg [&_tr]:shadow-none">
-              <TableRow className="hover:bg-transparent">
-                {TAX_DIFF_TABLE_COLUMNS.map((c) => (
-                  <TableHead
-                    key={c.key}
-                    className={cn(
-                      "h-9 px-4 py-0 text-center align-middle",
-                      T.head
-                    )}
-                  >
-                    {c.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow className="hover:bg-transparent">
-                <TableCell className={cn("p-0", T.cell)}>
-                  <TwoLine
-                    align="center"
-                    className="text-[12px] font-medium text-pi-body"
-                    top="2B"
-                    bottom="PR"
-                  />
-                </TableCell>
-                <TableCell className={cn("p-0", T.cell)}>
-                  <TwoLine
-                    align="center"
-                    className="fig"
-                    top={summary.gstr2b.gstr2bCount}
-                    bottom={summary.pr.prCount}
-                  />
-                </TableCell>
-                <TableCell className={cn("p-0", T.cell)}>
-                  <TwoLine
-                    align="center"
-                    className="tabular-nums"
-                    top={
-                      <AmountText value={summary.gstr2b.gstr2bTaxableAmount} />
-                    }
-                    bottom={<AmountText value={summary.pr.prTaxableAmount} />}
-                  />
-                </TableCell>
-                <TableCell className={cn("p-0", T.cell)}>
-                  <TwoLine
-                    align="center"
-                    className="tabular-nums"
-                    top={<AmountText value={summary.gstr2b.gstr2bTaxAmount} />}
-                    bottom={<AmountText value={summary.pr.prTaxAmount} />}
-                  />
-                </TableCell>
-                {(() => {
-                  const diff =
-                    summary.gstr2b.gstr2bTaxAmount - summary.pr.prTaxAmount;
-                  return (
-                    <TableCell
-                      className={cn(
-                        "bg-pi-head-bg px-4 py-0 text-center align-middle",
-                        T.cell,
-                        Math.abs(diff) >= 0.01 && "[&_.fig]:text-pi-danger"
-                      )}
-                    >
-                      <AmountText value={diff} />
-                    </TableCell>
-                  );
-                })()}
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
-        <div className="min-w-[380px] flex-[2] overflow-hidden rounded-lg border border-pi-line bg-background shadow-contact">
-          <Table className="h-full border-separate border-spacing-0 [&_th]:border-b [&_th]:border-pi-line">
-            <TableHeader className="bg-pi-head-bg [&_tr]:shadow-none">
-              <TableRow className="hover:bg-transparent">
-                {ITC_TABLE_CONFIG.map((c) => (
-                  <TableHead
-                    key={c.key}
-                    className={cn(
-                      "h-9 whitespace-nowrap px-4 py-0 text-center align-middle",
-                      T.head
-                    )}
-                  >
-                    {c.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow className="hover:bg-transparent">
-                {ITC_TABLE_CONFIG.map((c) => (
-                  <TableCell
-                    key={c.key}
-                    className={cn(
-                      "h-[57px] px-4 py-0 text-center align-middle",
-                      T.cell
-                    )}
-                  >
-                    {c.type === "amount" ? (
-                      <AmountText value={summary.itcDetails[c.key]} />
-                    ) : (
-                      <span className="fig font-medium text-pi-ink">
-                        {summary.itcDetails[c.key]}
-                      </span>
-                    )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
+      {/* The invoices on screen (after filters) at a glance: one strip, the
+          same as Summary's, in place of two small tables. */}
+      <Pinned>
+        <SummaryStrip
+          cells={[
+            {
+              label: "GSTR-2B",
+              value: (
+                <>
+                  {summary.gstr2b.gstr2bCount}{" "}
+                  <span className="text-[14px] font-medium text-pi-body">
+                    invoices
+                  </span>
+                </>
+              ),
+              meta: (
+                <>
+                  Tax <WholeRupees value={summary.gstr2b.gstr2bTaxAmount} />
+                </>
+              ),
+            },
+            {
+              label: "Purchase Register",
+              value: (
+                <>
+                  {summary.pr.prCount}{" "}
+                  <span className="text-[14px] font-medium text-pi-body">
+                    invoices
+                  </span>
+                </>
+              ),
+              meta: (
+                <>
+                  Tax <WholeRupees value={summary.pr.prTaxAmount} />
+                </>
+              ),
+            },
+            {
+              label: "Tax difference (2B − PR)",
+              value: (() => {
+                const diff =
+                  summary.gstr2b.gstr2bTaxAmount - summary.pr.prTaxAmount;
+                return Math.abs(diff) < 0.005 ? (
+                  "—"
+                ) : (
+                  <>
+                    {diff > 0 ? "+" : "−"}
+                    <WholeRupees value={Math.abs(diff)} />
+                  </>
+                );
+              })(),
+            },
+            {
+              label: "ITC claimed",
+              value: <WholeRupees value={summary.itcDetails.itcClaim} />,
+              meta: (
+                <>
+                  Ineligible{" "}
+                  <WholeRupees value={summary.itcDetails.itcIneligible} /> · RCM{" "}
+                  <WholeRupees value={summary.itcDetails.itcReverseCharge} />
+                </>
+              ),
+            },
+            {
+              label: "No ITC action yet",
+              value: (
+                <>
+                  {summary.itcDetails.noAction}{" "}
+                  <span className="text-[14px] font-medium text-pi-body">
+                    invoices
+                  </span>
+                </>
+              ),
+            },
+          ]}
+        />
       </Pinned>
 
       {chips.length > 0 && (
@@ -671,7 +643,10 @@ const InvoiceView = ({
       <TableCard>
         <div className="min-w-0 flex-1">
           <Table
-            className={TABLE_CLASS}
+            className={cn(
+              TABLE_CLASS,
+              "[&_:is(th,td):not(:last-child)]:!border-r-0"
+            )}
             style={{ width: TABLE_WIDTH, minWidth: "100%" }}
             aria-label="Invoice pairs, GSTR-2B over Purchase Register"
           >
@@ -693,9 +668,7 @@ const InvoiceView = ({
                       align={
                         AMOUNT_KEYS.includes(c.key as AmountKey)
                           ? "right"
-                          : c.key === "srNo" ||
-                              c.key === "source" ||
-                              c.key === "rcm"
+                          : c.key === "source" || c.key === "rcm"
                             ? "center"
                             : "left"
                       }
@@ -715,7 +688,8 @@ const InvoiceView = ({
                 <HeadCell
                   label="ITC"
                   style={{ right: ACTIONS_WIDTH }}
-                  className="sticky z-10 bg-pi-head-bg"
+                  // The innermost right pin, so it carries the edge shade.
+                  className="pin-edge-r sticky z-10 border-l border-l-pi-line-2 bg-pi-head-bg"
                   filter={(close) => (
                     <MultiSelectFilter
                       title={INVOICE_FILTER_COPY.itcStatus.title}
@@ -744,7 +718,7 @@ const InvoiceView = ({
                 return (
                   <TableRow
                     key={rowId(row)}
-                    className="group hover:bg-transparent"
+                    className="group hover:bg-transparent [&>td]:border-b-pi-line-2"
                   >
                     {COLUMNS.map((c) => (
                       <TableCell
@@ -763,7 +737,7 @@ const InvoiceView = ({
                     <TableCell
                       style={{ right: ACTIONS_WIDTH }}
                       className={cn(
-                        "sticky z-[1] bg-background px-3 py-0 align-middle",
+                        "pin-edge-r sticky z-[1] border-l border-l-pi-line-2 bg-background px-3 py-0 align-middle",
                         ROW_GROUND
                       )}
                     >
@@ -780,9 +754,15 @@ const InvoiceView = ({
                           notify("ITC action applied successfully", "success");
                         }}
                       >
+                        {/* The in-cell picker every table uses: no box at rest,
+                            the caret always there (CELL_TRIGGER). */}
                         <SelectTrigger
                           aria-label={`ITC for ${side(row).invoiceNo}`}
-                          className={cn("h-8 rounded-sm bg-background", T.cell)}
+                          className={cn(
+                            CELL_TRIGGER,
+                            "h-8 w-full justify-between rounded-sm border-transparent bg-transparent shadow-none hover:bg-pi-fill focus:ring-0 data-[state=open]:bg-pi-fill",
+                            !row.itcStatus && "text-pi-faint"
+                          )}
                         >
                           <SelectValue placeholder="No Action" />
                         </SelectTrigger>
@@ -846,20 +826,23 @@ const InvoiceView = ({
             <EmptyBlock
               title="No invoices match"
               body="Clear a filter or the search to see more."
+              filters={[]}
             />
           )}
         </div>
       </TableCard>
 
-      <Pinned>
-        <Pager
-          page={shownPage}
-          pageSize={pageSize}
-          total={sorted.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-      </Pinned>
+      {pagerSlot &&
+        createPortal(
+          <Pager
+            page={shownPage}
+            pageSize={pageSize}
+            total={sorted.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />,
+          pagerSlot
+        )}
 
       <LinkModal
         base={linking}

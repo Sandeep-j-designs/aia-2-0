@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Download,
   FileText,
@@ -22,9 +22,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import DateRangePanel from "@/components/common/date-filter/panel";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import { FY_PRESETS } from "@/components/common/date-filter";
 import { cn } from "@/lib/utils";
 import { useColumnResize } from "@/hooks/pages/inbox/use-column-resize";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import type { BankLedgerData, Statement } from "@/types/pages/inbox/banking";
 import { ColumnFilter, QuickFilter } from "@/components/inbox/v2/filter-panel";
 import {
@@ -159,6 +161,10 @@ const StatementLogs = ({
     sizes: STATEMENT_SIZES,
     storageKey: "banking.statements.widths.v1",
   });
+  // The page scroller; it owns the horizontal scroll the pinned bookends
+  // shade against.
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const pinEdges = usePinEdges(scroller);
 
   const anyFilter = !!(
     search ||
@@ -236,12 +242,16 @@ const StatementLogs = ({
           </>
         );
       case "status":
-        return <StatementStatusPill statement={s} />;
+        return <StatementStatusPill statement={s} className="-ml-2" />;
     }
   };
 
   return (
-    <div className={PAGE_SCROLL}>
+    <>
+      {/* The scroller's own box, so the overlay bars sit over the table and
+          end above the pager. */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+    <div ref={scroller} className={PAGE_SCROLL} {...pinEdges}>
       <Pinned>
         <PageHead
           eyebrow={ledger ? ledger.ledgerName : "Banking"}
@@ -289,7 +299,7 @@ const StatementLogs = ({
               <TableRow>
                 <TableHead
                   style={{ width: SELECT_WIDTH }}
-                  className="sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0"
+                  className="pin-edge-l sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0"
                 >
                   <span className="sr-only">File</span>
                 </TableHead>
@@ -325,7 +335,7 @@ const StatementLogs = ({
                 ))}
                 <TableHead
                   style={{ width: ACTIONS_WIDTH }}
-                  className="sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
+                  className="pin-edge-r sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
                 >
                   <span
                     className={cn(T.head, "flex h-4 items-center truncate")}
@@ -343,7 +353,7 @@ const StatementLogs = ({
                 >
                   <TableCell
                     className={cn(
-                      "sticky left-0 z-[1] h-14 bg-background px-3 py-0 align-middle",
+                      "pin-edge-l sticky left-0 z-[1] h-14 bg-background px-3 py-0 align-middle",
                       ROW_GROUND
                     )}
                   >
@@ -355,6 +365,8 @@ const StatementLogs = ({
                       className={cn(
                         "h-14 overflow-hidden px-4 py-0 align-middle",
                         T.cell,
+                        // Body ink; the file name carries its own.
+                        "text-pi-body",
                         ROW_GROUND
                       )}
                     >
@@ -363,7 +375,7 @@ const StatementLogs = ({
                   ))}
                   <TableCell
                     className={cn(
-                      "sticky right-0 z-[1] h-14 bg-background px-4 py-0 align-middle",
+                      "pin-edge-r sticky right-0 z-[1] h-14 bg-background px-4 py-0 align-middle",
                       ROW_GROUND
                     )}
                   >
@@ -404,25 +416,35 @@ const StatementLogs = ({
           </Table>
           {!pageRows.length && (
             <EmptyBlock
-              title={
-                anyFilter
-                  ? "No statements match your filters."
-                  : "No statement found, upload statements to see statements here."
-              }
+              {...(anyFilter
+                ? {
+                    title: "No statements match these filters",
+                    body: "Clear the filters to see every statement uploaded for this account.",
+                    filters: [],
+                    onClear: reset,
+                  }
+                : {
+                    icon: FileText,
+                    title: "No statements uploaded yet",
+                    body: "Each bank statement you upload is logged here, with its period, how many lines were read and whether any failed.",
+                  })}
             />
           )}
         </div>
       </TableCard>
+    </div>
+        <OverlayScrollbars scroller={scroller} />
+      </div>
 
-      <Pinned>
-        <Pager
-          page={page}
-          pageSize={pageSize}
-          total={rows.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-      </Pinned>
+      {/* Below the page scroller, not inside it: the pager stays at the
+          bottom of the viewport, and the horizontal bar ends above it. */}
+      <Pager
+        page={page}
+        pageSize={pageSize}
+        total={rows.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <DeleteStatementDialog
         statement={deleting}
@@ -433,7 +455,7 @@ const StatementLogs = ({
           notify("Statement deleted");
         }}
       />
-    </div>
+    </>
   );
 };
 

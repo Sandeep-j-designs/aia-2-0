@@ -26,9 +26,10 @@ import {
   Field,
   FieldCard,
   Notice,
-  Req,
+  RequiredNote,
   T,
 } from "@/components/inbox/v2/ui";
+import { AiMark } from "../ai-mark";
 import { day } from "./table-parts";
 import { DotChip } from "./page-parts";
 import {
@@ -106,6 +107,9 @@ const SheetBody = ({
   const [draft, setDraft] = useState<Draft>(() => draftOf(txn));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+  // Set by a "mark ready" with a field missing: the field says so under its
+  // box as well as in the toast (7 Oct 2026).
+  const [showErrors, setShowErrors] = useState(false);
   const isReady = txn.accoutingReady;
   const isSynced =
     txn.thirdPartySyncStatus === "synced" ||
@@ -133,7 +137,18 @@ const SheetBody = ({
     };
   };
 
+  // The AI's categorisation, still as it chose it: one mark for the one
+  // decision, on the voucher type as in the register's Type column. It goes
+  // once the type or ledger is changed here, and never shows once synced.
+  const aiPicked =
+    txn.categorisedBy === "ai" &&
+    !!txn.paymentType &&
+    !isSynced &&
+    draft.paymentType === txn.paymentType &&
+    draft.ledger === (txn.ledgersNameList[0] ?? "");
+
   const save = (markReady: boolean) => {
+    if (markReady && (!draft.paymentType || !draft.ledger)) setShowErrors(true);
     if (markReady && !draft.paymentType) {
       notify("Select a transaction type before saving.", "error");
       return;
@@ -183,7 +198,9 @@ const SheetBody = ({
         </div>
       </SheetHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-pi-page px-5 py-4">
+      {/* White, like the bill form: the sections are no longer cards, so the
+          grey ground that set them off now only dulled the fields. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-background px-6 py-5">
         {isReady && !isSynced ? (
           <Notice tone="warning" className="flex items-start gap-2">
             <Lock className="mt-0.5 h-4 w-4 flex-none" />
@@ -192,13 +209,20 @@ const SheetBody = ({
           </Notice>
         ) : null}
 
-        <FieldCard title="Voucher Configuration">
+        <FieldCard title="Voucher Configuration" aside={<RequiredNote />}>
           <Field
             label={
-              <>
-                <Req />
+              <span className="inline-flex items-center gap-1.5">
                 Voucher Type
-              </>
+                {aiPicked ? (
+                  <AiMark reason="categorised from this payee and narration" />
+                ) : null}
+              </span>
+            }
+            error={
+              showErrors && !draft.paymentType
+                ? "Select a voucher type"
+                : undefined
             }
           >
             <ComboBox
@@ -223,19 +247,20 @@ const SheetBody = ({
               hasSearch={false}
               isMultiSelect={false}
               disabled={readOnly}
+              invalid={showErrors && !draft.paymentType}
               hideClearButton
             />
           </Field>
-          <Field label="Voucher No." htmlFor="txn-voucher-no">
+          <Field label="Voucher No." htmlFor="txn-voucher-no" optional>
             <Input
               id="txn-voucher-no"
-              placeholder="Enter Voucher No."
+              placeholder="Voucher no."
               value={draft.voucherNo}
               disabled={readOnly}
               onChange={(e) => set("voucherNo", e.target.value)}
             />
           </Field>
-          <Field label="GST Registration">
+          <Field label="GST Registration" optional>
             <ComboBox
               title="Select Location"
               options={gstRegistrations.map((g) => ({
@@ -257,12 +282,8 @@ const SheetBody = ({
 
         <FieldCard title="Ledger Allocation">
           <Field
-            label={
-              <>
-                <Req />
-                Ledger
-              </>
-            }
+            label="Ledger"
+            error={showErrors && !draft.ledger ? "Select a ledger" : undefined}
           >
             <ComboBox
               title="Select Ledger"
@@ -281,11 +302,12 @@ const SheetBody = ({
                 query ? `Create ledger “${query}”` : "Create ledger"
               }
               onAction={() => onUnbuilt("Creating a ledger")}
+              invalid={showErrors && !draft.ledger}
               hideClearButton
             />
           </Field>
           <Field label="Amount">
-            <div className="flex h-9 items-center justify-end rounded-sm border border-pi-line-2 bg-pi-page px-3 text-[13px]">
+            <div className="flex h-[38px] items-center justify-end rounded-sm border border-pi-line-2 bg-pi-page px-3 text-[14px]">
               <AmountText value={Number(txn.transactionAmountLc)} />
             </div>
           </Field>
@@ -307,7 +329,12 @@ const SheetBody = ({
         </FieldCard>
 
         <FieldCard title="Notes & Attachments">
-          <Field label="Notes" htmlFor="txn-notes" className="sm:col-span-2">
+          <Field
+            label="Notes"
+            htmlFor="txn-notes"
+            optional
+            className="sm:col-span-2"
+          >
             <Textarea
               id="txn-notes"
               placeholder="Add a note for your team"
@@ -330,7 +357,9 @@ const SheetBody = ({
         </FieldCard>
       </div>
 
-      <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-pi-line bg-background px-6 py-3">
+      {/* The footer band (7 Oct 2026): white, a hairline above, Cancel then
+          the actions, right-aligned. */}
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-pi-line bg-background px-6 py-4">
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
@@ -338,7 +367,7 @@ const SheetBody = ({
           <>
             <Button variant="secondary" onClick={() => save(false)}>
               <Save className="h-4 w-4" />
-              Save
+              Save changes
             </Button>
             <Button onClick={() => save(true)}>
               <Check className="h-4 w-4" />

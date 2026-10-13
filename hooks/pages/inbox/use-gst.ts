@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { format } from "date-fns";
+import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import {
   GSTR2B_MATCH_TYPE,
   Gstr2BStatusEnums,
@@ -121,6 +122,55 @@ const pairsFor = (company: string, key: string) => {
 const twoBLineCount = (company: string, key: string) =>
   pairsFor(company, key).filter((row) => row.gstr2b).length;
 
+/* ------------------------------------------------------------ notices */
+
+/** "Sep 2026", or "Aug – Sep 2026" across months. */
+const periodLabel = (period: GstPeriod) => {
+  const keys = monthsIn(period);
+  const first = format(monthStart(keys[0]), "MMM yyyy");
+  if (keys.length < 2) return first;
+  return `${format(monthStart(keys[0]), "MMM")} – ${format(
+    monthStart(keys[keys.length - 1]),
+    "MMM yyyy"
+  )}`;
+};
+
+const GST_TARGET = { href: "/inbox?module=GST", label: "GST reconciliation" };
+
+/**
+ * GST's notices. Fetches, imports and runs take long enough to leave the
+ * screen during, so each end is worth a notice.
+ * DEV: raised server-side from the file-status and recon-run updates.
+ */
+const notice = {
+  twoBReady(company: string, period: GstPeriod, lines: number, ref: string) {
+    notificationActions.push(
+      {
+        companyId: company,
+        kind: "gstr2b_ready",
+        data: { period: periodLabel(period), lines },
+        target: GST_TARGET,
+        actor: { kind: "system" },
+        refs: [ref],
+      },
+      { toast: false }
+    );
+  },
+  fileFailed(company: string, file: string, reason: string, ref: string) {
+    notificationActions.push({
+      companyId: company,
+      kind: "gst_file_failed",
+      data: { file, reason },
+      target: GST_TARGET,
+      actor: { kind: "ai" },
+      refs: [ref],
+    });
+  },
+  fileDone(company: string, ref: string) {
+    notificationActions.resolve(company, ["gst_file_failed"], ref);
+  },
+};
+
 /* ---------------------------------------------------------------- selectors */
 
 export const statusFor = (state: GstState, period: GstPeriod) => ({
@@ -204,6 +254,12 @@ export const gst = {
             : s;
         }),
       });
+      notice.twoBReady(
+        company,
+        period,
+        months.reduce((total, key) => total + twoBLineCount(company, key), 0),
+        items[0]?.requestUuid ?? uid("req")
+      );
     }, GST_TIMINGS.fetch2b);
     return "ok" as const;
   },
@@ -226,6 +282,7 @@ export const gst = {
     await wait(GST_TIMINGS.otp);
     if (!/^\d{6}$/.test(otp)) return false;
     write(company, { portalAuthenticated: true });
+    notificationActions.resolveAll(company, ["gst_portal_session"]);
     return true;
   },
 
@@ -272,10 +329,19 @@ export const gst = {
             : s
         ),
       });
+      if (failed)
+        notice.fileFailed(
+          company,
+          file.name,
+          "Could not read the file. Upload the JSON from the GST portal.",
+          item.fileStatusUuid
+        );
+      else notice.twoBReady(company, period, lines, item.fileStatusUuid);
     }, GST_TIMINGS.upload2b);
   },
 
   delete2b(company: string, item: gstr2BDataStatusType) {
+    notice.fileDone(company, item.fileStatusUuid);
     // DEV: DELETE /api/gst-reconciliation/gstr-2b-data-status { companyId, requestUuid } (portal fetch)
     // DEV: DELETE /api/gst-reconciliation/pr-file-status { companyId, fileStatusUuid } (uploaded file)
     write(company, {
@@ -355,6 +421,25 @@ export const gst = {
           : PrFileStatusEnums.EXTRACTION_SUCCESSFUL,
         failed ? "Invoice Date could not be read in 214 rows." : undefined
       );
+      if (failed)
+        notice.fileFailed(
+          company,
+          file.fileName,
+          "Invoice Date could not be read in 214 rows. Fix the column or the dates, then retry.",
+          file.fileStatusUuid
+        );
+      else
+        notificationActions.push(
+          {
+            companyId: company,
+            kind: "pr_imported",
+            data: { file: file.fileName },
+            target: GST_TARGET,
+            actor: { kind: "ai" },
+            refs: [file.fileStatusUuid],
+          },
+          { toast: false }
+        );
     }, GST_TIMINGS.prIngest);
   },
 
@@ -365,18 +450,18 @@ export const gst = {
       file.fileStatusUuid,
       PrFileStatusEnums.IN_PROGRESS
     );
-    window.setTimeout(
-      () =>
-        gst.setPrStatus(
-          company,
-          file.fileStatusUuid,
-          PrFileStatusEnums.EXTRACTION_SUCCESSFUL
-        ),
-      GST_TIMINGS.prIngest
-    );
+    window.setTimeout(() => {
+      gst.setPrStatus(
+        company,
+        file.fileStatusUuid,
+        PrFileStatusEnums.EXTRACTION_SUCCESSFUL
+      );
+      notice.fileDone(company, file.fileStatusUuid);
+    }, GST_TIMINGS.prIngest);
   },
 
   deletePr(company: string, file: PrFileStatus) {
+    notice.fileDone(company, file.fileStatusUuid);
     // DEV: DELETE /api/gst-reconciliation/pr-file-status { companyId, fileStatusUuid }
     const { [file.fileUuid]: _dropped, ...mappings } = read(company).mappings;
     write(company, {
@@ -400,6 +485,32 @@ export const gst = {
       if (!invoices[key]) invoices[key] = pairsFor(company, key);
     });
     write(company, { invoices });
+    const rows = monthsIn(period).flatMap((key) => invoices[key] ?? []);
+    const count = (type: string) =>
+      rows.filter((row) => row.matchType === type).length;
+    const missing2b = count("missing_in_2b");
+    const missingPr = count("missing_in_pr");
+    const probable = count("ai_probable_match");
+    notificationActions.push(
+      {
+        companyId: company,
+        kind: "reconciliation_ready",
+        data: {
+          period: periodLabel(period),
+          open: missing2b + missingPr + probable,
+          missing2b,
+          missingPr,
+          probable,
+        },
+        target: {
+          href: "/inbox?module=GST&tab=invoice",
+          label: "GST reconciliation",
+        },
+        actor: { kind: "system" },
+        refs: [`recon:${monthsIn(period).join(",")}:${Date.now()}`],
+      },
+      { toast: false }
+    );
   },
 
   setRcm(company: string, gstr2bLineUuid: string, value: boolean) {

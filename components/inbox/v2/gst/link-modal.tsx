@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, X } from "@/components/icons";
+import { Link } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -93,9 +93,23 @@ const LinkModal = ({ base, rows, onClose, onLink }: Props) => {
       title="Link to an Existing Bill"
       description={forPr ? "Linking for PR" : "Linking for GSTR-2B"}
       className="max-w-[960px]"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!picked.length}
+            onClick={() => base && onLink(base, picked)}
+          >
+            <Link aria-hidden />
+            {picked.length > 1 ? "Link invoices" : "Link invoice"}
+          </Button>
+        </>
+      }
     >
       {own && (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pi-line bg-pi-page px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pi-line bg-pi-page px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <Detail label="Source:">
               <span className="text-pi-brand">{forPr ? "GSTR-2B" : "PR"}</span>
@@ -235,19 +249,6 @@ const LinkModal = ({ base, rows, onClose, onLink }: Props) => {
               </span>
             </React.Fragment>
           ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={onClose}>
-            <X aria-hidden />
-            Cancel
-          </Button>
-          <Button
-            disabled={!picked.length}
-            onClick={() => base && onLink(base, picked)}
-          >
-            <Link aria-hidden />
-            Link Bill
-          </Button>
         </div>
       </div>
     </PageDialog>

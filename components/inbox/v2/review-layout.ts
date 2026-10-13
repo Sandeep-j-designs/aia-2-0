@@ -1,4 +1,11 @@
 import { refineDialogMarkup } from "./dialog-refinement";
+import {
+  COST_CATEGORIES,
+  COST_CENTRE_CLASSES,
+  allocationDetail,
+  centresInCategory,
+  costCentreTree,
+} from "@/config/pages/inbox/mock-cost-centres";
 
 /** Reshape the bundled sheet without replacing its controls or event bindings.
  * The original IDs remain available to the accounting and validation engines. */
@@ -13,26 +20,27 @@ export function prepareReviewMarkup(markup: string, kind: "ap" | "ar") {
 }
 
 /** Shorter visible labels that keep the familiar accounting vocabulary. */
+const LABELS: Record<string, string> = {
+  voucherType: "Voucher type",
+  voucherDate: "Voucher date",
+  voucherNo: "Voucher no.",
+  supplierInvoiceNo: "Supplier invoice no.",
+  customerPoNo: "Customer PO no.",
+  vendor: "Vendor",
+  customer: "Customer",
+  branch: "GST registration",
+  billDate: "Bill date",
+  invoiceDate: "Invoice date",
+  dueDate: "Due date",
+  gstTreatment: "GST treatment",
+  sourceState: "Source of supply",
+  destState: "Destination of supply",
+  billingAddress: "Billing address",
+  gstin: "GSTIN",
+  vendorCostCentre: "Vendor cost centre",
+};
 function relabel(doc: Document, card: HTMLElement) {
-  const labels: Record<string, string> = {
-    voucherType: "Voucher type",
-    voucherDate: "Voucher date",
-    voucherNo: "Voucher no.",
-    supplierInvoiceNo: "Supplier invoice no.",
-    customerPoNo: "Customer PO no.",
-    vendor: "Vendor",
-    customer: "Customer",
-    branch: "GST registration",
-    billDate: "Bill date",
-    invoiceDate: "Invoice date",
-    dueDate: "Due date",
-    gstTreatment: "GST treatment",
-    sourceState: "Source of supply",
-    destState: "Destination of supply",
-    billingAddress: "Billing address",
-    gstin: "GSTIN",
-    vendorCostCentre: "Vendor cost centre",
-  };
+  const labels = LABELS;
   card.querySelectorAll<HTMLElement>(".field").forEach((field) => {
     const bind = field.querySelector<HTMLElement>("[data-bind]")?.dataset.bind;
     const label = field.querySelector(".t-label");
@@ -50,9 +58,9 @@ function relabel(doc: Document, card: HTMLElement) {
     ?.querySelector(".t-label");
   if (vendorCc) vendorCc.textContent = "Vendor cost centre";
   const ccClass = card.querySelector("#cc-label-class");
-  if (ccClass) ccClass.textContent = "By class";
+  if (ccClass) ccClass.textContent = "Class";
   const ccCentre = card.querySelector("#cc-label-centre");
-  if (ccCentre) ccCentre.textContent = "By cost centre";
+  if (ccCentre) ccCentre.textContent = "Centre";
 }
 
 /**
@@ -63,16 +71,12 @@ function relabel(doc: Document, card: HTMLElement) {
  * Its shape, rebuilt from the engine's own nodes — ids, bindings and
  * listeners untouched:
  *
- *   header      total, draft label, "N of M resolved" (ReviewAssistant fills
- *               .cr-head)
- *   Voucher     a card of label rows: voucher type, voucher date, voucher no.,
- *   details     supplier invoice no., party, purchase ledger. Each row has a
- *               status mark and, where it has more behind it, a › that opens
- *               a sheet with a pending count
- *   sheets      Voucher details (dates, branch, cost centres, narration,
- *               optional fields) · Party details (address, GST treatment,
- *               GSTIN, supply states, vendor cost centre) · Tax & deductions
- *               (the engine's breakdown) · Needs you (ReviewAssistant)
+ *   header      title and the required-field key
+ *   cards       Voucher · Vendor/Customer · Accounting, every field in full;
+ *               then Additional details — the optional groups as one row each
+ *               (engine-drawn into [data-xf-slot]), with Customise fields
+ *   sheets      Tax & deductions (the engine's breakdown) · Needs you
+ *               (BillReview) · the line sheet · Expand
  *   Items       one table (engine LINES block); a description opens the
  *               line's sheet, #cr-line, which the engine renders
  *   totals      taxable value · tax · bill total, opening Tax & deductions
@@ -186,80 +190,313 @@ function composeBillForm(doc: Document, card: HTMLElement, kind: "ap" | "ar") {
 
   // header slot (ReviewAssistant)
   const head = el("div", "cr-head");
-  // section label
+  // section label: the title and the required-field key
   const label = el("div", "cr-section-label");
-  if (billHeading) {
-    billHeading.className = "cr-section-title";
-    billHeading.textContent = "Voucher details";
-    label.append(billHeading);
+  /*
+    The voucher type heads the form (6 Oct 2026): it is a choice about the
+    whole voucher, not one field among the rest, so it replaces the "Bill
+    details" title and is set as one — a title-sized picker under a small
+    "Voucher type" label. The engine's own select moves here, bindings intact.
+  */
+  const typeField = field("voucherType");
+  if (typeField) {
+    const type = el("div", "cr-type");
+    // the engine scrolls to its section by this id
+    if (billHeading?.id) type.id = billHeading.id;
+    type.append(el("span", "cr-type-label", "Voucher type"), typeField);
+    // the title the select shows: a select sizes itself to its options' text,
+    // not to a title, so the chosen type is drawn here and the select lies
+    // over it, invisible but still the thing clicked and focused
+    typeField
+      .querySelector(".control")
+      ?.prepend(el("span", "cr-type-value"));
+    label.append(type);
   }
-  label.append(html("<small>Required fields marked <i>*</i></small>"));
+  billHeading?.remove();
+  const tools = el("div", "cr-section-tools");
+  tools.append(html("<small>All fields required unless marked optional</small>"));
+  label.append(tools);
 
-  const voucherCard = el("div", "cr-card");
-  voucherCard.append(
-    row("voucherType", "Voucher type", field("voucherType"), {
-      required: true,
-    }),
-    row("voucherDate", "Voucher date", field("voucherDate"), {
-      required: true,
-    }),
-    row("voucherNo", "Voucher no.", field("voucherNo"), {
-      required: true,
-    }),
-    row(K.ref, K.refLabel, field(K.ref), { required: true }),
-    row(K.partyBind, "Party A/c name", field(K.partyBind), {
-      required: true,
-    }),
-    row(K.ledger, K.ledgerLabel, picker, {
-      required: true,
-    })
-  );
+  /*
+    Section cards (Oct 2026). Every required or tax-deciding field sits, in
+    full, in the card it belongs to: Voucher, Vendor/Customer, Accounting. The
+    optional groups Customise fields switches on (order references, ship to,
+    receipt & dispatch, import & customs) are one block, Additional details,
+    one row each — what the group holds and Edit, which opens it in a dialog.
+    The user found both extremes wrong: footer links that hid half the voucher,
+    then every field laid out, then everything behind a dialog. The line is
+    drawn at whether the field decides the posting.
 
-  // sheets
+    Laid out as a compact grid (Oct 2026, "the form feels lengthy"): one
+    bordered block of sections, labels above values, three to a row, so the
+    width does the work a column of 48px rows did. Additional details are
+    chips. Nothing folds.
+  */
+  const rowOf = (binding: string, text?: string) => {
+    const f = field(binding);
+    if (!f) return null;
+    return row(binding, text ?? LABELS[binding] ?? binding, f, {
+      required: !!f.querySelector(".t-label .req"),
+    });
+  };
+  const slot = (where: string) =>
+    doc.querySelector<HTMLElement>(`[data-xf-slot="${where}"]`);
+  const sectionCard = (
+    key: string,
+    title: string,
+    nodes: (Node | null)[],
+    summary: string[]
+  ) => {
+    const c = el("section", "cr-card");
+    c.dataset.card = key;
+    c.dataset.summary = summary.join(",");
+    c.setAttribute("aria-label", title);
+    c.append(
+      html(
+        `<div class="cr-card-headrow"><div class="cr-card-head"><span class="cr-card-title">${title}</span><span class="cr-pending"></span></div></div>`
+      )
+    );
+    const body = el("div", "cr-card-body");
+    nodes.forEach((n) => n && body.append(n));
+    c.append(body);
+    return c;
+  };
+
+  /*
+    Priority form (6 Oct 2026). The user found the form carried too many
+    fields, then placed the line: the voucher's own fields and the party with
+    all of its details stay on the form, each in its own section (Voucher,
+    then Vendor/Customer). Accounting and the optional groups sit under "More
+    details", which expands in place: not a footer sheet nor a dialog, the two
+    hiding places rejected before.
+
+    A hidden field never hides a problem. BillReview marks one that turns open
+    or wrong as surfaced, and CSS orders it up above the toggle, where it
+    stays for the rest of the bill. It is one grid with `order`, so no engine
+    node moves.
+  */
+  // a section the form always shows: its heading, then its rows as they are
+  const section = (title: string, nodes: (HTMLElement | null)[]) => {
+    const head = el("div", "cr-subhead cr-subhead--main");
+    head.append(el("span", "cr-card-title", title));
+    nodes.forEach((n) => n && (n.dataset.where = title));
+    return [head, ...nodes];
+  };
+  const group = (
+    key: string,
+    title: string,
+    nodes: (HTMLElement | null)[],
+    tool?: HTMLElement | null
+  ) => {
+    const head = el("div", "cr-subhead");
+    head.dataset.group = key;
+    head.append(el("span", "cr-card-title", title));
+    if (tool) head.append(tool);
+    const out: HTMLElement[] = [head];
+    nodes.forEach((n) => {
+      if (!n) return;
+      n.classList.add("cr-more-row");
+      n.dataset.group = key;
+      n.dataset.where = title;
+      out.push(n);
+    });
+    return out;
+  };
+
+  const partyCcRow = vendorCc
+    ? row(
+        "partyCostCentre",
+        ar ? "Customer cost centre" : "Vendor cost centre",
+        vendorCc
+      )
+    : null;
+  if (partyCcRow && (vendorCc as HTMLElement).hidden) partyCcRow.hidden = true;
+
   const narration = doc.querySelector<HTMLElement>(".closing .narration");
   narration?.classList.add("field");
-  const narrationLabel = narration?.querySelector(".t-label");
-  if (narrationLabel) narrationLabel.textContent = "Narration";
-  const addl = doc.querySelector<HTMLElement>("#addl");
-  addl?.classList.remove("form__narrow");
-  const config = doc.querySelector<HTMLElement>("#btn-field-config");
-  if (config) {
-    config.className = "cr-text";
-    config.lastChild!.textContent = "Configure fields";
+  /*
+    Cost centre: one picker, not a switch and a picker (6 Oct 2026). The
+    header holds a class (a saved split) OR one centre; the engine models that
+    as a Class/Centre switch over one select whose meaning flips. Here the
+    two answers are groups of one list — Classes, then the centres by
+    category — so choosing is the whole decision. BillReview drives the
+    engine's switch and #cc-pick behind it; both stay in the DOM, hidden.
+    Option values are "class:<id>" / "centre:<id>", the engine's own ids.
+  */
+  let ccWrap: HTMLElement | null = null;
+  if (ccGroup) {
+    const esc = (t: string) =>
+      t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    const classes = COST_CENTRE_CLASSES.map(
+      (c) =>
+        `<option value="class:${c.id}">${esc(c.name)} — ${esc(allocationDetail(c.allocation))}</option>`
+    ).join("");
+    const centres = COST_CATEGORIES.map((cat) => {
+      const opts = costCentreTree(centresInCategory(cat.name))
+        .map(
+          ({ centre, depth }) =>
+            `<option value="centre:${centre.id}">${"\u00a0\u00a0\u00a0".repeat(depth)}${esc(centre.name)}</option>`
+        )
+        .join("");
+      return opts ? `<optgroup label="${esc(cat.name)}">${opts}</optgroup>` : "";
+    }).join("");
+    /*
+      7 Oct 2026: the native list could not tell its two kinds of answer
+      apart and drew as wide as its longest class, over Narration. The
+      picker is now a button and a panel with two tabs — Cost centres, Cost
+      centre classes. Empty, each line takes its own in the table's Cost
+      centre column; a choice here applies to every line and locks those
+      cells (the engine's rule), and the × clears it back to line by line.
+      The select stays, hidden, as the value BillReview hands the engine.
+    */
+    const opt = (value: string, label: string, extra = "", cls = "") =>
+      `<button type="button" role="option" class="cr-ccx-opt${cls}" data-value="${value}" data-label="${esc(label)}" aria-selected="false" tabindex="-1"><span class="cr-ccx-name">${esc(label)}</span>${extra}</button>`;
+    const centreList = COST_CATEGORIES.map((cat) => {
+      const opts = costCentreTree(centresInCategory(cat.name))
+        .map(({ centre, depth }) =>
+          opt(
+            `centre:${centre.id}`,
+            centre.name,
+            "",
+            depth ? ` cr-ccx-opt--d${Math.min(depth, 3)}` : ""
+          )
+        )
+        .join("");
+      return opts
+        ? `<div role="group" aria-label="${esc(cat.name)}" class="cr-ccx-group"><p class="cr-ccx-head" aria-hidden="true">${esc(cat.name)}</p>${opts}</div>`
+        : "";
+    }).join("");
+    const classList = COST_CENTRE_CLASSES.map((c) =>
+      opt(
+        `class:${c.id}`,
+        c.name,
+        `<span class="cr-ccx-detail">${esc(allocationDetail(c.allocation))}</span>`
+      )
+    ).join("");
+    const what = ar ? "invoice" : "bill";
+    ccGroup.classList.add("cr-cc-engine");
+    ccWrap = el("div", "cr-cc-wrap");
+    ccWrap.append(
+      html(
+        `<select class="cr-cc-pick" hidden aria-hidden="true" tabindex="-1"><option value="">Set per line</option><optgroup label="Classes · split across centres">${classes}</optgroup>${centres}</select>` +
+          `<div class="cr-ccx"><button type="button" class="control cr-ccx-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="cr-ccx-pop" aria-label="Cost centre for every line of the ${what}"><span class="t-value cr-ccx-value is-empty">Select to apply to all lines</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>` +
+          `<button type="button" class="cr-ccx-clear" hidden aria-label="Clear, and set cost centres line by line" title="Clear, and set cost centres line by line"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>` +
+          `<div class="cr-ccx-pop" id="cr-ccx-pop" hidden>` +
+          `<div class="cr-ccx-tabs" role="tablist" aria-label="Cost centre kind"><button type="button" role="tab" class="cr-ccx-tab" data-cc-tab="centre" aria-selected="true">Cost centres</button><button type="button" role="tab" class="cr-ccx-tab" data-cc-tab="class" aria-selected="false">Cost centre classes</button></div>` +
+          `<div class="cr-ccx-list" role="listbox" aria-label="Cost centre for the whole ${what}">` +
+          `<div class="cr-ccx-panel" data-cc-panel="centre">${centreList}</div>` +
+          `<div class="cr-ccx-panel" data-cc-panel="class" hidden><p class="cr-ccx-head" aria-hidden="true">Split across centres</p>${classList}</div>` +
+          `</div></div></div>`
+      ),
+      ccGroup
+    );
   }
-  if (ccGroup) ccGroup.prepend(el("p", "t-label", "Cost centre"));
-  const voucherSheet = sheet(
-    "voucher",
-    "Voucher details",
-    "Dates, branch and cost centres",
+  const ccRow = ccWrap ? row("costCentre", "Cost centre", ccWrap) : null;
+  ccRow?.classList.add("cr-row--cc");
+
+  const config = doc.querySelector<HTMLElement>("#btn-field-config");
+  if (config) config.className = "cr-customise";
+  const additional = slot("additional");
+  if (additional) {
+    additional.dataset.group = "additional";
+    additional.dataset.where = "Additional details";
+  }
+  doc.querySelector("#sec-additional")?.remove();
+
+  /*
+    The party's details nest under the party field (6 Oct 2026): the section
+    shows only the party and its billing address; GST treatment, GSTIN and
+    the supply states sit in a panel beneath the party box, opened from a
+    one-line summary inside the party box. The panel opens on its own
+    while any of its fields is open or wrong (CSS), and Needs you opens it.
+  */
+  const partyTitle = ar ? "Customer" : "Vendor";
+  const partyRow = rowOf(K.partyBind, partyTitle);
+  /* 7 Oct: the summary rides in the GSTIN box, after its pencil — GSTIN,
+     treatment and the supply states read as one registration */
+  const partyToggle = html(
+    `<button type="button" class="cr-party-toggle" data-party-details aria-expanded="false" aria-controls="cr-party-details" aria-label="GST treatment and supply states"><span class="cr-party-summary">${partyTitle} details</span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>`
+  ).firstElementChild as HTMLElement;
+
+  const partyDetails = el("div", "cr-party-details");
+  partyDetails.id = "cr-party-details";
+  partyDetails.setAttribute("role", "group");
+  partyDetails.setAttribute("aria-label", `${partyTitle} details`);
+  /* 7 Oct: GSTIN left the panel to sit beside the party as a field of its
+     own — it is what identifies the party, not a detail of it */
+  const gstinRow = rowOf("gstin");
+  if (gstinRow) gstinRow.dataset.where = partyTitle;
+  const gstinControl = gstinRow?.querySelector<HTMLElement>(".control");
+  if (gstinControl) gstinControl.append(partyToggle);
+  else partyRow?.append(partyToggle);
+  [
+    rowOf("gstTreatment"),
+    rowOf("sourceState"),
+    rowOf("destState"),
+    partyCcRow,
+  ].forEach((r) => {
+    if (!r) return;
+    r.dataset.where = partyTitle;
+    partyDetails.append(r);
+  });
+
+  const toggle = html(
+    `<button type="button" class="cr-more-toggle" data-more-toggle aria-expanded="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><span class="cr-more-label">More details</span><span class="cr-more-summary"></span></button>`
+  ).firstElementChild as HTMLElement;
+
+  const mainCard = sectionCard(
+    "main",
+    ar ? "Invoice" : "Bill",
     [
-      field(K.docDate),
-      field("dueDate"),
-      field("branch"),
-      ccGroup,
-      narration,
-      sub("Optional fields"),
-      addl,
-      config,
-    ]
+      ...section("Voucher", [
+        rowOf("voucherDate"),
+        rowOf("voucherNo"),
+        rowOf(K.ref, K.refLabel),
+        rowOf(K.docDate),
+        rowOf("dueDate"),
+        rowOf("branch"),
+      ]),
+      ...section(partyTitle, [
+        partyRow,
+        gstinRow,
+        partyDetails,
+        rowOf("billingAddress"),
+      ]),
+      toggle,
+      ...group("accounting", "Accounting", [
+        row(K.ledger, K.ledgerLabel, picker, { required: true }),
+        ccRow,
+        narration ? row("narration", "Narration", narration) : null,
+      ]),
+      ...group("additional", "Additional details", [], config),
+      additional,
+    ],
+    []
   );
-  if (vendorHeading) vendorHeading.className = "sr-only";
-  const partySheet = sheet("party", "Party details", K.partyBlurb, [
-    vendorHeading,
-    field("gstTreatment"),
-    field("gstin"),
-    field("sourceState"),
-    field("destState"),
-    field("billingAddress"),
-    vendorCc,
-  ]);
+
+  const cards = el("div", "cr-cards");
+  cards.append(mainCard);
+
+  if (vendorHeading) vendorHeading.remove();
+  /*
+    Tax & deductions opens in place (7 Oct 2026), not in a dialog, and by
+    context: the strip's GST figure opens the GST lines and reverse charge,
+    its Bill total opens what is withheld (TDS/TCS/Others) and the
+    adjustments, ending on the total. Taxable value is the items' sum and
+    opens nothing. The panel sits above the strip, notched down to the figure
+    that opened it; [data-ctx] picks which parts of the engine's breakdown
+    (tagged data-bd) it shows. It keeps the old dialog's id, #cr-sheet-gst,
+    so Needs you still finds its fields, and opens itself while a tax line
+    is wrong.
+  */
   const breakdown = doc.querySelector<HTMLElement>("#breakdown");
-  const gstSheet = sheet(
-    "gst",
-    "Tax & deductions",
-    "GST, withholding and adjustments",
-    [breakdown]
-  );
+  const taxPanel = el("div", "cr-tax-panel form__narrow");
+  taxPanel.id = "cr-sheet-gst";
+  taxPanel.setAttribute("role", "group");
+  taxPanel.setAttribute("aria-label", "Tax & deductions");
+  const taxBody = el("div", "cr-sheet-body");
+  if (breakdown) taxBody.append(breakdown);
+  taxPanel.append(taxBody);
   const needsSheet = sheet("needs", "Needs you", "What is left to resolve", [
     el("div", "cr-needs"),
   ]);
@@ -271,13 +508,7 @@ function composeBillForm(doc: Document, card: HTMLElement, kind: "ap" | "ar") {
   lineSheet.querySelector(".cr-line-body")!.id = "cr-line-body";
   lineSheet.querySelector("[data-pill]")?.remove();
 
-  voucherCard.append(
-    html(`<div class="cr-card-foot">
-      <button type="button" class="cr-foot-link" data-open="voucher"><span>Dates, branch &amp; cost centres</span><span class="cr-pending"></span>${ICON.chevron}</button>
-      <button type="button" class="cr-foot-link" data-open="party"><span>${ar ? "Customer" : "Supplier"} GST &amp; address</span><span class="cr-pending"></span>${ICON.chevron}</button>
-    </div>`)
-  );
-  card.replaceChildren(head, label, voucherCard);
+  card.replaceChildren(head, label, cards);
 
   // the summaries this form does not show
   doc.querySelector("#sug-bar")?.classList.add("bill-hidden");
@@ -339,9 +570,10 @@ function composeBillForm(doc: Document, card: HTMLElement, kind: "ap" | "ar") {
     section.append(items, ledgers, grid);
     section.after(
       html(
-        `<button type="button" class="cr-totals form__narrow" data-open="gst" aria-label="Tax and deductions"><span><small>Taxable value</small><b data-total="sub">—</b></span><span><small data-total="tax-label">Tax</small><b data-total="tax">—</b></span><span><small>${ar ? "Invoice total" : "Bill total"}</small><b data-total="grand">—</b></span></button>`
+        `<div class="cr-totals form__narrow" role="group" aria-label="Totals"><span class="cr-totals-cell"><small>Taxable value</small><b data-total="sub">—</b></span><button type="button" class="cr-totals-cell" data-tax-ctx="gst" aria-expanded="false" aria-controls="cr-sheet-gst" aria-label="GST lines and reverse charge"><small><span data-total="tax-label">Tax</span><svg class="cr-totals-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></small><b data-total="tax">—</b></button><button type="button" class="cr-totals-cell" data-tax-ctx="total" aria-expanded="false" aria-controls="cr-sheet-gst" aria-label="Withholding and adjustments"><small>${ar ? "Invoice total" : "Bill total"}<svg class="cr-totals-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></small><b data-total="grand">—</b></button></div>`
       )
     );
+    section.after(taxPanel);
   }
   // Expand: the table in a dialog of its own (BillReview moves it in and back)
   const itemsSheet = sheet(
@@ -354,12 +586,6 @@ function composeBillForm(doc: Document, card: HTMLElement, kind: "ap" | "ar") {
   itemsSheet.querySelector("[data-pill]")?.remove();
   const done = itemsSheet.querySelector(".cr-done");
   if (done) done.textContent = "Back to review";
-  doc.body.append(
-    voucherSheet,
-    partySheet,
-    gstSheet,
-    needsSheet,
-    lineSheet,
-    itemsSheet
-  );
+  if (!taxPanel.isConnected) doc.body.append(taxPanel);
+  doc.body.append(needsSheet, lineSheet, itemsSheet);
 }

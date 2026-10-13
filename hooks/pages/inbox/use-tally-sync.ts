@@ -16,6 +16,7 @@ import {
   runModulesFor,
   syncModuleList,
 } from "@/utils/pages/inbox/sync";
+import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import type {
   SyncDoc,
   SyncModule,
@@ -25,6 +26,64 @@ import type {
   SyncRun,
   TallyConnection,
 } from "@/types/pages/inbox/sync";
+
+/**
+ * The run as a notice. The result card or the background toast says it in
+ * the moment; the notice is what is still there after you've moved on. A
+ * failed one stays open until those documents go across; a clean run closes
+ * earlier failures, because there are none left to chase.
+ *
+ * DEV: production raises these server-side when the sync job completes.
+ */
+const noticeRun = (
+  items: Item[],
+  pushedIds: string[],
+  failedIds: string[],
+  unit: string,
+  unitPlural: string
+) => {
+  const company = items[0]?.company;
+  if (!company) return;
+  const one = unit.toLowerCase();
+  const many = unitPlural.toLowerCase();
+  pushedIds.forEach((id) =>
+    notificationActions.resolve(company, ["sync_failed", "resync_needed"], id)
+  );
+  if (!failedIds.length) {
+    notificationActions.push(
+      {
+        companyId: company,
+        kind: "sync_completed",
+        data: { count: pushedIds.length, one, many },
+        target: { href: "/inbox", label: "Inbox" },
+        actor: { kind: "system" },
+        refs: pushedIds,
+      },
+      { toast: false }
+    );
+    return;
+  }
+  const route = items.find((x) => x.id === failedIds[0])?.route ?? "AP";
+  notificationActions.push(
+    {
+      companyId: company,
+      kind: "sync_failed",
+      data: {
+        failed: failedIds.length,
+        total: pushedIds.length + failedIds.length,
+        one,
+        many,
+      },
+      target: {
+        href: `/inbox?module=${route}&sync=failures`,
+        label: "Sync failures",
+      },
+      actor: { kind: "system" },
+      refs: failedIds,
+    },
+    { toast: false }
+  );
+};
 
 type UseTallySyncArgs = {
   /** Every item for the current company, approved or not. */
@@ -285,6 +344,13 @@ export const useTallySync = ({ items, route }: UseTallySyncArgs) => {
         durationSeconds: SYNC_DURATION_SECONDS,
         unitPlural,
       });
+      noticeRun(
+        items,
+        queue.slice(0, failFrom).map((doc) => doc.id),
+        queue.slice(failFrom).map((doc) => doc.id),
+        modules.length === 1 ? modules[0].unit : "item",
+        unitPlural
+      );
       // A backgrounded run reports in a toast; a watched one shows the card.
       setPhase((currentPhase) =>
         currentPhase === "background" ? "background" : "result"

@@ -47,6 +47,13 @@ components/guide/          →  MERGE — production has its own GuideProvider
 hooks/pages/guide/         →  aiaccountant-app/hooks/pages/guide/
 config/pages/guide/        →  aiaccountant-app/config/pages/guide/
 types/pages/guide/         →  aiaccountant-app/types/pages/guide/
+components/notifications/  →  aiaccountant-app/components/notifications/
+hooks/pages/notifications/ →  aiaccountant-app/hooks/pages/notifications/
+config/pages/notifications/→  aiaccountant-app/config/pages/notifications/
+types/pages/notifications/ →  aiaccountant-app/types/pages/notifications/
+utils/pages/notifications/ →  aiaccountant-app/utils/pages/notifications/
+pages/notifications/       →  aiaccountant-app/pages/notifications/ (render
+                              components/notifications in the app shell)
 ```
 
 ### The guided walkthrough
@@ -104,14 +111,15 @@ is at the same path — keep production's and drop this.
 
 **Reads**
 
-| Method | Path                                           | Returns              | Used by                                 |
-| ------ | ---------------------------------------------- | -------------------- | --------------------------------------- |
-| `GET`  | `/api/inbox`                                   | `InboxItem[]`        | `hooks/pages/inbox/use-inbox-list.ts`   |
-| `GET`  | `/api/inbox/:id`                               | `InboxItem`          | `hooks/pages/inbox/use-inbox-detail.ts` |
-| `GET`  | `/api/inbox?status=needs-review&route=<route>` | `InboxItem[]`        | detail pager cohort                     |
-| `GET`  | `/api/app-config`                              | confidence threshold | `config/pages/inbox/index.ts`           |
-| `GET`  | `/api/accounting-masters/ledgers?type=`        | ledger list          | `config/pages/inbox/conversions.ts`     |
-| `GET`  | `/api/customers`, `/api/vendors`               | party list           | `config/pages/inbox/conversions.ts`     |
+| Method | Path                                           | Returns              | Used by                                    |
+| ------ | ---------------------------------------------- | -------------------- | ------------------------------------------ |
+| `GET`  | `/api/inbox`                                   | `InboxItem[]`        | `hooks/pages/inbox/use-inbox-list.ts`      |
+| `GET`  | `/api/inbox/:id`                               | `InboxItem`          | `hooks/pages/inbox/use-inbox-detail.ts`    |
+| `GET`  | `/api/inbox/:id/document`                      | `SourceDocument`     | `hooks/pages/inbox/use-source-document.ts` |
+| `GET`  | `/api/inbox?status=needs-review&route=<route>` | `InboxItem[]`        | detail pager cohort                        |
+| `GET`  | `/api/app-config`                              | confidence threshold | `config/pages/inbox/index.ts`              |
+| `GET`  | `/api/accounting-masters/ledgers?type=`        | ledger list          | `config/pages/inbox/conversions.ts`        |
+| `GET`  | `/api/customers`, `/api/vendors`               | party list           | `config/pages/inbox/conversions.ts`        |
 
 **Writes**
 
@@ -135,6 +143,48 @@ Two further notes for whoever wires this:
 - **A conversion conflict is a `409`.** `use-inbox-detail.ts` has a
   `conflictSim` branch that fakes it so the state is reachable in the prototype.
   Delete that branch and drive the same UI off the real response.
+
+## Notification centre
+
+The bell in the top bar and `/notifications`. Contracts are in
+`types/pages/notifications`; every kind, its copy and its settings group is in
+`config/pages/notifications/kinds.ts`, which is the spec for the server-side
+templates.
+
+| Method  | Path                                  | Body / returns                         | Used by                     |
+| ------- | ------------------------------------- | -------------------------------------- | --------------------------- |
+| `GET`   | `/api/notifications?companyId=&cursor=` | `Notification[]`                     | `use-notifications.ts` seed |
+| `GET`   | `/api/notifications/unread-count`     | `NotificationCounts[]`, one per company | bell badge, other-org line |
+| `PATCH` | `/api/notifications/:id`              | `{ readAt }`                           | mark read / unread          |
+| `POST`  | `/api/notifications/read-all`         | `{ companyId, category? }`             | Mark all as read            |
+| `GET`   | `/api/notification-preferences`       | `NotificationPreferences`              | settings dialog             |
+| `PUT`   | `/api/notification-preferences`       | `NotificationPreferences`              | settings dialog             |
+
+New and resolved notices should arrive over the realtime channel Tally sync
+already uses. The client-side emitters are prototype stand-ins and go at
+handoff:
+- `hooks/pages/notifications/use-inbox-notifications.ts` and its call in
+  `workspace.tsx`
+- the `notificationActions.push/resolve` calls in `use-tally-sync`,
+  `use-banking`, `use-gst`, `use-sales-upload` and `use-split-packets`
+
+## Source documents and the field highlighter
+
+Every seeded bill, sales invoice and journal opens on a real document: a PDF
+and a page image in `public/docs/<id>.{pdf,png}`. Focusing a field in the
+review form boxes where that value was printed and zooms the viewer to it.
+
+- `scripts/source-docs/generate.cjs` prints the documents from
+  `mock-inbox.ts` with headless Chrome. It also writes the field boxes to
+  `config/pages/inbox/mock-source-documents.ts`. Re-run it after changing the
+  mock data. Do not copy it, or `public/docs/`, into production.
+- `GET /api/inbox/:id/document` should return `SourceDocument` (see
+  `types/pages/inbox`): page images and one bounding box per extracted field,
+  as fractions of the page. That is the shape extraction services return.
+- The viewer is `components/inbox/v2/preview.tsx`. It is the same viewer on all
+  three routes; on AP it mounts inside the sheet's document pane.
+- `utils/pages/inbox/source-field.ts` maps a focused form control to its
+  region keys. React forms opt in with `data-source="<key>"`.
 
 ## What to replace, not port
 

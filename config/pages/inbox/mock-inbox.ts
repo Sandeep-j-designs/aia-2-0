@@ -57,7 +57,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
       billDate: "04 Sep 2026",
       dueDate: "04 Oct 2026",
       gstReg: GST_REG,
-      costCentre: "Finance",
+      costCentre: "Finance & Accounts",
       flagged: [],
       items: [
         {
@@ -338,6 +338,8 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     receivedAt: "2026-09-09T10:30:00.000Z",
     status: "needs-review",
     jv: {
+      referenceNo: "SORPL/FA/DEP/2627-H1",
+      date: "08 Sep 2026",
       narration:
         "Provisional depreciation, H1 FY 2026-27 (Apr–Sep 2026) — WDV at Companies Act rates, per fixed asset register",
       lines: [
@@ -535,7 +537,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
       billDate: "04 Sep 2026",
       dueDate: "04 Oct 2026",
       gstReg: GST_REG,
-      costCentre: "Finance",
+      costCentre: "Finance & Accounts",
       flagged: [],
       items: [
         {
@@ -646,7 +648,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
       billDate: "01 Sep 2026",
       dueDate: "01 Sep 2026",
       gstReg: GST_REG,
-      costCentre: "Finance",
+      costCentre: "Finance & Accounts",
       flagged: [],
       items: [
         {
@@ -689,7 +691,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
       billDate: "01 Sep 2026",
       dueDate: "01 Sep 2026",
       gstReg: GST_REG,
-      costCentre: "Finance",
+      costCentre: "Finance & Accounts",
       flagged: [],
       items: [
         {
@@ -732,7 +734,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
       billDate: "31 Aug 2026",
       dueDate: "15 Sep 2026",
       gstReg: GST_REG,
-      costCentre: "Sales",
+      costCentre: "Sales & Marketing",
       flagged: ["dueDate"],
       items: [
         {
@@ -775,7 +777,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
       billDate: "31 Aug 2026",
       dueDate: "30 Sep 2026",
       gstReg: GST_REG,
-      costCentre: "Sales",
+      costCentre: "Sales & Marketing",
       flagged: [],
       items: [
         {
@@ -900,7 +902,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
       billDate: "28 Aug 2026",
       dueDate: "27 Sep 2026",
       gstReg: GST_REG,
-      costCentre: "Finance",
+      costCentre: "Finance & Accounts",
       flagged: [],
       items: [
         {
@@ -1218,6 +1220,8 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     receivedAt: "2026-09-09T23:30:00.000Z",
     status: "needs-review",
     jv: {
+      referenceNo: "SORPL/JV/2627/0142",
+      date: "31 Aug 2026",
       narration:
         "Re-bill: Peenya godown rent (bay 3) for Aug 2026 paid on behalf of Annapoorna Wholesale — should be raised as a sales invoice on Annapoorna.",
       lines: [

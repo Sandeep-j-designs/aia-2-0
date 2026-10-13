@@ -1,12 +1,6 @@
 import React, { useCallback } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { PageDialog } from "@/components/inbox/v2/ui";
 import OrganisationForm from "./organisation-form";
 import { useOrganisationForm } from "@/hooks/organisation/useCreateOrganisationForm";
 import type {
@@ -58,44 +52,45 @@ const CreateUpdateOrganisationModal = ({
     onSuccess: handleFormSuccess,
   });
 
-  const actionLabel = isEditMode ? "Update" : "Create";
-
+  // The dialog standard (7 Oct 2026): PageDialog's 22px/500 title, the
+  // field on the form's metrics, and a white footer with Cancel and a
+  // specific primary, right-aligned. The footer sits outside the <form>, so
+  // its submit button names the form by id.
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="flex max-w-[485px] flex-col gap-0 p-0">
-        <DialogHeader className="border-b border-neutral-gray px-4 pb-5 pt-4">
-          {/* Typography's h5 and sm styles, on Radix's own elements — Typography
-              takes no ref, so it cannot sit under asChild. */}
-          <DialogTitle className="text-h5 font-normal">
-            {`${actionLabel} Organisation`}
-          </DialogTitle>
-          <DialogDescription className="text-body-4 text-primary">
-            Provide your official organisation information
-          </DialogDescription>
-        </DialogHeader>
-        <div className="px-4 pt-5">
-          <OrganisationForm
-            {...form}
-            onSubmit={form.handleSubmit}
-            showLegalNameDescription
-            inputClassName="h-12"
-            ButtonComponent={
-              <div className="flex justify-end py-3">
-                <Button
-                  id={isEditMode ? "update" : "create"}
-                  type="submit"
-                  loading={form.isLoading}
-                  size="lg"
-                  className="w-1/3"
-                >
-                  {actionLabel}
-                </Button>
-              </div>
-            }
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <PageDialog
+      open={isOpen}
+      onClose={() => setIsOpen(false)}
+      title={isEditMode ? "Rename organisation" : "Create organisation"}
+      description="Provide your official organisation information"
+      className="max-w-[485px]"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            id={isEditMode ? "update" : "create"}
+            type="submit"
+            form="organisation-form"
+            loading={form.isLoading}
+          >
+            {isEditMode ? "Save name" : "Create organisation"}
+          </Button>
+        </>
+      }
+    >
+      <OrganisationForm
+        {...form}
+        formId="organisation-form"
+        onSubmit={form.handleSubmit}
+        showLegalNameDescription
+        ButtonComponent={<></>}
+      />
+    </PageDialog>
   );
 };
 

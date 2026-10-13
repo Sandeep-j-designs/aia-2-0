@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { CloudAlert, CloudDownload, FileJson } from "@/components/icons";
-import { Button } from "@/components/ui/button";
 import {
   GSTR2B_ALLOWED_EXTENSIONS,
   GSTR2B_PORTAL_ENTITY,
@@ -14,7 +13,7 @@ import type {
   gstr2BDataStatusType,
   SavedAuthDataResponse,
 } from "@/types/pages/inbox/gst";
-import { T } from "@/components/inbox/v2/ui";
+import { Spinner } from "@/components/inbox/v2/ui";
 import PortalAuthCard from "./portal-auth-card";
 import { DropZone, StatusItem } from "./sheet-parts";
 
@@ -64,28 +63,41 @@ const Gstr2bSection = ({
     if (result === "auth_required") openAuth(true);
   };
 
+  // The two ways in, side by side, until one of them has worked: a period
+  // takes its 2B from the portal or from a file, never both.
+  const settled = items.some(
+    (i) => i.status !== Gstr2BStatusEnums.EXTRACTION_FAILED
+  );
+
   return (
     <div className="flex flex-col gap-2">
-      <span className={T.label}>GSTR-2B</span>
-
-      {!showAuth && (
-        <>
-          <Button
-            variant="outline"
-            className="w-full"
-            loading={fetching}
+      {!showAuth && !settled && (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
             disabled={fetching || hasUploaded}
             onClick={() => void fetch2b()}
+            className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-pi-line-2 bg-background px-4 py-4 text-center shadow-contact transition-colors duration-150 hover:border-pi-brand-border hover:bg-pi-brand-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pi-brand disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
           >
-            <CloudDownload aria-hidden />
-            Fetch GSTR-2B
-          </Button>
+            {fetching ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              <CloudDownload className="h-4 w-4 text-pi-brand" aria-hidden />
+            )}
+            <span className="text-[13px] font-medium text-pi-ink">
+              Fetch from GST Portal
+            </span>
+            <span className="text-[12px] leading-4 text-pi-body">
+              Asks for an OTP if the session has expired
+            </span>
+          </button>
           <DropZone
-            title="Upload GSTR-2B"
+            stacked
+            title="Upload GSTR-2B File"
             tooltip="Upload the GSTR-2B file exported from the GST portal."
             hint={
-              <span className="text-[12px] leading-5 text-pi-body">
-                Supports - JSON(Recommended) / .xlsx
+              <span className="text-[12px] leading-4 text-pi-body">
+                .json (recommended) or .xlsx
               </span>
             }
             extensions={GSTR2B_ALLOWED_EXTENSIONS}
@@ -97,7 +109,7 @@ const Gstr2bSection = ({
               )
             }
           />
-        </>
+        </div>
       )}
 
       {items.map((item) => {

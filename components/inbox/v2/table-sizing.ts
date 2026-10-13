@@ -16,7 +16,7 @@ export const COLUMN_SIZES: ColumnSizes = {
   File: { min: 188, preferred: 240, max: 600 },
   Source: { min: 132, preferred: 136, max: 200 },
   User: { min: 158, preferred: 200, max: 360 },
-  Vendor: { min: 128, preferred: 160, max: 360 },
+  Vendor: { min: 128, preferred: 200, max: 360 },
   "Voucher type": { min: 160, preferred: 160, max: 240 },
   "GST Registration": { min: 180, preferred: 180, max: 360 },
   Amount: { min: 128, preferred: 130, max: 220 },

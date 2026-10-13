@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { toast } from "sonner";
 import {
   ArrowDown,
@@ -54,12 +55,14 @@ import {
 import DateFilter, { FY_PRESETS } from "@/components/common/date-filter";
 import DateRangePanel from "@/components/common/date-filter/panel";
 import PageTopBar from "@/components/common/page-top-bar";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import { cn } from "@/lib/utils";
 import {
   gridCellId,
   useGridKeyboard,
 } from "@/hooks/pages/inbox/use-grid-keyboard";
 import { useColumnResize } from "@/hooks/pages/inbox/use-column-resize";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import type { InboxPaymentStatus } from "@/types/pages/inbox";
 import {
   ColumnFilter,
@@ -71,12 +74,16 @@ import { ACTIONS_WIDTH, BILL_COLUMN_SIZES, SELECT_WIDTH } from "./table-sizing";
 import { AmountText, PageButton, T } from "./ui";
 import {
   ColumnsButton,
-  EmptyBlock,
   HEADER_CLASS,
   TABLE_CLASS,
   UnderlineTabs,
 } from "./banking/table-parts";
-import { tabRows, type RegisterFilters } from "./register";
+import {
+  RegisterEmpty,
+  tabRows,
+  type RegisterFilters,
+} from "./register";
+import type { ActiveFilter } from "./empty-state";
 import { actor, createSplitBills, type Item } from "./store";
 import {
   splitPackets,
@@ -188,7 +195,11 @@ type SortDir = "asc" | "desc";
 const HEAD_ICON_BUTTON =
   "grid h-5 w-5 flex-none place-items-center rounded-xs transition-colors duration-100 hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none";
 
-/** A value with the affordance the frame draws at the cell's right edge. */
+/**
+ * A value with the affordance the frame draws at the cell's right edge. The
+ * icon shows on row hover or focus only, as the Inbox's carets do: drawn on
+ * every row it was noise.
+ */
 const Trailing = ({
   children,
   icon: Icon,
@@ -198,7 +209,15 @@ const Trailing = ({
 }) => (
   <span className="flex min-w-0 items-center justify-between gap-2">
     <span className="truncate">{children}</span>
-    <Icon className="h-3.5 w-3.5 flex-none text-pi-faint" aria-hidden />
+    <Icon
+      className={cn(
+        "h-3.5 w-3.5 flex-none text-pi-faint transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 motion-reduce:transition-none",
+        // A dropdown's caret stays at rest (7 Oct 2026): a field that opens a
+        // list has to say so. Pencils and calendars still wait for the row.
+        Icon === ChevronDown ? "opacity-100" : "opacity-0"
+      )}
+      aria-hidden
+    />
   </span>
 );
 
@@ -235,7 +254,8 @@ type Props = {
   items: Item[];
   selected: string[];
   onSelectedChange: (ids: string[]) => void;
-  onOpen: (item: Item) => void;
+  /** Open a row, with the list on screen (see Register's onOpen). */
+  onOpen: (item: Item, ids: string[], tab: string) => void;
   onDelete: (item: Item) => void;
   /** Says a thing is real in the app but not here. */
   onUnbuilt: (what: string) => void;
@@ -297,6 +317,29 @@ const BillRegister = ({
   const [reviewId, setReviewId] = useState<string | null>(null);
   const packets = useSplitPackets(company);
   const uploadsTab = tab === "uploads";
+  /*
+    &tab=review|uploads opens that tab: the review screen's way back, a
+    ready-for-review notice, a split notice. &split=<id> also opens that
+    packet's review once it is ready. The params go afterwards so the back
+    button lands on the list, not on the dialog again.
+  */
+  const router = useRouter();
+  useEffect(() => {
+    const wanted = router.query.tab;
+    if (wanted !== "uploads" && wanted !== "review") return;
+    setTab(wanted);
+    const split =
+      typeof router.query.split === "string" ? router.query.split : "";
+    if (
+      split &&
+      packets.some((p) => p.id === split && p.status === "splitReady")
+    )
+      setReviewId(split);
+    const { tab: _tab, split: _split, ...rest } = router.query;
+    void router.replace({ pathname: router.pathname, query: rest }, undefined, {
+      shallow: true,
+    });
+  }, [router.query.tab, router.query.split]);
   /** Opening the review clears the toasts — one sits over its footer. */
   const openReview = (id: string) => {
     toast.dismiss();
@@ -412,6 +455,11 @@ const BillRegister = ({
     sizes: BILL_COLUMN_SIZES,
     storageKey: "purchases.widths.v1",
   });
+  // The page scroller, which owns the horizontal scroll; the resize hook's
+  // grid ref is the table's box inside it, not the element that scrolls.
+  const scroller = useRef<HTMLDivElement | null>(null);
+  // Shades the pinned edges while columns are scrolled under them.
+  const pinEdges = usePinEdges(scroller);
 
   const toggleSort = (key: ColumnKey) => {
     if (!SORT_VALUE[key]) return;
@@ -438,7 +486,12 @@ const BillRegister = ({
     onFocusSearch: () => {},
     onActivateRow: (row) => {
       const item = pageRows[row];
-      if (item) onOpen(item);
+      if (item)
+        onOpen(
+          item,
+          rows.map((x) => x.id),
+          tab
+        );
     },
     onSortColumn: (col) => toggleSort(SHOWN[col]),
     onFilterColumn: (col) =>
@@ -462,6 +515,25 @@ const BillRegister = ({
     !!filters.to ||
     !!filters.min ||
     !!filters.max;
+  const resetAll = () => {
+    onResetFilters();
+    onSearchChange("");
+    setVendors([]);
+    setPayments([]);
+    setDue({});
+    changePage(0);
+  };
+  /** What is hiding rows, named for the empty state. */
+  const activeFilters: ActiveFilter[] = [
+    ...(search.trim() ? [{ label: `Search: “${search.trim()}”` }] : []),
+    ...(vendors.length
+      ? [{ label: `Vendor: ${vendors.length === 1 ? vendors[0] : `${vendors.length} selected`}` }]
+      : []),
+    ...(payments.length ? [{ label: `Payment status: ${payments.join(", ")}` }] : []),
+    ...(filters.from || filters.to ? [{ label: "Bill date range" }] : []),
+    ...(due.from || due.to ? [{ label: "Due date range" }] : []),
+    ...(filters.min || filters.max ? [{ label: "Amount range" }] : []),
+  ];
   const panelCount =
     vendors.length +
     payments.length +
@@ -567,7 +639,14 @@ const BillRegister = ({
       case "invoiceNo":
         return <Trailing icon={Pencil}>{item.form.invoiceNo || "—"}</Trailing>;
       case "party":
-        return <Trailing icon={ChevronDown}>{item.form.party || "—"}</Trailing>;
+        // The column that names the bill's other side: ink at 500.
+        return (
+          <Trailing icon={ChevronDown}>
+            <span className="font-medium text-pi-ink">
+              {item.form.party || "—"}
+            </span>
+          </Trailing>
+        );
       case "date":
         return <Trailing icon={CalendarDays}>{day(item.form.date)}</Trailing>;
       case "due":
@@ -583,7 +662,9 @@ const BillRegister = ({
         return (
           <span
             title={state.label}
-            className="inline-flex max-w-full items-center gap-2 rounded-full px-2 py-1 text-[13px] leading-4 text-pi-body"
+            // -ml-2: the chip's own padding, so its dot sits on the
+            // header's line.
+            className="-ml-2 inline-flex max-w-full items-center gap-2 rounded-full px-2 py-1 text-[13px] leading-4 text-pi-body"
           >
             <span
               aria-hidden
@@ -607,17 +688,44 @@ const BillRegister = ({
     !!pageRows.length && pageRows.every((x) => selected.includes(x.id));
 
   return (
-    // The page's one scroller, both axes: heading, table and pager scroll as
-    // a page, and the table header and bookends stick against it.
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    {/* The scroller's own box, so the overlay bars sit over the table and
+        end above the pager. */}
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+    {/* The page's one scroller, both axes: heading and table scroll as a
+        page, and the table header and bookends stick against it. Native
+        bars reserve a strip under the last row; the overlay bars float
+        over the rows instead. */}
+    <div
+      ref={scroller}
+      className="table-scroller scrollbar-hide flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none"
+    >
       {/* Heading and toolbar, pinned against the horizontal scroll so a
           widened table slides under them alone. */}
       <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
       <div className="shrink-0 px-[var(--inset-page)] pt-6">
         <PageTopBar
-          className="flex-wrap gap-2 pb-4"
+          className="flex-wrap gap-x-4 gap-y-2"
           eyebrow="Payables"
           title="Purchases"
+          // The view tabs share the actions' row (8 Oct 2026).
+          leading={
+            <UnderlineTabs
+              inline
+              tabs={TABS.map((entry) => ({
+                ...entry,
+                count:
+                  tabRows(entry.id, items).length +
+                  (entry.id === "uploads" ? packets.length : 0),
+              }))}
+              value={tab}
+              onChange={(next) => {
+                setTab(next);
+                setPage(0);
+                onSelectedChange([]);
+              }}
+            />
+          }
           leadingActions={
             <>
               {/* Entering a bill by hand, beside the upload rather than
@@ -671,21 +779,6 @@ const BillRegister = ({
           }
         />
       </div>
-
-      <UnderlineTabs
-        tabs={TABS.map((entry) => ({
-          ...entry,
-          count:
-            tabRows(entry.id, items).length +
-            (entry.id === "uploads" ? packets.length : 0),
-        }))}
-        value={tab}
-        onChange={(next) => {
-          setTab(next);
-          setPage(0);
-          onSelectedChange([]);
-        }}
-      />
 
       <div className="flex shrink-0 flex-wrap items-center gap-2 px-[var(--inset-page)] py-4">
         <div className="relative w-full sm:w-[198px]">
@@ -806,17 +899,7 @@ const BillRegister = ({
         {/* Reset, Columns and the shortcuts chip end the bar, as in the
             Inbox; Reset only once there is something to undo. */}
         {(anyFilter || search) && (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              onResetFilters();
-              onSearchChange("");
-              setVendors([]);
-              setPayments([]);
-              setDue({});
-              changePage(0);
-            }}
-          >
+          <Button variant="ghost" onClick={resetAll}>
             <Undo2 className="h-3 w-3" />
             Reset Filters
           </Button>
@@ -837,17 +920,26 @@ const BillRegister = ({
       </div>
 
       {/* The table, edge to edge: no card and no scroll of its own — the
-          page above owns both axes. The pager follows the last row. */}
-      <div className="flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background">
+          page above owns both axes. */}
+      <div className="table-region flex min-w-0 flex-1 flex-col bg-background">
       {uploadsTab ? (
         <BillUploadsTable
           packets={shownPackets}
           uploads={shownUploads}
-          onOpenUpload={onOpen}
+          onOpenUpload={(item) =>
+            onOpen(
+              item,
+              shownUploads.map((x) => x.id),
+              "uploads"
+            )
+          }
           onRemoveUpload={onDelete}
           onReview={(packet) => openReview(packet.id)}
           onRetry={(packet) => splitPackets.retry(packet.id)}
           onRemove={(packet) => splitPackets.remove(packet.id)}
+          search={search}
+          onClearSearch={() => onSearchChange("")}
+          onUpload={onUpload}
         />
       ) : (
         <>
@@ -859,6 +951,7 @@ const BillRegister = ({
             ref={resize.gridRef}
             role="grid"
             aria-label="Purchase bills"
+            {...pinEdges}
             aria-rowcount={pageRows.length + 1}
             aria-colcount={SHOWN.length}
             tabIndex={0}
@@ -876,7 +969,7 @@ const BillRegister = ({
                   <TableHead
                     role="columnheader"
                     style={{ width: SELECT_WIDTH }}
-                    className="sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
+                    className="pin-edge-l sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
                   >
                     <Checkbox
                       aria-label="Select every bill on this page"
@@ -1031,7 +1124,7 @@ const BillRegister = ({
                   <TableHead
                     role="columnheader"
                     style={{ width: ACTIONS_WIDTH }}
-                    className="sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
+                    className="pin-edge-r sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
                   >
                     <span
                       className={cn(T.head, "flex h-4 items-center truncate")}
@@ -1060,7 +1153,13 @@ const BillRegister = ({
                       role="row"
                       aria-rowindex={row + 2}
                       aria-selected={ticked}
-                      onClick={() => onOpen(item)}
+                      onClick={() =>
+                        onOpen(
+                          item,
+                          rows.map((x) => x.id),
+                          tab
+                        )
+                      }
                       className={cn(
                         "group cursor-pointer hover:bg-transparent",
                         ticked && "bg-pi-brand-tint hover:bg-pi-brand-tint"
@@ -1070,7 +1169,7 @@ const BillRegister = ({
                         role="gridcell"
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
-                          "sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
+                          "pin-edge-l sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
                           ground,
                           // The selected row's 2px brand edge.
                           ticked && "shadow-[inset_2px_0_0_var(--pi-brand)]"
@@ -1115,7 +1214,7 @@ const BillRegister = ({
                         role="gridcell"
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
-                          "sticky right-0 z-[1] h-14 px-4 py-0 align-middle",
+                          "pin-edge-r sticky right-0 z-[1] h-14 px-4 py-0 align-middle",
                           ground
                         )}
                       >
@@ -1130,7 +1229,15 @@ const BillRegister = ({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => onOpen(item)}>
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                onOpen(
+                                  item,
+                                  rows.map((x) => x.id),
+                                  tab
+                                )
+                              }
+                            >
                               {item.status === "Approved"
                                 ? "View voucher"
                                 : "Open in Inbox"}
@@ -1147,24 +1254,36 @@ const BillRegister = ({
               </TableBody>
             </Table>
             {!pageRows.length && (
-              <EmptyBlock
-                title={
-                  tab === "all"
-                    ? "Nothing posted here yet"
-                    : tab === "review"
-                      ? "Nothing waiting for review"
-                      : "Nothing uploaded yet"
-                }
-                body={
-                  tab === "all"
-                    ? "Approve a bill in the Inbox and the voucher it creates is listed here."
-                    : "Documents arrive here as they are received."
-                }
+              <RegisterEmpty
+                tab={tab === "review" ? "review" : "all"}
+                route="AP"
+                items={items}
+                filters={activeFilters}
+                onClear={resetAll}
+                onReview={() => {
+                  setTab("review");
+                  changePage(0);
+                }}
+                onViewPosted={() => {
+                  setTab("all");
+                  changePage(0);
+                }}
+                onUpload={onUpload}
+                onCreate={onCreate}
               />
             )}
           </div>
+        </>
+      )}
+      </div>
+    </div>
+    <OverlayScrollbars scroller={scroller} />
+    </div>
 
-          <div className="sticky left-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
+      {/* Below the page scroller, not inside it: the pager stays at the
+          bottom of the viewport, and the horizontal bar ends above it. */}
+      {!uploadsTab && (
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
             <div className="flex items-center gap-2">
               <span className={cn(T.cell, "text-foreground")}>
                 Rows per page:
@@ -1231,9 +1350,7 @@ const BillRegister = ({
               </PageButton>
             </div>
           </div>
-        </>
       )}
-      </div>
 
       <SplitUploadDialog
         open={splitUploadOpen}

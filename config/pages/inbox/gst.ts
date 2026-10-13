@@ -245,7 +245,7 @@ export const GSTR2B_STATUS_CONFIG: Record<
     tone: "warn",
   },
   [Gstr2BStatusEnums.EXTRACTION_SUCCESSFUL]: {
-    label: "Extracted Successfully",
+    label: "Extracted",
     tone: "ok",
   },
   [Gstr2BStatusEnums.IN_PROGRESS]: { label: "In Progress", tone: "info" },
@@ -262,7 +262,7 @@ export const PR_FILE_STATUS_CONFIG: Record<
     showDeleteButton: false,
   },
   [PrFileStatusEnums.EXTRACTION_SUCCESSFUL]: {
-    label: "Extraction Successful",
+    label: "Extracted",
     tone: "ok",
     showDeleteButton: true,
   },
@@ -413,11 +413,12 @@ export const TAX_DIFF_TABLE_COLUMNS: TaxDifferenceTableColumn[] = [
 
 /* -------------------------------------------------------------- results */
 
+// Named for what each lists (8 Oct 2026): "View" on every tab said nothing.
 export const GST_RECON_TABS = [
-  { value: "summary", label: "Summary View" },
-  { value: "month", label: "Month View" },
-  { value: "vendor", label: "Vendor View" },
-  { value: "invoice", label: "Invoice View" },
+  { value: "summary", label: "Summary" },
+  { value: "month", label: "By Month" },
+  { value: "vendor", label: "By Vendor" },
+  { value: "invoice", label: "Invoices" },
 ] as const;
 
 /** Production's column filter copy (components/gst-reconciliation/common/filters). */

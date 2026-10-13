@@ -1,4 +1,5 @@
 import React from "react";
+import { EmptyState as SharedEmpty } from "../empty-state";
 import {
   ArrowDown,
   ArrowUp,
@@ -81,18 +82,21 @@ export const day = (value?: string) =>
     : "—";
 
 /**
- * The grid's table classes: fixed layout, hairline row dividers only.
- * Precision Indigo draws no vertical rules — columns are held apart by the
- * 16px cell padding, as in the Inbox and the reference Bills register.
+ * The grid's table classes: fixed layout, hairline row dividers, and a
+ * hairline rule between columns, as the Inbox draws them. The last column
+ * (usually the pinned Actions) has none; pinned bookends shade their inner
+ * edge instead while columns scroll under them (`pin-edge-l` / `pin-edge-r`
+ * in globals.css, switched by usePinEdges on an ancestor).
  */
 // White of its own: a table wider than the page overflows its region, and the
 // overflow would otherwise show the slate canvas behind the rows.
 export const TABLE_CLASS =
-  "table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line";
+  "table-fixed border-separate border-spacing-0 bg-background [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line";
 /**
- * The head strip: `pi-head-bg` with one hairline under it. Sticky against the
- * table card's single scrollport. Sticky header bookends should paint
- * `bg-pi-head-bg` too, so scrolled columns pass under them.
+ * The head strip: `pi-head-bg` with one hairline under it (the colour also
+ * serves the column rules). Sticky against the page's single scrollport.
+ * Sticky header bookends should paint `bg-pi-head-bg` too, so scrolled
+ * columns pass under them.
  */
 export const HEADER_CLASS =
   "sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none [&_th]:border-b [&_th]:border-pi-line";
@@ -318,15 +322,22 @@ export const UnderlineTabs = ({
   tabs,
   value,
   onChange,
+  inline,
 }: {
   tabs: { id: string; label: string; count: number }[];
   value: string;
   onChange: (id: string) => void;
+  /** Inside a row that draws the rule and the inset (a PageTopBar's). */
+  inline?: boolean;
 }) => (
   <Tabs
     value={value}
     onValueChange={onChange}
-    className="mx-[var(--inset-page)] shrink-0 overflow-x-auto border-b border-pi-line"
+    className={
+      inline
+        ? "shrink-0 overflow-x-auto overflow-y-hidden border-b border-pi-line"
+        : "mx-[var(--inset-page)] shrink-0 overflow-x-auto border-b border-pi-line"
+    }
   >
     <TabsList className="h-auto gap-6 rounded-none bg-transparent p-0">
       {tabs.map((entry) => (
@@ -340,33 +351,22 @@ export const UnderlineTabs = ({
 );
 
 /**
- * The inline empty state, under the header row: the reference EmptyState's
- * type (15px/500 ink title, 13px body line), centred in the card. Sticky left,
- * so it stays in view while a wide table is scrolled sideways.
+ * The inline empty state, under the header row: the app's one empty state
+ * (`empty-state.tsx`, 8 Oct 2026) — an icon or the document stages, a title,
+ * a line, the active filters and a way out. Sticky left, so it stays in view
+ * while a wide table is scrolled sideways.
  */
-export const EmptyBlock = ({
-  title,
-  body,
-}: {
-  title: string;
-  body?: string;
-}) => (
-  <div className="sticky left-0 flex flex-col items-center px-6 py-14 text-center">
-    <h2 className="text-[16px] font-medium text-pi-ink">{title}</h2>
-    {body ? (
-      <p className="mt-2 max-w-[360px] text-[13px] leading-relaxed text-pi-body">
-        {body}
-      </p>
-    ) : null}
-  </div>
+export const EmptyBlock = (props: React.ComponentProps<typeof SharedEmpty>) => (
+  <SharedEmpty {...props} />
 );
 
 export const PAGE_SIZES = [10, 25, 50, 100];
 
 /**
  * The pager, as the Inbox footer draws it: rows per page, then
- * first/prev · a - b of n · next/last. Meant to sit inside the table card,
- * under its scrollport.
+ * first/prev · a - b of n · next/last. Sits below the page scroller, not
+ * inside it, so it stays at the bottom of the viewport and the scroller's
+ * horizontal bar ends above it.
  */
 export const Pager = ({
   page,
@@ -469,7 +469,7 @@ export const AmountFields = ({
       ] as const
     ).map(([key, label, value]) => (
       <label key={key} className="block">
-        <span className={cn(T.label, "mb-1 block")}>{label}</span>
+        <span className={cn(T.label, "mb-1.5 block")}>{label}</span>
         <Input
           type="number"
           value={value}

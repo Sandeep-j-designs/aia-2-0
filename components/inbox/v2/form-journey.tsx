@@ -1,130 +1,107 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
+import { ChevronRight } from "@/components/icons";
+import { cn } from "@/lib/utils";
 
-/** Section navigation is derived from the actual form, so conditional tax and
- * party sections never leave stale steps in the guide. */
+/**
+ * A master page's form, the review form's way (8 Oct 2026, user: "make it look
+ * a bit polished and similar to the patterns used in the AP, AR and Journal
+ * forms"): one white panel of sections with brand headings and hairlines, no
+ * "In this form" rail, no welcome heading. The required note sits once, on the
+ * first section's heading line.
+ *
+ * `starter` is a row above the first section (the ledger's quick picks).
+ */
 export function FormJourney({
   children,
-  title,
-  description,
   starter,
 }: {
   children: React.ReactNode;
-  title: string;
-  description: string;
   starter?: React.ReactNode;
 }) {
-  const content = useRef<HTMLDivElement>(null);
-  const [sections, setSections] = useState<
-    { label: string; element: HTMLElement }[]
-  >([]);
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    const root = content.current;
-    if (!root) return;
-    const scan = () => {
-      const next = [
-        ...root.querySelectorAll<HTMLElement>(".modern-field-card > h2"),
-      ].map((element) => ({
-        label: element.textContent || "Details",
-        element,
-      }));
-      setSections((previous) =>
-        previous.length === next.length &&
-        previous.every(
-          (s, i) => s.element === next[i].element && s.label === next[i].label
-        )
-          ? previous
-          : next
-      );
-    };
-    scan();
-    const observer = new MutationObserver(scan);
-    observer.observe(root, { subtree: true, childList: true });
-    return () => observer.disconnect();
-  }, []);
-
-  /*
-    The step follows the reading position. It used to change only on click, so
-    scrolling down the form left "01" lit beside the GST section — and a last
-    section too short to reach the top of the pane could never be lit at all.
-    The active step is the last heading at or above a line just under the
-    pane's top; at the end of the scroll it is the last step.
-  */
-  useEffect(() => {
-    const root = content.current;
-    if (!root || !sections.length) return;
-    let pane: HTMLElement | null = root.parentElement;
-    while (pane && !/(auto|scroll)/.test(getComputedStyle(pane).overflowY))
-      pane = pane.parentElement;
-    const target: HTMLElement | Window = pane ?? window;
-    let frame = 0;
-    const spy = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const top = pane ? pane.getBoundingClientRect().top : 0;
-        const atEnd = pane
-          ? pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 2
-          : window.innerHeight + window.scrollY >=
-            document.documentElement.scrollHeight - 2;
-        let next = 0;
-        sections.forEach((section, i) => {
-          if (section.element.getBoundingClientRect().top - top <= 120)
-            next = i;
-        });
-        if (atEnd) next = sections.length - 1;
-        setActive(next);
-      });
-    };
-    spy();
-    target.addEventListener("scroll", spy, { passive: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      target.removeEventListener("scroll", spy);
-    };
-  }, [sections]);
   return (
-    <div className="form-journey">
-      <aside className="form-journey__rail">
-        <p className="form-journey__eyebrow">IN THIS FORM</p>
-        <nav aria-label="Form sections">
-          {sections.map((section, i) => (
-            <button
-              type="button"
-              key={`${section.label}-${i}`}
-              aria-current={active === i ? "location" : undefined}
-              onClick={() => {
-                setActive(i);
-                section.element.scrollIntoView({
-                  behavior: window.matchMedia(
-                    "(prefers-reduced-motion: reduce)"
-                  ).matches
-                    ? "auto"
-                    : "smooth",
-                  block: "start",
-                });
-                section.element.tabIndex = -1;
-                section.element.focus({ preventScroll: true });
-              }}
-            >
-              <span>{String(i + 1).padStart(2, "0")}</span>
-              {section.label}
-            </button>
-          ))}
-        </nav>
-        <p className="form-journey__note">
-          Fields marked <span className="text-pi-danger">*</span> are required.
-          <br />
-          Review your details before saving.
-        </p>
-      </aside>
-      <div className="form-journey__content" ref={content}>
-        <div className="form-journey__intro">
-          <h2>{title}</h2>
-          <p>{description}</p>
-          {starter}
-        </div>
-        {children}
+    <div className="form-panel">
+      {starter ? <div className="form-panel__starter">{starter}</div> : null}
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Quick picks as a segmented control: one track, the chosen pick raised.
+ * Each option is [value, label]; `value` is what `onPick` receives.
+ */
+export function StarterPicks({
+  label,
+  options,
+  value,
+  onPick,
+}: {
+  label: string;
+  options: [string, string][];
+  value: string;
+  onPick: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="text-[13px] leading-5 text-pi-body">{label}</span>
+      <div role="group" aria-label={label} className="form-starters">
+        {options.map(([option, text]) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={value === option}
+            onClick={() => onPick(option)}
+          >
+            {text}
+          </button>
+        ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Optional groups behind one toggle, as on the bill form: the collapsed line
+ * names the groups it holds. A hidden field never hides a problem — once a
+ * field inside fails, the fold opens and stays open.
+ */
+export function MoreDetails({
+  groups,
+  children,
+}: {
+  groups: string[];
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const body = useRef<HTMLDivElement>(null);
+  // Layout effect: open before the save handler's frame looks for the first
+  // invalid field to scroll to.
+  useLayoutEffect(() => {
+    if (!open && body.current?.querySelector('[data-invalid="true"]'))
+      setOpen(true);
+  });
+  return (
+    <section className="form-more">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex h-10 w-full min-w-0 items-center gap-2 rounded-lg border border-pi-line bg-pi-head-bg px-4 text-left text-[13px] leading-5 transition-colors hover:bg-pi-row-hover"
+      >
+        <ChevronRight
+          className={cn(
+            "h-4 w-4 shrink-0 text-pi-faint transition-transform motion-reduce:transition-none",
+            open && "rotate-90"
+          )}
+        />
+        <span className="shrink-0 font-medium text-pi-ink">More details</span>
+        <span className="min-w-0 truncate text-pi-faint">
+          {groups.join(" · ")}
+        </span>
+      </button>
+      <div ref={body} hidden={!open} className="form-more__body">
+        {children}
+      </div>
+    </section>
   );
 }

@@ -1,53 +1,17 @@
 import React from "react";
+import { CalendarDays } from "@/components/icons";
 import type { Gstr2bMonthViewTableData } from "@/types/pages/inbox/gst";
 import { EmptyBlock } from "@/components/inbox/v2/banking/table-parts";
 import { TableCard } from "@/components/inbox/v2/banking/page-parts";
-import BreakdownTable, { type BreakdownGroup } from "./breakdown-table";
+import LedgerTable from "./breakdown-table";
+import { breakdownGroups } from "./vendor-view";
 
 /**
- * Month View — production's month-view: each GSTR-2B month with its invoice
- * count, taxable and tax value on both sides and the difference, then the
- * Status Breakdown, and a Total row.
+ * Month View — each GSTR-2B month on the reconciliation ledger: invoices,
+ * taxable value and tax with 2B beside PR, the tax gap, and how the month's
+ * invoices settled. The Total only appears once there is more than one
+ * month to add up.
  */
-
-const GROUPS: BreakdownGroup<Gstr2bMonthViewTableData>[] = [
-  {
-    label: "Invoice Count",
-    cols: [
-      { field: "gstr2bCount", label: "2B", kind: "count" },
-      { field: "prCount", label: "PR", kind: "count" },
-      { field: "diffCount", label: "Diff", kind: "count" },
-    ],
-  },
-  {
-    label: "Taxable Value (₹)",
-    cols: [
-      { field: "gstr2bTaxableValue", label: "2B", kind: "money" },
-      { field: "prTaxableValue", label: "PR", kind: "money" },
-      { field: "diffTaxableValue", label: "Diff", kind: "money" },
-    ],
-  },
-  {
-    label: "Tax Value (₹)",
-    cols: [
-      { field: "gstr2bTaxValue", label: "2B", kind: "money" },
-      { field: "prTaxValue", label: "PR", kind: "money" },
-      { field: "diffTaxValue", label: "Diff", kind: "money" },
-    ],
-  },
-  {
-    label: "Status Breakdown",
-    cols: [
-      { field: "matchStatusMatched", label: "Matched", kind: "count" },
-      {
-        field: "matchStatusAiProbableMatch",
-        label: "AI Probable Match",
-        kind: "count",
-      },
-      { field: "matchStatusMissing", label: "Missing", kind: "count" },
-    ],
-  },
-];
 
 type Props = {
   rows: Gstr2bMonthViewTableData[];
@@ -59,18 +23,24 @@ const MonthView = ({ rows }: Props) => {
   return (
     <TableCard>
       <div className="min-w-0 flex-1">
-        <BreakdownTable
-          lead={{ group: "GSTR-2B", label: "Month", width: 130 }}
-          groups={GROUPS}
+        <LedgerTable
+          lead={{ label: "Month", width: 168 }}
+          groups={breakdownGroups<Gstr2bMonthViewTableData>(false)}
           rows={months}
           rowKey={(r) => r.month}
           renderLead={(r) => (
             <span className="font-medium text-pi-ink">{r.month}</span>
           )}
-          total={total}
-          minWidth={1100}
+          total={months.length > 1 ? total : undefined}
+          minWidth={0}
         />
-        {!months.length && <EmptyBlock title="No months in this period" />}
+        {!months.length && (
+          <EmptyBlock
+            icon={CalendarDays}
+            title="No months in this period"
+            body="Pick a wider GSTR period to compare month by month."
+          />
+        )}
       </div>
     </TableCard>
   );

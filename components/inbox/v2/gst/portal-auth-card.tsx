@@ -1,12 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
-import {
-  AlertCircle,
-  ArrowLeft,
-  ArrowRight,
-  Lock,
-  X,
-} from "@/components/icons";
+import { ArrowLeft, ArrowRight, Lock, X } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -18,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { gst } from "@/hooks/pages/inbox/use-gst";
 import type { SavedAuthDataResponse } from "@/types/pages/inbox/gst";
-import { Field, T } from "@/components/inbox/v2/ui";
+import { Field, FieldError, T } from "@/components/inbox/v2/ui";
 
 /**
  * Portal Authentication — production's portal-auth-card: username, then the
@@ -113,7 +107,10 @@ const PortalAuthCard = ({
       </div>
 
       <div className="p-4">
-        {screen === "details" ? (
+        {/* The portal refusing API access is the username's error now
+            (7 Oct 2026): one 12px red line under the box, no pink panel —
+            and the form stays, so a retry is one click. */}
+        {screen === "details" || screen === "error" ? (
           <form
             className="flex flex-col gap-6"
             onSubmit={(e) => {
@@ -121,13 +118,25 @@ const PortalAuthCard = ({
               if (username.trim()) void requestOtp();
             }}
           >
-            <Field label="Username" htmlFor="gst-portal-username">
+            <Field
+              label="Username"
+              htmlFor="gst-portal-username"
+              error={
+                screen === "error"
+                  ? `GST API access is disabled. ${API_DISABLED_TEXT}`
+                  : undefined
+              }
+            >
               <Input
                 id="gst-portal-username"
                 placeholder="Username"
                 value={username}
                 autoComplete="username"
-                onChange={(e) => setUsername(e.target.value)}
+                aria-invalid={screen === "error" || undefined}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (screen === "error") setScreen("details");
+                }}
               />
             </Field>
             <label className="flex items-center gap-2 text-[13px] text-pi-ink">
@@ -143,9 +152,20 @@ const PortalAuthCard = ({
               loading={sending}
               disabled={!username.trim() || sending}
             >
-              Request OTP
+              {screen === "error" ? "Retry" : "Request OTP"}
               <ArrowRight aria-hidden />
             </Button>
+            {screen === "error" ? (
+              <Button asChild variant="outline" className="-mt-3 w-full">
+                <a
+                  href="https://www.gst.gov.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Go to GST Portal
+                </a>
+              </Button>
+            ) : null}
           </form>
         ) : screen === "otp" ? (
           <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-3 text-center">
@@ -161,31 +181,36 @@ const PortalAuthCard = ({
                 {gstin}
               </span>
             </div>
-            <InputOTP
-              ref={otpRef}
-              maxLength={6}
-              value={otp}
-              pattern={REGEXP_ONLY_DIGITS}
-              onChange={(next) => {
-                setOtp(next);
-                setOtpError(null);
-              }}
-              onComplete={() => undefined}
-              aria-label="One-time password"
-            >
-              <InputOTPGroup className="gap-2">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <InputOTPSlot
-                    key={i}
-                    index={i}
-                    className="fig h-10 w-9 rounded-sm border border-pi-line-2 text-base font-medium text-pi-ink first:rounded-sm first:border-l last:rounded-sm"
-                  />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
-            {otpError ? (
-              <p className="text-xs text-pi-danger">{otpError}</p>
-            ) : null}
+            {/* A code-entry row, but on the form box's metrics: 38px boxes,
+                6px radius; its error is one 12px line on the row's left edge. */}
+            <div className="flex flex-col items-start gap-2">
+              <InputOTP
+                ref={otpRef}
+                maxLength={6}
+                value={otp}
+                pattern={REGEXP_ONLY_DIGITS}
+                onChange={(next) => {
+                  setOtp(next);
+                  setOtpError(null);
+                }}
+                onComplete={() => undefined}
+                aria-label="One-time password"
+              >
+                <InputOTPGroup className="gap-2">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <InputOTPSlot
+                      key={i}
+                      index={i}
+                      className={cn(
+                        "fig h-[38px] w-9 rounded-sm border border-pi-line-2 text-base font-medium text-pi-ink first:rounded-sm first:border-l last:rounded-sm",
+                        otpError && "border-pi-danger first:border-pi-danger"
+                      )}
+                    />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+              {otpError ? <FieldError>{otpError}</FieldError> : null}
+            </div>
             <p className={cn(T.sub, "text-[12px] leading-4")}>
               Didn&apos;t receive code?
               <Button
@@ -207,37 +232,7 @@ const PortalAuthCard = ({
             </Button>
             {back}
           </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div
-              role="alert"
-              className="flex items-start gap-2 rounded-md border border-pi-danger-line bg-pi-danger-bg p-3"
-            >
-              <AlertCircle
-                className="mt-0.5 h-4 w-4 flex-none text-pi-danger"
-                aria-hidden
-              />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-medium text-pi-danger">
-                  GST API access is disabled
-                </span>
-                <span className="text-xs leading-5 text-pi-danger">
-                  {API_DISABLED_TEXT}
-                </span>
-              </div>
-            </div>
-            <Button asChild className="w-full">
-              <a
-                href="https://www.gst.gov.in"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Go to GST Portal
-              </a>
-            </Button>
-            {back}
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

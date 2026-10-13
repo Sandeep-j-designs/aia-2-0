@@ -1,6 +1,5 @@
 import React from "react";
 import { Download, EllipsisVertical, RefreshCcw } from "@/components/icons";
-import PageHeader from "../PageHeader";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -96,9 +95,16 @@ const QuickActions = ({
   );
 };
 
+/*
+ * No visible heading (8 Oct 2026, user: "I can still see the headings"): the
+ * top bar's trail already names the page, so the title is for assistive tech
+ * only and the row carries the page's actions — with its view tabs on the
+ * left when it has them (`leading`).
+ */
 const PageTopBar = ({
   title,
-  eyebrow,
+  eyebrow: _eyebrow,
+  leading,
   className,
   onBulkUpload: _onBulkUpload,
   bulkUploadIcon: _bulkUploadIcon,
@@ -106,11 +112,9 @@ const PageTopBar = ({
   ...props
 }: PageTopBarProps) => {
   return (
-    <div className={cn("flex items-end justify-between", className)}>
-      <div className="min-w-0">
-        {eyebrow ? <span className="workspace-eyebrow">{eyebrow}</span> : null}
-        <PageHeader title={title} />
-      </div>
+    <div className={cn("flex items-center justify-between", className)}>
+      <h1 className="sr-only">{title}</h1>
+      <div className="min-w-0">{leading}</div>
       <QuickActions {...props} showExportButton={showExportButton} />
     </div>
   );

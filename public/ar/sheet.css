@@ -156,7 +156,7 @@
   background:none;border:0;cursor:pointer;border-radius:3px}
 .ar-sheet .errgrp:hover{text-decoration:underline;text-decoration-color:var(--danger);
   text-underline-offset:3px}
-.ar-sheet .errgrp:focus-visible{outline:2px solid var(--danger);outline-offset:2px}
+.ar-sheet .errgrp:focus-visible{outline:2px solid var(--danger);outline-offset:2px;box-shadow:none}
 /* the count rides in a tinted well so it reads as a quantity attached to the
    name rather than a number that has wandered into the sentence */
 .ar-sheet .errgrp__n{display:inline-block;min-width:17px;padding:0 4px;border-radius:99px;
@@ -206,7 +206,7 @@
   border:1px solid var(--brand-soft);background:var(--surface);
   font:inherit;font-size:12px;font-weight:600;line-height:1;color:var(--brand-deep);cursor:pointer}
 .ar-sheet .sugsum__go:hover{background:var(--interactive)}
-.ar-sheet .sugsum__go:focus-visible{outline:2px solid var(--brand-deep);outline-offset:2px}
+.ar-sheet .sugsum__go:focus-visible{outline:2px solid var(--brand-deep);outline-offset:2px;box-shadow:none}
 /* the rule only exists between two things, so it belongs to the list and not
    to the head — an empty breakdown leaves no line hanging under the sentence */
 .ar-sheet .suglist{display:flex;flex-wrap:wrap;align-items:center;gap:2px 11px}
@@ -216,7 +216,7 @@
   background:none;border:0;cursor:pointer;border-radius:3px}
 .ar-sheet .suggrp:hover{text-decoration:underline;text-decoration-color:var(--brand-soft);
   text-underline-offset:3px}
-.ar-sheet .suggrp:focus-visible{outline:2px solid var(--brand-deep);outline-offset:2px}
+.ar-sheet .suggrp:focus-visible{outline:2px solid var(--brand-deep);outline-offset:2px;box-shadow:none}
 /* --interactive and --brand-deep, which is the pairing the sheet uses wherever
    a count or a state sits on a tint. The ground here was #f6e7ce — a hex that
    was in no token, invented to sit on a wash that is now gone. */
@@ -266,7 +266,7 @@
   background:none;border:none;border-radius:var(--radius);
   font-size:14px;line-height:22px;font-weight:600;color:var(--text-muted)}
 .ar-sheet .fcbtn:hover{color:var(--brand-deep)}
-.ar-sheet .fcbtn:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px}
+.ar-sheet .fcbtn:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;box-shadow:none}
 
 /* ------------------------------------------------------------- form card */
 .ar-sheet .card{padding:20px;border-radius:var(--radius);background:var(--bg-primary);
@@ -329,7 +329,7 @@
   background:none;border:none;border-radius:4px;color:var(--brand-deep);cursor:pointer;
 }
 .ar-sheet .fieldplus:hover{background:var(--interactive)}
-.ar-sheet .fieldplus:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px}
+.ar-sheet .fieldplus:focus-visible{outline:none;box-shadow:none;background:var(--interactive)}
 .ar-sheet input[readonly]{cursor:default}
 
 /* ---------------------------------------------------------------- switch */
@@ -601,7 +601,7 @@
    ground it disappeared, and the secondary button read as a white slab with no
    edge — so it borrows the same border the row's other in-cell control uses. */
 .ar-sheet .hsnbtn:hover{background:var(--surface);border-color:var(--brand);color:var(--brand-deep)}
-.ar-sheet .hsnbtn:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px}
+.ar-sheet .hsnbtn:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px;box-shadow:none}
 .ar-sheet .hsnbtn--yes{background:var(--brand);border-color:var(--brand);color:#fff}
 .ar-sheet .hsnbtn--yes:hover{background:var(--brand-deep);border-color:var(--brand-deep);color:#fff}
 @media (prefers-reduced-motion:reduce){.ar-sheet .hsnbtn{transition:none}}
@@ -616,7 +616,7 @@
   color:var(--brand-deep);font-size:13px;line-height:1;
 }
 .ar-sheet .predbtn:hover{background:var(--interactive)}
-.ar-sheet .predbtn:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px}
+.ar-sheet .predbtn:focus-visible{outline:none;box-shadow:none;background:var(--interactive)}
 
 /* --------------------------------------------------------- the row's chips
    What a prediction says about itself on the row, beyond the tag and the
@@ -647,7 +647,7 @@
   width:16px;height:16px;margin-left:-5px;padding:0;background:none;border:none;
 }
 .ar-sheet .preddot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--brand)}
-.ar-sheet .preddot:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px;border-radius:50%}
+.ar-sheet .preddot:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px;border-radius:50%;box-shadow:none}
 
 /* ---------------------------------------------------------- the full reason
    Demoted, not deleted. Everything the reason line used to say is here, in the
@@ -1029,7 +1029,7 @@
   color:var(--text-muted);transition:color .12s ease,opacity .12s ease;
 }
 .ar-sheet .bd-tog:hover{color:var(--brand-deep)}
-.ar-sheet .bd-tog:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:3px}
+.ar-sheet .bd-tog:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:3px;box-shadow:none}
 /* The plus is the same grey as the chevron it stands in for and the bin it
    stands beside — the component draws all three marks in icon-secondary, and a
    plus in the brand ink would be the loudest thing in a sheet whose subject is
@@ -1245,7 +1245,7 @@
   color:var(--text-muted);transition:color .12s ease;
 }
 .ar-sheet .bd-del:hover{color:var(--danger)}
-.ar-sheet .bd-del:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:3px}
+.ar-sheet .bd-del:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:3px;box-shadow:none}
 
 /* --- the ledger tooltip ------------------------------------------------
    A ledger box is 108px and most names in this book are longer than that, so
@@ -1494,7 +1494,7 @@
   font:inherit;font-size:12px;line-height:16px;color:var(--text-muted);
   cursor:pointer;white-space:nowrap;border-radius:3px}
 .ar-sheet .abd__drop:hover{color:var(--text);text-decoration:underline;text-underline-offset:2px}
-.ar-sheet .abd__drop:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px}
+.ar-sheet .abd__drop:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;box-shadow:none}
 .ar-sheet .abd__foot-note{margin:0;font-size:12px;line-height:18px;color:var(--text-muted)}
 .ar-sheet .nmd__body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px}
 .ar-sheet .nmd__f{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -1546,7 +1546,7 @@
   font-size:14px;font-weight:600;line-height:22px;cursor:pointer}
 .ar-sheet .nmd__seg button + button{border-left:1px solid var(--brand-soft)}
 .ar-sheet .nmd__seg button[aria-pressed="true"]{background:var(--bg-secondary);color:var(--brand-deep)}
-.ar-sheet .nmd__seg button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:-2px}
+.ar-sheet .nmd__seg button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:-2px;box-shadow:none}
 /* A switch answers its own label, so it sits on the label's line rather than
    under it in a 40px box built for text. */
 .ar-sheet .nmd__f--switch{flex-direction:row;align-items:center;justify-content:space-between;gap:16px;
@@ -1593,7 +1593,7 @@
   border:1px dashed var(--brand-soft);border-radius:var(--radius);background:var(--surface);
   font:inherit;font-size:14px;line-height:22px;color:var(--text);cursor:pointer}
 .ar-sheet .nmd__sub:hover{border-color:var(--brand-deep)}
-.ar-sheet .nmd__sub:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px}
+.ar-sheet .nmd__sub:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px;box-shadow:none}
 .ar-sheet .nmd__f.is-invalid .nmd__sub{border-color:var(--danger)}
 /* Tax types are a set, not a choice of one, so they are drawn as a set — four
    answers each of which is on or off, rather than a dropdown that can only ever
@@ -1604,7 +1604,7 @@
   color:var(--text-muted);cursor:pointer}
 .ar-sheet .nmd__chips button[aria-pressed="true"]{background:var(--bg-secondary);
   border-color:var(--brand-deep);color:var(--brand-deep)}
-.ar-sheet .nmd__chips button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px}
+.ar-sheet .nmd__chips button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:1px;box-shadow:none}
 .ar-sheet #st-dialog{max-width:min(560px,94vw);border:1px solid var(--stroke);
   border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,.09)}
 /* The company's own switches. Bottom left, out of the way of everything the
@@ -1623,7 +1623,7 @@
 /* --- allocating a line across cost centres -----------------------------
    Wider than the ledger pickers because it is a working, not a question:
    one block per category, each one dividing the same amount to 100%. */
-.ar-sheet #cc-dialog{max-width:min(760px,94vw);border:1px solid var(--stroke);border-radius:var(--radius);
+.ar-sheet #cc-dialog, .ar-sheet #gd-dialog{max-width:min(760px,94vw);border:1px solid var(--stroke);border-radius:var(--radius);
   box-shadow:0 4px 12px rgba(0,0,0,.09)}
 .ar-sheet .ccx{display:flex;flex-direction:column;max-height:86vh}
 .ar-sheet .ccx__head{
@@ -1687,6 +1687,7 @@
 .ar-sheet .ccx__add--cat{font-size:14px;padding:18px 0 6px}
 .ar-sheet .ccx__warn{margin-right:auto;max-width:46ch;font-size:12px;line-height:16px;font-weight:600;color:var(--danger)}
 .ar-sheet .ccx__warn[hidden]{display:none}
+.ar-sheet .ccc__line{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600;color:var(--text)}
 
 /* --- bill-wise allocation -----------------------------------------------
    Still the widest dialog here, because a reference is six answers on one line
@@ -1770,7 +1771,7 @@
 }
 .ar-sheet .fcd__nav button:hover{background:var(--bg-primary)}
 .ar-sheet .fcd__nav button[aria-selected="true"]{background:var(--interactive);color:var(--brand-deep)}
-.ar-sheet .fcd__nav button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:-2px}
+.ar-sheet .fcd__nav button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:-2px;box-shadow:none}
 /* the count earns its place: it is what the nav cannot say with a label alone */
 .ar-sheet .fcd__n{float:right;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;opacity:.7}
 .ar-sheet .fcd__panel{padding:16px 24px 20px;overflow:auto;min-height:340px}
@@ -1814,6 +1815,29 @@
   background:var(--surface);
 }
 .ar-sheet .addl[hidden]{display:none}
+.ar-sheet .xf-slot{display:contents}
+.ar-sheet .xf-empty{grid-column:1/-1;margin:0;font-size:13px;color:var(--text-muted)}
+.ar-sheet .xf-tax-note{margin:4px 0 0;font-size:12px;line-height:18px;color:var(--warning,#b45309)}
+.ar-sheet .xf-tax-note[hidden]{display:none}
+.ar-sheet .xf-note-btn{margin-left:4px;padding:0;border:0;background:none;font:inherit;font-weight:600;color:var(--brand);cursor:pointer}
+.ar-sheet .afd--single .afd__nav, .ar-sheet .afd--single .afg{display:none}
+.ar-sheet .afd--single .afd__body{grid-template-columns:minmax(0,1fr)}
+.ar-sheet .afd--single .afd__panel{grid-column:1/-1}
+.ar-sheet .xf-summary{display:flex;align-items:center;gap:12px;width:100%;text-align:left;cursor:pointer}
+.ar-sheet .xf-summary__text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ar-sheet .xf-summary__text.is-empty{color:var(--text-muted)}
+.ar-sheet .xf-summary__act{flex:none;font-size:13px;font-weight:500;color:var(--brand)}
+/* a group opened in place, under its row: tinted, notched to the row */
+.ar-sheet .xf-inline{grid-column:1/-1;position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 20px;align-items:start;padding:12px 16px 16px;border:1px solid var(--stroke);border-radius:8px;background:var(--bg-secondary)}
+.ar-sheet .xf-inline::before{content:"";position:absolute;top:-6px;left:var(--xf-notch,24px);width:10px;height:10px;border-top:1px solid var(--stroke);border-left:1px solid var(--stroke);background:var(--bg-secondary);transform:rotate(45deg)}
+.ar-sheet .xf-inline .t-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ar-sheet .xf-req[hidden]{display:none}
+.ar-sheet .xf-req{margin-left:6px;font-size:12px;font-weight:400;color:var(--text-muted)}
+.ar-sheet .xf-inline .field__error:empty{display:none}
+.ar-sheet .xf-section[hidden]{display:none}
+.ar-sheet .xf-section{margin-top:16px}
+.ar-sheet .fcd__nm{display:flex;flex-direction:column;gap:2px;text-align:left}
+.ar-sheet .fcd__where{font-size:12px;font-weight:400;color:var(--text-muted)}
 /* the same red edge every invalid control on the sheet gets, so an unfinished
    pair inside the dialog reads as the same kind of problem from outside it */
 .ar-sheet .addl.is-invalid{border-color:var(--danger);background:var(--danger-wash)}
@@ -1827,7 +1851,7 @@
   font-size:14px;line-height:20px;font-weight:600;color:var(--brand-deep);
 }
 .ar-sheet .addl__btn:hover{text-decoration:underline}
-.ar-sheet .addl__btn:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px}
+.ar-sheet .addl__btn:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;box-shadow:none}
 
 /* --- the additional fields dialog ---------------------------------------
    Same two-column shape as Field Configuration, and deliberately so: the
@@ -1852,7 +1876,7 @@
 }
 .ar-sheet .afd__nav button:hover{background:var(--bg-primary)}
 .ar-sheet .afd__nav button[aria-selected="true"]{background:var(--interactive);color:var(--brand-deep)}
-.ar-sheet .afd__nav button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:-2px}
+.ar-sheet .afd__nav button:focus-visible{outline:2px solid var(--brand-soft);outline-offset:-2px;box-shadow:none}
 .ar-sheet .afd__panel{padding:20px 24px 24px;overflow:auto;min-height:380px}
 
 /* what the invoice already says, so the consignee is entered against it rather
@@ -1865,7 +1889,7 @@
   font-size:14px;line-height:20px;font-weight:400;color:var(--text-muted);
 }
 .ar-sheet .fyb__toggle:hover{color:var(--text)}
-.ar-sheet .fyb__toggle:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:var(--radius)}
+.ar-sheet .fyb__toggle:focus-visible{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:var(--radius);box-shadow:none}
 /* the chevron points at what pressing it does: up to fold the card away,
    down to bring it back */
 .ar-sheet .fyb__toggle .ico{transition:transform .15s ease}

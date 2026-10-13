@@ -35,8 +35,10 @@ export type QuickActionsProps = {
 
 export type PageTopBarProps = QuickActionsProps & {
   title: string;
-  /** Precision Indigo workspace eyebrow above the title, e.g. "Workspace". */
+  /** Accepted and ignored: the top bar's trail names the section (8 Oct 2026). */
   eyebrow?: string;
+  /** The left of the actions' row: the page's view tabs, when it has them. */
+  leading?: ReactNode;
   onBulkUpload?: () => void;
   bulkUploadIcon?: LucideIcon;
   className?: string;

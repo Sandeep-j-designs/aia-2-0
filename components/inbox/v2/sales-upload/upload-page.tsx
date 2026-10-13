@@ -1,12 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  ArrowRight,
-  Check,
-  Download,
-  FileSpreadsheet,
-  Lightbulb,
-  X,
-} from "@/components/icons";
+import React, { useEffect, useId, useRef, useState } from "react";
+import { ArrowRight, Download, FileSpreadsheet, X } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ComboBox } from "@/components/common/combo-box";
 import {
@@ -26,16 +19,17 @@ import {
   formatFileSize,
   getArImportFileType,
 } from "@/utils/pages/inbox/sales-upload";
-import { DropFileGlyph } from "../bill-splitter/glyphs";
-import s from "../bill-splitter/split-dialogs.module.css";
-import { T } from "../ui";
+import { Field, T } from "../ui";
 import { FlowHeader } from "./common";
 
 /**
  * Upload Invoice — production's BulkUploadPage: one spreadsheet, an optional
- * saved mapping template, then on to mapping. The drop zone is Split
- * Purchases' (dashed edge, file glyph, browse link) rather than production's,
- * so the two upload surfaces in the prototype are one design.
+ * saved mapping template, then on to mapping.
+ *
+ * One card, one column (7 Oct 2026, user: "too complicated and bloated, keep
+ * it simple and sharp"). The spreadsheet stage, mono captions, callout and
+ * Page Tips strip are gone; a code-drawn folder is the one picture, and it
+ * reacts — opens on drag-over, holds a sheet once a file is picked.
  */
 
 type Props = {
@@ -47,12 +41,6 @@ type Props = {
     kind?: "success" | "error" | "warning" | "info"
   ) => void;
 };
-
-const cx = (...names: (string | false | undefined)[]) =>
-  names
-    .filter(Boolean)
-    .map((name) => s[name as string])
-    .join(" ");
 
 const UploadPage = ({ company, onMapping, onExit, notify }: Props) => {
   const input = useRef<HTMLInputElement>(null);
@@ -133,153 +121,113 @@ const UploadPage = ({ company, onMapping, onExit, notify }: Props) => {
     notify(`${key.label} template downloaded.`);
   };
 
-  const phase = submitting ? "reading" : over ? "drag" : file ? "ready" : "idle";
+  const folder = over ? "open" : file ? "filled" : "idle";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-pi-page">
       <FlowHeader title="Upload Sales" onClose={onExit} step={0} />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-[1240px] flex-col px-[var(--inset-page)] pb-8">
-          {/* The reference upload studio: the document stage on the left,
-              the control panel on the right, one card. */}
-          <div
-            className={cn(
-              "grid overflow-hidden rounded-lg border bg-background shadow-table transition-[border-color,box-shadow] duration-200 motion-reduce:transition-none lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.95fr)]",
-              over
-                ? "border-pi-brand-vivid shadow-[0_0_0_4px_var(--pi-brand-tint)]"
-                : "border-pi-line"
-            )}
-          >
-            <SheetStage phase={phase} fileName={file?.name} />
-
-            <div className="flex min-w-0 flex-col justify-center gap-5 p-6 sm:p-8">
-              <div>
-                <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-pi-faint">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "size-[5px] rounded-full",
-                      file ? "bg-pi-success-dot" : "bg-pi-brand"
-                    )}
-                  />
-                  {file ? "File ready" : "Sales register import"}
-                </span>
-                <h2 className="mt-3 text-[28px] font-medium leading-[1.17] tracking-[-0.02em] text-pi-ink">
-                  Bring your sales register.
-                  <br />
-                  We&apos;ll map the columns.
+        <div className="mx-auto flex w-full max-w-[1240px] flex-col px-[var(--inset-page)] pb-10">
+          {/* The card spans the header's width so it sits under the title
+              and stepper; the content is one centred column inside it. */}
+          <div className="rounded-lg border border-pi-line bg-background px-6 py-8 shadow-table sm:py-10">
+            <div className="mx-auto flex w-full max-w-[620px] flex-col gap-6">
+              {/* The whole zone is the target: drop on it, or click to browse.
+                With a file in, a click replaces it and × clears it. */}
+              <div
+                role="button"
+                tabIndex={submitting ? -1 : 0}
+                aria-label={file ? "Replace selected file" : "Choose file"}
+                className={cn(
+                  "group/zone flex cursor-pointer flex-col items-center rounded-lg border border-dashed px-6 pb-8 pt-10 text-center transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                  over
+                    ? "border-pi-brand-vivid bg-pi-brand-tint"
+                    : "border-pi-line-2 bg-pi-page hover:border-pi-brand-border"
+                )}
+                onClick={() => !submitting && input.current?.click()}
+                onKeyDown={(e) => {
+                  if (submitting) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    input.current?.click();
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!submitting) setOver(true);
+                }}
+                onDragLeave={(e) => {
+                  // Moving onto a child fires dragleave too; only leaving the
+                  // zone itself closes the folder.
+                  if (!e.currentTarget.contains(e.relatedTarget as Node))
+                    setOver(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setOver(false);
+                  if (!submitting) take(e.dataTransfer.files);
+                }}
+              >
+                <FolderArt state={folder} />
+                <h2 className="mt-5 text-[18px] font-medium leading-7 text-pi-ink">
+                  {over
+                    ? "Release to add your file"
+                    : "Upload your sales register"}
                 </h2>
-                <p className="mt-3 max-w-[360px] text-[13px] leading-[1.6] text-pi-body">
-                  One spreadsheet per upload. You map its columns and review
-                  every row before any invoice is created.
-                </p>
-              </div>
-
-              <div className={cx("scope")}>
                 {file ? (
-                  <div className="relative">
-                    {/* Production: the filled zone stays the target — click to
-                        replace the file, × to clear it. */}
-                    <div
-                      role="button"
-                      tabIndex={submitting ? -1 : 0}
-                      aria-label="Replace selected file"
-                      className={cn(
-                        cx("dz"),
-                        "cursor-pointer flex-col gap-2 border-solid"
-                      )}
-                      onClick={() => !submitting && input.current?.click()}
-                      onKeyDown={(e) => {
-                        if (submitting) return;
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          input.current?.click();
-                        }
-                      }}
-                    >
-                      <span className={cx("dz__ico")} aria-hidden>
-                        <FileSpreadsheet className="!size-[18px]" />
-                      </span>
-                      <p className="max-w-full break-all px-8 text-center text-[14px] font-medium leading-5 text-pi-ink">
-                        {file.name}
-                      </p>
-                      <p className="inline-flex items-center gap-2 text-[12px] leading-4 text-pi-faint">
-                        <span className="tabular-nums">
-                          {formatFileSize(file.size)}
-                        </span>
-                        <span
-                          aria-hidden
-                          className="size-[7px] rounded-full border-2 border-pi-success-dot"
-                        />
-                        Ready to process
-                      </p>
-                    </div>
+                  <span className="mt-3 inline-flex max-w-full items-center gap-2 rounded-md border border-pi-line bg-background py-1 pl-3 pr-1 text-[13px] leading-5 shadow-contact">
+                    <FileSpreadsheet
+                      className="size-4 flex-none text-pi-brand"
+                      aria-hidden
+                    />
+                    <span className="truncate font-medium text-pi-ink">
+                      {file.name}
+                    </span>
+                    <span className="flex-none tabular-nums text-pi-faint">
+                      {formatFileSize(file.size)}
+                    </span>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="icon-xs"
                       aria-label="Remove selected file"
                       disabled={submitting}
-                      onClick={() => setFile(null)}
-                      className="absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 rounded-full bg-background text-pi-faint hover:text-pi-ink"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFile(null);
+                      }}
+                      className="text-pi-faint hover:text-pi-ink"
                     >
                       <X />
                     </Button>
-                  </div>
+                  </span>
                 ) : (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Choose file"
-                    className={cn(
-                      cx("dz", over && "is-over"),
-                      "cursor-pointer flex-col gap-3 text-center"
-                    )}
-                    onClick={() => input.current?.click()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        input.current?.click();
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setOver(true);
-                    }}
-                    onDragLeave={() => setOver(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setOver(false);
-                      take(e.dataTransfer.files);
-                    }}
-                  >
-                    <span className={cx("dz__ico")} aria-hidden>
-                      <DropFileGlyph />
+                  <p className="mt-1 text-[14px] leading-5 text-pi-body">
+                    Drop a spreadsheet here or{" "}
+                    <span className="font-medium text-pi-brand underline-offset-4 group-hover/zone:underline">
+                      browse
                     </span>
-                    <div className={cn(cx("dz__txt"), "items-center")}>
-                      <p className={cx("dz__h")}>
-                        Drop your invoice file here{" "}
-                        <span className={cx("link")}>or click to browse</span>
-                      </p>
-                      <p className={cx("dz__p")}>CSV, XLS, XLSX • max 30MB</p>
-                    </div>
-                  </div>
+                  </p>
                 )}
-                <input
-                  ref={input}
-                  type="file"
-                  accept={AR_IMPORT_ACCEPT_VALUE}
-                  hidden
-                  data-testid="sales-upload-input"
-                  onChange={(e) => {
-                    take(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
+                <p className="mt-2 text-[12px] leading-4 text-pi-faint">
+                  {file
+                    ? "Click to replace. You’ll match its columns next."
+                    : "CSV, XLS or XLSX · up to 30 MB · one file per upload"}
+                </p>
               </div>
+              <input
+                ref={input}
+                type="file"
+                accept={AR_IMPORT_ACCEPT_VALUE}
+                hidden
+                data-testid="sales-upload-input"
+                onChange={(e) => {
+                  take(e.target.files);
+                  e.target.value = "";
+                }}
+              />
 
               {templates.length > 0 && (
-                <section className="flex flex-col gap-2">
-                  <span className={T.label}>Load a saved mapping template</span>
+                <Field label="Use a saved mapping" optional>
                   <ComboBox
                     title="Select a saved template"
                     options={templates.map((t) => ({
@@ -293,214 +241,152 @@ const UploadPage = ({ company, onMapping, onExit, notify }: Props) => {
                     isMultiSelect={false}
                     hasSearch={false}
                     disabled={submitting}
+                    // ComboBox's trigger has no role="combobox", so the
+                    // .modern-field rule misses it: the form box by hand.
+                    triggerClassName="h-[38px] px-3 text-[14px]"
                   />
                   <p className={T.sub}>
-                    If this file matches a structure you&apos;ve mapped before,
-                    select the template to prefill mapping before preview.
+                    Prefills the columns if this file matches one you&apos;ve
+                    mapped before.
                   </p>
-                </section>
+                </Field>
               )}
 
-              <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-                <section className="flex flex-col gap-2">
-                  <span className="text-[12px] leading-4 text-pi-faint">
-                    Don&apos;t have your own file? Download a sample template
-                  </span>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    {AR_IMPORT_SAMPLE_TEMPLATES.map((template) => (
-                      <button
-                        key={template.downloadKey}
-                        type="button"
-                        onClick={() => download(template)}
-                        className="group inline-flex items-center gap-2 rounded-xs text-[12px] leading-5 text-pi-body transition-colors hover:text-pi-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
-                      >
-                        <Download className="size-3.5" aria-hidden />
-                        {template.label}
-                      </button>
-                    ))}
-                  </div>
-                </section>
+              <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-t border-pi-line pt-6">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] leading-5">
+                  <span className="text-pi-faint">Need a sample?</span>
+                  {AR_IMPORT_SAMPLE_TEMPLATES.map((template) => (
+                    <button
+                      key={template.downloadKey}
+                      type="button"
+                      onClick={() => download(template)}
+                      className="inline-flex items-center gap-1 rounded-xs text-pi-body transition-colors hover:text-pi-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                    >
+                      <Download className="size-3.5" aria-hidden />
+                      {template.label}
+                    </button>
+                  ))}
+                </div>
                 <Button
                   onClick={onContinue}
                   disabled={!file}
                   loading={submitting}
-                  className="min-w-48"
                 >
-                  {submitting ? "Preparing upload..." : "Continue to Mapping"}
+                  {submitting ? "Preparing upload..." : "Continue to mapping"}
                   <ArrowRight aria-hidden />
                 </Button>
               </div>
             </div>
           </div>
-
-          {/* Page Tips, as the reference's process notes under the studio. */}
-          <section
-            aria-labelledby="sales-upload-tips"
-            className="mt-5 grid gap-x-6 gap-y-3 border-t border-pi-line px-0.5 pt-5 sm:grid-cols-[auto_repeat(3,minmax(0,1fr))]"
-          >
-            <h2
-              id="sales-upload-tips"
-              className="flex items-center gap-2 text-[12px] font-medium leading-5 text-pi-body"
-            >
-              <Lightbulb className="size-3.5 text-pi-faint" aria-hidden />
-              Page Tips
-            </h2>
-            {[
-              "Sync ledgers & customers before upload for auto-matching",
-              "Use standard date formats (e.g., DD/MM/YYYY or YYYY-MM-DD)",
-              "Download a sample template if you need the expected column structure.",
-            ].map((tip, i) => (
-              <p
-                key={tip}
-                className="flex gap-3 text-[12px] leading-5 text-pi-faint"
-              >
-                <span className="code flex-none pt-px text-[12px] text-pi-faint">
-                  0{i + 1}
-                </span>
-                {tip}
-              </p>
-            ))}
-          </section>
         </div>
       </div>
     </div>
   );
 };
 
-/* ------------------------------------------------------------ the stage
-   The reference DocumentStage, drawn for a spreadsheet: a code-drawn sales
-   register on the workbench navy (global .source-stage), the column the
-   mapping will read first lit. Decorative; the panel carries the meaning. */
+/* ----------------------------------------------------------- the folder
+   Drawn in code after the reference folder icon, in brand indigo: back
+   panel with its tab, a sheet, the front panel. Idle it sits closed; on
+   drag-over the front dips and the sheet rises; with a file in, the
+   sheet stands proud and shows a spreadsheet grid. Decorative. */
 
-const SHEET_HEAD = ["Date", "Invoice No", "Customer", "Taxable", "GST"];
-const SHEET_ROWS = [
-  ["01/09", "SOR/0412", "Sri Lakshmi Traders", "86,000", "4,300"],
-  ["02/09", "SOR/0413", "Annapoorna Wholesale", "66,250", "3,312"],
-  ["02/09", "SOR/0414", "Chennai Oil Depot", "34,800", "1,740"],
-  ["05/09", "SOR/0416", "Vijaya Provisions", "1,12,400", "5,620"],
-  ["06/09", "SOR/0417", "Malabar Foods", "48,900", "2,445"],
-  ["09/09", "SOR/0419", "Hotel Mayura Group", "72,150", "3,607"],
-];
+const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
-const SheetStage = ({
-  phase,
-  fileName,
-}: {
-  phase: "idle" | "drag" | "ready" | "reading";
-  fileName?: string;
-}) => {
-  const lit = phase === "ready" || phase === "reading";
+const FolderArt = ({ state }: { state: "idle" | "open" | "filled" }) => {
+  const id = useId().replace(/:/g, "");
+  const motion = {
+    transition: `transform 320ms ${EASE}`,
+    transformBox: "fill-box" as const,
+  };
   return (
-    <div
+    <svg
+      viewBox="0 0 120 96"
+      className="h-[100px] w-[125px] overflow-visible drop-shadow-[0_6px_10px_rgba(49,70,176,0.18)] [&_*]:motion-reduce:!transition-none"
       aria-hidden
-      className="source-stage group/stage relative isolate flex min-h-[300px] flex-col justify-between overflow-hidden p-6 lg:min-h-[480px]"
     >
-      <div className="code flex items-center justify-between gap-4 text-[12px] tracking-[0.08em] text-pi-faint">
-        <span className="flex items-center gap-2">
-          <FileSpreadsheet className="size-3.5" />
-          SALES REGISTER INTAKE
-        </span>
-        <span className="rounded-xs border border-pi-line px-2 py-1 text-[9px]">
-          {phase === "reading"
-            ? "READING"
-            : phase === "ready"
-              ? "FILE SELECTED"
-              : phase === "drag"
-                ? "RELEASE"
-                : "READY"}
-        </span>
-      </div>
-
-      <div className="relative mx-auto my-6 w-[min(100%,360px)]">
-        {/* the sheets behind */}
-        <span className="absolute inset-0 translate-x-2 translate-y-1 rotate-[7deg] rounded-xs bg-[var(--palette-neutral-200)] shadow-pi-2" />
-        <span className="absolute inset-0 -translate-x-1 rotate-[2.5deg] rounded-xs bg-[var(--palette-neutral-100)]" />
-        <div
-          className={cn(
-            "relative rounded-xs bg-[var(--palette-neutral-0)] p-3 text-[var(--palette-neutral-700)] shadow-pi-2 transition-transform duration-500 motion-reduce:transition-none",
-            phase === "idle"
-              ? "-rotate-3 group-hover/stage:-translate-y-1 group-hover/stage:-rotate-2"
-              : "rotate-0"
-          )}
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[9px] font-semibold tracking-[0.04em]">
-              SALES REGISTER · SEP 2026
-            </span>
-            <span className="code text-[8px] text-[var(--palette-neutral-500)]">
-              Sheet1
-            </span>
-          </div>
-          <div className="grid grid-cols-[0.8fr_1fr_1.7fr_1fr_0.8fr] overflow-hidden rounded-[2px] border border-[var(--palette-neutral-100)] text-[8px] leading-[18px]">
-            {SHEET_HEAD.map((h, c) => (
-              <span
-                key={h}
-                className={cn(
-                  "truncate border-b border-r border-[var(--palette-neutral-100)] px-2 font-semibold last:border-r-0",
-                  lit && c === 2
-                    ? "bg-[var(--palette-blue-100)] text-[var(--palette-blue-700)]"
-                    : "bg-[var(--palette-neutral-50)]"
-                )}
-              >
-                {h}
-              </span>
-            ))}
-            {SHEET_ROWS.flatMap((row, r) =>
-              row.map((v, c) => (
-                <span
-                  key={`${r}-${c}`}
-                  className={cn(
-                    "truncate border-r border-[var(--palette-neutral-100)] px-2 last:border-r-0 [&:nth-child(5n)]:border-r-0",
-                    r < SHEET_ROWS.length - 1 &&
-                      "border-b border-[var(--palette-neutral-50)]",
-                    c >= 3 && "text-right tabular-nums",
-                    lit &&
-                      c === 2 &&
-                      "bg-[var(--palette-blue-50)] text-[var(--palette-blue-700)]"
-                  )}
-                >
-                  {v}
-                </span>
-              ))
-            )}
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[7px] tracking-[0.06em] text-[var(--palette-neutral-400)]">
-            <span>SAMPLE FILE</span>
-            <span className="tabular-nums">25 ROWS</span>
-          </div>
-        </div>
-
-        {/* the callout, as the reference's */}
-        <div className="absolute -bottom-7 right-[-12px] flex min-w-[200px] max-w-[260px] items-center gap-3 rounded-md border border-pi-line bg-background px-4 py-3 shadow-pi-2">
-          <span className="grid size-[30px] flex-none place-items-center rounded-sm bg-pi-fill text-pi-ink">
-            {lit ? (
-              <Check className="size-4" />
-            ) : (
-              <FileSpreadsheet className="size-4" />
-            )}
-          </span>
-          <span className="min-w-0">
-            <b className="block truncate text-[12px] font-medium text-pi-ink">
-              {phase === "reading"
-                ? "Reading the header row"
-                : phase === "ready"
-                  ? (fileName ?? "File selected")
-                  : phase === "drag"
-                    ? "Ready to receive"
-                    : "One spreadsheet per upload"}
-            </b>
-            <small className="mt-0.5 block text-[9px] text-pi-faint">
-              {lit ? "Columns map in the next step" : "CSV, XLS or XLSX"}
-            </small>
-          </span>
-        </div>
-      </div>
-
-      <div className="code flex items-center justify-between gap-4 text-[9px] tracking-[0.03em] text-pi-faint">
-        <span>SPREADSHEET → SALES VOUCHERS</span>
-        <span>{lit ? "01 / 03" : "CSV · XLS · XLSX"}</span>
-      </div>
-    </div>
+      <defs>
+        <linearGradient id={`${id}b`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--palette-blue-300)" />
+          <stop offset="1" stopColor="var(--palette-blue-400)" />
+        </linearGradient>
+        <linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--palette-blue-200)" />
+          <stop offset="1" stopColor="var(--palette-blue-300)" />
+        </linearGradient>
+      </defs>
+      {/* back panel and tab */}
+      <path
+        d="M8 16a8 8 0 0 1 8-8h24a8 8 0 0 1 6.2 3l4.6 5.6a8 8 0 0 0 6.2 3H104a8 8 0 0 1 8 8V80a8 8 0 0 1-8 8H16a8 8 0 0 1-8-8Z"
+        fill={`url(#${id}b)`}
+      />
+      {/* the sheet */}
+      <g
+        style={{
+          ...motion,
+          transform:
+            state === "open"
+              ? "translateY(-12px)"
+              : state === "filled"
+                ? "translateY(-7px)"
+                : "translateY(0)",
+        }}
+      >
+        <rect x="18" y="22" width="84" height="50" rx="4" fill="#fff" />
+        {state === "filled" ? (
+          <g fill="var(--palette-blue-100)">
+            <rect
+              x="26"
+              y="29"
+              width="68"
+              height="6"
+              rx="1.5"
+              fill="var(--palette-blue-200)"
+            />
+            <rect x="26" y="38" width="20" height="4" rx="1" />
+            <rect x="50" y="38" width="20" height="4" rx="1" />
+            <rect x="74" y="38" width="20" height="4" rx="1" />
+            <rect x="26" y="45" width="20" height="4" rx="1" />
+            <rect x="50" y="45" width="20" height="4" rx="1" />
+            <rect x="74" y="45" width="20" height="4" rx="1" />
+          </g>
+        ) : (
+          <g fill="var(--palette-blue-100)">
+            <rect x="26" y="30" width="40" height="4" rx="2" />
+            <rect x="26" y="38" width="56" height="4" rx="2" />
+          </g>
+        )}
+      </g>
+      {/* front panel: hinges at its bottom edge */}
+      <g
+        style={{
+          ...motion,
+          transformOrigin: "50% 100%",
+          transform:
+            state === "open"
+              ? "scaleY(0.84) skewX(-3deg)"
+              : "scaleY(1) skewX(0deg)",
+        }}
+      >
+        <rect
+          x="8"
+          y="32"
+          width="104"
+          height="56"
+          rx="8"
+          fill={`url(#${id}f)`}
+        />
+        <rect
+          x="8.5"
+          y="32.5"
+          width="103"
+          height="55"
+          rx="7.5"
+          fill="none"
+          stroke="#fff"
+          strokeOpacity="0.45"
+        />
+      </g>
+    </svg>
   );
 };
 

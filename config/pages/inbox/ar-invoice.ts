@@ -1,4 +1,6 @@
 import type { Item } from "@/components/inbox/v2/store";
+import { itemFigures, routeOfLine } from "./line-route";
+import { partyNamed } from "./mock-parties";
 
 /**
  * What the inbox hands the AR sales invoice sheet.
@@ -26,14 +28,25 @@ export type ArSeedLine = {
   amount: number;
   /** Percent. The sheet recomputes the tax; this is the rate to compute at. */
   gst: number;
-  /** An income or sales ledger, as printed. "" when the document named none. */
-  ledger: string;
+  /** Goods are item lines, services ledger lines. See `routeOfLine`. */
+  route: "item" | "ledger";
+  /** Item lines only: left "" so the sheet predicts the stock item. */
+  item?: string;
+  qty?: number;
+  rate?: number;
+  unit?: string;
+  /** Ledger lines only: an income ledger, as printed. "" when none. */
+  ledger?: string;
 };
 
 export type ArSeedDocument = {
+  /** The voucher type by name ("Sales", "Credit Note"…); the sheet maps it. */
+  voucherType?: string;
   customerName: string;
   customerGstin: string;
   customerPan: string;
+  /** As printed on the invoice; seeds a customer master the book lacks. */
+  customerAddress?: string;
   voucherNo: string;
   invoiceDate: string;
   dueDate: string;
@@ -55,7 +68,10 @@ export type ArSeedDocument = {
  * 0.25, 3, 5, 12, 18, 28 — so a rupee of rounding in the upload cannot turn 18
  * into 17.98 and leave the sheet without a tax master to match.
  */
-const rateFrom = (subTotal: number, taxes: Record<string, number | undefined>) => {
+const rateFrom = (
+  subTotal: number,
+  taxes: Record<string, number | undefined>
+) => {
   const charged = Object.values(taxes || {}).reduce<number>(
     (sum, v) => sum + (v || 0),
     0
@@ -69,6 +85,10 @@ export const arDocumentFor = (item: Item): ArSeedDocument | null => {
   if (!invoice) return null;
 
   const gst = rateFrom(invoice.subTotal, invoice.taxes);
+  // The buyer block as our own invoice printed it (8 Oct 2026): the GSTIN
+  // and address are on the paper, so a customer the book lacks is proposed
+  // with them rather than as a bare name.
+  const printed = partyNamed(invoice.customer || item.original.customer);
 
   return {
     /*
@@ -77,20 +97,32 @@ export const arDocumentFor = (item: Item): ArSeedDocument | null => {
       header, and re-seeding the sheet with what the file said would quietly
       undo that.
     */
+    voucherType: item.form.voucherType,
     customerName: item.form.party || invoice.customer,
-    customerGstin: "",
-    customerPan: "",
+    customerGstin: printed?.gstin || "",
+    customerPan: printed?.gstin.slice(2, 12) || "",
+    customerAddress: printed?.address || "",
     voucherNo: item.form.voucherNo || invoice.voucherNo,
     invoiceDate: item.form.date || invoice.invoiceDate,
     dueDate: item.form.due || invoice.dueDate,
     narration: item.form.narration || "",
-    lines: (invoice.items || []).map((line) => ({
-      text: line.desc,
-      /* Our own invoice upload carries no HSN column. The sheet predicts one. */
-      hsn: "",
-      amount: line.amount,
-      gst,
-      ledger: line.ledger || "",
-    })),
+    /*
+      Goods as item lines, services as ledger lines — the same rule as AP
+      (`routeOfLine`). A sales invoice for tins of oil is stock going out, and
+      the item column has to say which stock.
+    */
+    lines: (invoice.items || []).map((line) => {
+      const route = routeOfLine(line.desc, line);
+      return {
+        text: line.desc,
+        hsn: line.hsn || "",
+        amount: line.amount,
+        gst,
+        route,
+        ...(route === "item"
+          ? { item: "", ...itemFigures(line.amount, line) }
+          : { ledger: line.ledger || "" }),
+      };
+    }),
   };
 };

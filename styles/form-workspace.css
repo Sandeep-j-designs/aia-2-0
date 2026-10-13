@@ -1,7 +1,8 @@
 /* Shared form language. Uses the workspace's theme tokens in both themes. */
-.form-journey button:focus-visible {
+.form-panel button:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: 3px;
+  box-shadow: none;
 }
 html :is(.ap-sheet, .ar-sheet) .form {
   gap: 24px;
@@ -85,157 +86,169 @@ html :is(.ap-sheet, .ar-sheet) dialog::backdrop {
   background: #101a304d;
   backdrop-filter: blur(3px);
 }
+/* ── form fields: the bill form's metrics, everywhere (7 Oct 2026) ─────────
+   Every control inside a form field (`Field` from ui.tsx, or any element
+   carrying .modern-field) is the review form's box: 38px, 6px radius, 14px
+   text, 12px inset, line-2 edge, brand edge + 3px brand-tint halo on focus.
+   Errors are a red edge, never a fill. Scoped to fields so toolbars and
+   table filters keep their 36px controls. A trigger is matched by its
+   role or by aria-haspopup: the shared ComboBox trigger has no combobox
+   role, and would otherwise stay 36px beside 38px inputs. */
 .modern-field {
-  gap: 8px;
+  gap: 6px;
 }
-.modern-field > label {
+.modern-field > label,
+.modern-field > span > label {
   font-size: 12px;
+  line-height: 16px;
   font-weight: 500;
   color: var(--pi-body);
 }
-.modern-field input:not([type="checkbox"]),
-.modern-field textarea,
-.modern-field button[role="combobox"] {
-  border-radius: 8px;
-  min-height: 40px;
-  box-shadow: 0 1px 2px #18244a04;
+.modern-field
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    button:is([role="combobox"], [aria-haspopup]),
+    select
+  ) {
+  height: 38px;
+  min-height: 38px;
+  border-radius: 6px;
+  font-size: 14px;
+  box-shadow: none;
 }
-.modern-field input:focus-visible,
-.modern-field textarea:focus-visible {
-  outline: 2px solid var(--pi-brand);
-  outline-offset: 2px;
+.modern-field textarea {
+  min-height: 76px;
+  border-radius: 6px;
+  font-size: 14px;
+  box-shadow: none;
 }
+.modern-field button:is([role="combobox"], [aria-haspopup]) {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+/* every text node in a trigger takes the field's 14px: a value or placeholder
+   one span deeper (ComboBox wraps it again) was rendering at 12px beside
+   14px text boxes */
+.modern-field
+  button:is([role="combobox"], [aria-haspopup])
+  :is(span, p, small, div) {
+  font-size: inherit;
+}
+.modern-field :is(input, textarea, select):focus-visible,
+.modern-field button:is([role="combobox"], [aria-haspopup]):focus-visible,
+.modern-field button:is([role="combobox"], [aria-haspopup])[data-state="open"],
+.modern-field
+  button:is([role="combobox"], [aria-haspopup])[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+.modern-field[data-invalid="true"]
+  :is(input, textarea, select, button:is([role="combobox"], [aria-haspopup])),
+.modern-field
+  :is(
+    input,
+    textarea,
+    button:is([role="combobox"], [aria-haspopup])
+  )[aria-invalid="true"],
+.modern-field :is(input, textarea)[data-invalid="true"] {
+  border-color: var(--pi-danger);
+  background-color: var(--pi-surface-panel);
+}
+.modern-field[data-invalid="true"]
+  :is(
+    input,
+    textarea,
+    button:is([role="combobox"], [aria-haspopup])
+  ):focus-visible {
+  box-shadow: 0 0 0 3px var(--pi-danger-bg);
+}
+/* the retired card: anything still wearing the class draws as a section */
 .modern-field-card {
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 6px #18244a03;
   scroll-margin-top: 24px;
 }
-.modern-field-card > h2 {
-  font-size: 16px;
-  letter-spacing: -0.02em;
-  margin-bottom: 24px;
-}
-.form-journey {
-  display: grid;
-  grid-template-columns: 190px minmax(0, 760px);
-  gap: 32px;
-  margin: 0 auto;
+/* A master page form (8 Oct 2026): the review form panel. One white panel of
+   sections, brand headings over hairlines, 24px between them. */
+.form-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   width: 100%;
-  max-width: 1060px;
-}
-.form-journey__rail {
-  position: sticky;
-  top: 24px;
-  align-self: start;
-  padding-top: 8px;
-}
-.form-journey__eyebrow {
-  color: var(--pi-faint);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  margin-bottom: 20px;
-}
-.form-journey__rail nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.form-journey__rail nav button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  padding: 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  color: var(--pi-body);
-}
-.form-journey__rail nav button:hover,
-.form-journey__rail nav button[aria-current] {
-  background: var(--pi-brand-tint);
-  color: var(--pi-brand);
-}
-.form-journey__rail nav button span {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 21px;
-  height: 21px;
-  border: 1px solid var(--pi-line-2);
-  border-radius: 50%;
-  font-size: 12px;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 32px 32px;
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
   background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact, 0 1px 2px #18244a0a);
 }
-.form-journey__note {
-  margin: 20px 12px;
-  padding-top: 20px;
-  border-top: 1px solid var(--pi-line);
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--pi-faint);
+.form-panel .form-section:not(:first-child) {
+  padding-top: 24px;
 }
-.form-journey__content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
+.form-panel__starter {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--pi-line);
 }
-.form-journey__intro h2 {
-  font-size: 22px;
-  letter-spacing: -0.02em;
-  font-weight: 500;
-  color: var(--pi-ink);
+.form-panel .form-panel__starter + .form-section {
+  border-top: 0;
+  padding-top: 0;
 }
-.form-journey__intro p {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--pi-body);
-  margin-top: 8px;
-}
-.form-journey__intro {
-  padding: 4px 0 8px;
-}
+/* Quick picks: a segmented track, the chosen pick raised on white. */
 .form-starters {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-head-bg);
 }
 .form-starters button {
-  font-size: 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--pi-line-2);
-  background: var(--pi-surface-panel);
+  height: 30px;
+  padding: 0 12px;
   border-radius: 6px;
+  font-size: 13px;
+  line-height: 20px;
   color: var(--pi-body);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.form-starters button:hover {
+  color: var(--pi-ink);
 }
 .form-starters button[aria-pressed="true"] {
-  border-color: var(--pi-brand);
-  background: var(--pi-brand-tint);
-  color: var(--pi-brand);
+  background: var(--pi-surface-panel);
+  color: var(--pi-ink);
+  font-weight: 500;
+  box-shadow:
+    0 0 0 1px var(--pi-line-2),
+    0 1px 2px #18244a14;
 }
-@media (max-width: 1050px) {
-  .form-journey {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    max-width: 760px;
-  }
-  .form-journey__rail {
-    position: static;
-    padding: 0;
-  }
-  .form-journey__rail nav {
-    flex-direction: row;
-    overflow-x: auto;
-  }
-  .form-journey__rail nav button {
-    white-space: nowrap;
-  }
-  .form-journey__eyebrow,
-  .form-journey__note {
-    display: none;
+.form-starters button:focus-visible,
+.form-more > button:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+/* More details: the sections it holds sit under the toggle; the first one
+   needs no hairline of its own. */
+.form-more__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 24px;
+}
+.form-panel .form-more__body > .form-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.form-more__body[hidden] {
+  display: none;
+}
+@media (max-width: 640px) {
+  .form-panel {
+    padding: 20px 16px 24px;
   }
 }
 @media (max-width: 640px) {
@@ -351,6 +364,7 @@ html :is(.ap-sheet, .ar-sheet) dialog::backdrop {
 .record-overview button:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: 3px;
+  box-shadow: none;
 }
 html :is(.ap-sheet, .ar-sheet) .form {
   background: var(--pi-surface-panel);
@@ -510,6 +524,7 @@ html :is(.ap-sheet, .ar-sheet) .review-disclosure > summary:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: 3px;
   border-radius: 8px;
+  box-shadow: none;
 }
 html :is(.ap-sheet, .ar-sheet) .review-disclosure__body {
   padding: 0 16px;

@@ -1,4 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react";
+import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import {
   MOCK_IMPORT_TEMPLATES,
   MOCK_SALES_CUSTOMERS,
@@ -275,6 +276,24 @@ export const salesUpload = {
       }
       window.clearInterval(tick);
       predicting.delete(id);
+      const ready = find(id);
+      // Nine seconds and more of reading: long enough to have left the page.
+      // DEV: raised server-side when the batch reaches needs_review.
+      if (ready)
+        notificationActions.push(
+          {
+            companyId: ready.companyId,
+            kind: "sales_preview_ready",
+            data: { file: ready.batch.originalFileName, rows: total },
+            target: {
+              href: `/inbox?module=AR&upload=${encodeURIComponent(id)}&step=preview`,
+              label: "Sales upload",
+            },
+            actor: { kind: "ai" },
+            refs: [id],
+          },
+          { toast: false }
+        );
       patch(id, (e) => {
         const rows = rebuildRows(e);
         return {
@@ -362,6 +381,10 @@ export const salesUpload = {
       toInvoices(eligible, entry.batch.originalFileName)
     );
     patch(id, (e) => ({ rows, batch: withRowCounts(e.batch, rows) }));
+    // Every row that can be created now is: the preview has nothing left
+    // to check.
+    if (!rows.some((r) => r.rowStatus === "ready" || r.rowStatus === "warning"))
+      notificationActions.resolve(entry.companyId, ["sales_preview_ready"], id);
     return {
       createdCount: eligible.length,
       remainingErrorCount: rows.filter((r) => r.rowStatus === "error").length,

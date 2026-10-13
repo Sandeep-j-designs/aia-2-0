@@ -37,7 +37,10 @@ export function Sheet({
   children: React.ReactNode;
 }) {
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(next) => !next && onClose()}
+    >
       <DialogPortal>
         <DialogOverlay />
         <DialogPrimitive.Content
@@ -62,7 +65,9 @@ export function Sheet({
           </header>
           <div className="cr-sheet-body">{children}</div>
           <footer className="cr-sheet-foot">
-            <DialogPrimitive.Close className="cr-done">{doneLabel}</DialogPrimitive.Close>
+            <DialogPrimitive.Close className="cr-done">
+              {doneLabel}
+            </DialogPrimitive.Close>
           </footer>
         </DialogPrimitive.Content>
       </DialogPortal>

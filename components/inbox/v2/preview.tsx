@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Maximize,
   Minimize,
+  ScanText,
   ZoomIn,
   ZoomOut,
 } from "@/components/icons";
@@ -20,7 +21,15 @@ import {
   MOCK_OWN_REGISTRATION,
   partyNamed,
 } from "@/config/pages/inbox/mock-parties";
-import type { PrintedLine } from "@/types/pages/inbox";
+import type {
+  PrintedLine,
+  SourceDocument,
+  SourceRegion,
+} from "@/types/pages/inbox";
+import useSourceDocument from "@/hooks/pages/inbox/use-source-document";
+import useSourceFocus from "@/hooks/pages/inbox/use-source-focus";
+import { regionFor } from "@/utils/pages/inbox/source-field";
+import { asset } from "@/lib/base-path";
 import { cn } from "@/lib/utils";
 import { StatusPill, T } from "./ui";
 import { companyOf, fileUrl, Item } from "./store";
@@ -45,7 +54,39 @@ const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 const ZOOM_MENU = [0.5, 0.75, 1, 1.25, 1.5, 2];
 type Mode = "fit-width" | "fit-page" | "level";
 
-export default function Preview({ item }: { item: Item }) {
+/** Whether the viewer follows the field under review. One choice, everywhere. */
+const FOLLOW_KEY = "aia.inbox.followSource";
+const readFollow = () => {
+  try {
+    return localStorage.getItem(FOLLOW_KEY) !== "0";
+  } catch {
+    return true;
+  }
+};
+
+/* The camera move to a field's source. Short and decelerating: it orients the
+   reader (where on the page did this come from) and must never be in the way
+   of tabbing through the form, so it retargets mid-flight and runs at all only
+   when the source is not already comfortably in view. */
+const MOVE_MS = 260;
+const ease = (t: number) => 1 - Math.pow(1 - t, 4);
+const reducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+type Props = {
+  item: Item;
+  /**
+   * Drawn inside the AP sheet's own document pane, which is already the white
+   * card on the canvas — so no gutter and no second card edge.
+   */
+  embedded?: boolean;
+};
+
+export default function Preview({ item, embedded }: Props) {
+  const { doc, printedLines } = useSourceDocument(item);
+  const [follow, setFollowState] = useState(true);
+  useEffect(() => setFollowState(readFollow()), []);
   const [url, setUrl] = useState(""),
     [mode, setMode] = useState<Mode>("fit-width"),
     [level, setLevel] = useState(1),
@@ -106,6 +147,119 @@ export default function Preview({ item }: { item: Item }) {
 
   const scale =
     mode === "level" ? level : mode === "fit-width" ? fit.width : fit.page;
+
+  /* ---------------------------------------------- follow the field's source */
+
+  const showsSource = !!doc && !url;
+  const [target, clearTarget] = useSourceFocus(follow && showsSource);
+  const hit =
+    target && doc ? regionFor(target, doc.regions, printedLines) : null;
+  const hitKey = hit ? `${hit.key}|${target?.label}` : "";
+
+  const setFollow = (on: boolean) => {
+    setFollowState(on);
+    try {
+      localStorage.setItem(FOLLOW_KEY, on ? "1" : "0");
+    } catch {
+      /* private mode: the choice lasts this page */
+    }
+    if (!on) {
+      clearTarget();
+      setMode("fit-width");
+    }
+  };
+
+  const live = useRef({ scale, fit });
+  live.current = { scale, fit };
+  const frame = useRef(0);
+  useEffect(() => {
+    const b = body.current,
+      p = page.current;
+    if (!hit || !doc || !b || !p) return;
+    const size = doc.pages[hit.region.page - 1] || doc.pages[0];
+    const pageH = PAGE_W * (size.height / size.width);
+    const r = hit.region;
+    const cw = b.clientWidth - 40,
+      ch = b.clientHeight - 40;
+    const rw = r.w * PAGE_W,
+      rh = r.h * pageH;
+    const { scale: from, fit: fits } = live.current;
+
+    // Close enough to read the value, never so close the line around it goes.
+    const lo = fits.width,
+      hi = Math.max(lo, Math.min(fits.width * 2, 3));
+    const want = Math.min((cw * 0.5) / rw, (ch * 0.3) / rh);
+    let to = Math.min(hi, Math.max(lo, want));
+    // Already reading at a comfortable zoom: hold it and only pan.
+    if (from >= to * 0.8 && from <= hi + 1e-3 && rw * from <= cw * 0.8)
+      to = from;
+
+    // Where the page sits in the scroller at the scale it is drawn at.
+    const place = () => {
+      const pr = p.getBoundingClientRect(),
+        br = b.getBoundingClientRect();
+      return {
+        x: pr.left - br.left + b.scrollLeft,
+        y: pr.top - br.top + b.scrollTop,
+        w: pr.width,
+        h: pr.height,
+      };
+    };
+    const at = place();
+    const visible =
+      at.x + r.x * at.w >= b.scrollLeft + 12 &&
+      at.x + (r.x + r.w) * at.w <= b.scrollLeft + b.clientWidth - 12 &&
+      at.y + r.y * at.h >= b.scrollTop + 40 &&
+      at.y + (r.y + r.h) * at.h <= b.scrollTop + b.clientHeight - 24;
+    if (to === from && visible) return;
+
+    // The point of the page at the centre of the view, now and at the end.
+    const f0 = {
+      x: (b.scrollLeft + b.clientWidth / 2 - at.x) / at.w,
+      y: (b.scrollTop + b.clientHeight / 2 - at.y) / at.h,
+    };
+    const f1 = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    const apply = (z: number, fx: number, fy: number) => {
+      p.style.zoom = String(z);
+      p.style.setProperty("--zinv", String(1 / z));
+      const now = place();
+      b.scrollLeft = now.x + fx * now.w - b.clientWidth / 2;
+      // A little above centre, so the field's tag clears the bar.
+      b.scrollTop = now.y + fy * now.h - b.clientHeight * 0.45;
+    };
+
+    cancelAnimationFrame(frame.current);
+    const finish = () => {
+      apply(to, f1.x, f1.y);
+      setMode("level");
+      setLevel(to);
+    };
+    if (reducedMotion()) return finish();
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / MOVE_MS);
+      const e = ease(t);
+      apply(
+        from + (to - from) * e,
+        f0.x + (f1.x - f0.x) * e,
+        f0.y + (f1.y - f0.y) * e
+      );
+      if (t < 1) frame.current = requestAnimationFrame(tick);
+      else finish();
+    };
+    frame.current = requestAnimationFrame(tick);
+    // The reader taking the page back stops the camera where it is.
+    const stop = () => cancelAnimationFrame(frame.current);
+    b.addEventListener("wheel", stop, { passive: true, once: true });
+    b.addEventListener("pointerdown", stop, { once: true });
+    return () => {
+      b.removeEventListener("wheel", stop);
+      b.removeEventListener("pointerdown", stop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hitKey]);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+
   const setZoom = (z: number) => {
     setMode("level");
     setLevel(Math.min(4, Math.max(0.25, z)));
@@ -124,12 +278,19 @@ export default function Preview({ item }: { item: Item }) {
     // name, status and tools in a bar inside it. Copied so every route shows
     // one viewer.
     <div
-      data-guide-id="inbox-preview"
-      className="flex h-full min-h-0 flex-col bg-pi-page p-5"
+      data-guide-id={embedded ? undefined : "inbox-preview"}
+      data-source-viewer=""
+      className={cn(
+        "flex h-full min-h-0 flex-col",
+        !embedded && "bg-pi-page p-5"
+      )}
     >
       <div
         ref={card}
-        className="source-stage flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#e2e6ed]"
+        className={cn(
+          "source-stage flex min-h-0 flex-1 flex-col overflow-hidden",
+          embedded ? "rounded-lg" : "rounded-lg border border-[#e2e6ed]"
+        )}
       >
         <header className="flex shrink-0 items-center gap-3 px-4 py-3">
           <h2
@@ -194,6 +355,19 @@ export default function Preview({ item }: { item: Item }) {
               <ZoomIn />
             </ViewerAction>
             <span className="mx-1 h-[18px] w-px shrink-0 bg-pi-line" />
+            {showsSource ? (
+              <ViewerAction
+                label={
+                  follow
+                    ? "Following fields — the source of the field you review is highlighted. Turn off"
+                    : "Follow fields — highlight where each field was read from"
+                }
+                pressed={follow}
+                onClick={() => setFollow(!follow)}
+              >
+                <ScanText />
+              </ViewerAction>
+            ) : null}
             <ViewerAction
               label={full ? "Exit full screen" : "Full screen"}
               onClick={() => {
@@ -209,7 +383,7 @@ export default function Preview({ item }: { item: Item }) {
           <div
             ref={page}
             className={s.page}
-            style={{ zoom: scale } as React.CSSProperties}
+            style={{ zoom: scale, "--zinv": 1 / scale } as React.CSSProperties}
           >
             {url ? (
               item.file.ext === "pdf" ? (
@@ -232,6 +406,13 @@ export default function Preview({ item }: { item: Item }) {
                   </Button>
                 </div>
               )
+            ) : doc ? (
+              <SourcePages
+                doc={doc}
+                fileName={item.file.name}
+                hit={follow ? hit : null}
+                label={target?.label}
+              />
             ) : (
               <Facsimile item={item} />
             )}
@@ -241,6 +422,88 @@ export default function Preview({ item }: { item: Item }) {
     </div>
   );
 }
+
+/* ----------------------------------------------------- source document */
+
+const pct = (n: number) => `${n * 100}%`;
+const placeOf = (r: SourceRegion): React.CSSProperties => ({
+  left: pct(r.x),
+  top: pct(r.y),
+  width: pct(r.w),
+  height: pct(r.h),
+});
+
+/**
+ * The original document, page by page, with the source of the field under
+ * review marked on it: the value boxed in the brand, the rest of the page
+ * stepped back, and — for a line's cell — the rest of its line tinted, so the
+ * figure is read in its row.
+ */
+const SourcePages = ({
+  doc,
+  fileName,
+  hit,
+  label,
+}: {
+  doc: SourceDocument;
+  fileName: string;
+  hit: ReturnType<typeof regionFor>;
+  label?: string;
+}) => (
+  <div className="flex flex-col gap-4">
+    {doc.pages.map((pg, i) => {
+      const here = hit && hit.region.page === i + 1 ? hit : null;
+      return (
+        <div
+          key={pg.image}
+          className={cn(s.paper, s.sheet)}
+          style={{ aspectRatio: `${pg.width} / ${pg.height}` }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={asset(pg.image)}
+            alt={i ? `${fileName}, page ${i + 1}` : fileName}
+            draggable={false}
+          />
+          {here ? (
+            <div className={s.layer} aria-hidden>
+              {here.row ? (
+                <div className={s.row} style={placeOf(here.row)} />
+              ) : null}
+              <div
+                key={`spot-${here.key}`}
+                className={s.spot}
+                style={placeOf(here.row || here.region)}
+              />
+              <div
+                key={`box-${here.key}`}
+                className={s.box}
+                style={placeOf(here.region)}
+              >
+                {label ? (
+                  <span
+                    className={cn(
+                      s.tag,
+                      here.region.x + here.region.w > 0.6 && s.tagEnd,
+                      here.region.y < 0.04 && s.tagBelow
+                    )}
+                  >
+                    {label}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      );
+    })}
+    {hit ? (
+      <span className="sr-only" aria-live="polite">
+        {label} highlighted on the document.
+      </span>
+    ) : null}
+  </div>
+);
 
 /* ----------------------------------------------------------- facsimile */
 
@@ -557,21 +820,29 @@ const ViewerAction = ({
   label,
   onClick,
   disabled,
+  pressed,
   children,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  /** A toggle: on reads as the brand, like an active tool. */
+  pressed?: boolean;
   children: React.ReactNode;
 }) => (
   <Button
     variant="ghost"
     size="icon-sm"
     aria-label={label}
+    aria-pressed={pressed}
     title={label}
     disabled={disabled}
     onClick={onClick}
-    className="h-[30px] w-[30px] shrink-0 text-secondary-foreground hover:bg-accent hover:text-foreground disabled:opacity-35 [&_svg]:size-[18px]"
+    className={cn(
+      "h-[30px] w-[30px] shrink-0 text-secondary-foreground hover:bg-accent hover:text-foreground disabled:opacity-35 [&_svg]:size-[18px]",
+      pressed &&
+        "bg-pi-brand-tint text-pi-brand hover:bg-pi-brand-tint hover:text-pi-brand"
+    )}
   >
     {children}
   </Button>

@@ -1,4 +1,5 @@
 import React from "react";
+import { EmptyState as SharedEmpty } from "../empty-state";
 import { ChevronLeft, type IconComponent } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { PillTone } from "@/components/inbox/v2/ui";
@@ -7,17 +8,22 @@ import type { PillTone } from "@/components/inbox/v2/ui";
  * Precision Indigo page furniture for the Banking and GST screens — the
  * Inbox's page pattern (components/inbox/v2/workspace.tsx) in pieces:
  * eyebrow + 30px title with actions right, the restrained KPI card, the one
- * white table card with the pager inside, the dot-chip status and the calm
- * empty state. Shape and colour only; no state.
+ * white table region with the pager below the scroller, the dot-chip status
+ * and the calm empty state. Shape and colour only; no state.
  */
 
-/** The 30px/500 workbench title (.page-title, with the shadcn ink). */
-export const PAGE_TITLE =
-  "text-[28px] font-medium leading-[1.15] tracking-[-0.02em] text-foreground";
+/** A sub-page's title (8 Oct 2026: 18/600; the 28px page title is gone). */
+export const PAGE_TITLE = "text-[18px] font-semibold leading-7 text-pi-ink";
 
-/** Eyebrow + title on the left, actions on the right. */
+/**
+ * The page's actions, and its title only where the top bar's trail does not
+ * already say it (8 Oct 2026): a top-level page's string title is for
+ * assistive tech only; a sub-page (one with `back`) keeps its title beside a
+ * back chevron, and a control standing in for the title (the ledger switcher)
+ * always shows. The eyebrow is not drawn.
+ */
 export const PageHead = ({
-  eyebrow,
+  eyebrow: _eyebrow,
   title,
   sub,
   back,
@@ -40,28 +46,29 @@ export const PageHead = ({
       className
     )}
   >
-    <div className="min-w-0">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2">
       {back ? (
         <button
           type="button"
           aria-label={back.label}
           title={back.label}
           onClick={back.onClick}
-          className="workspace-eyebrow -ml-1 inline-flex items-center gap-0.5 rounded-xs px-1 transition-colors duration-150 hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pi-brand motion-reduce:transition-none"
+          className="-ml-2 grid size-8 flex-none place-items-center rounded-sm text-pi-faint transition-colors duration-150 hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pi-brand motion-reduce:transition-none"
         >
-          <ChevronLeft aria-hidden className="size-3" />
-          {eyebrow}
+          <ChevronLeft aria-hidden className="size-4" />
         </button>
-      ) : (
-        <span className="workspace-eyebrow">{eyebrow}</span>
-      )}
-      {typeof title === "string" ? (
-        <h1 className={cn(PAGE_TITLE, "m-0 min-w-0 break-words")}>{title}</h1>
-      ) : (
+      ) : null}
+      {typeof title !== "string" ? (
         title
+      ) : back ? (
+        <h1 className={cn(PAGE_TITLE, "m-0 min-w-0 truncate")}>{title}</h1>
+      ) : (
+        <h1 className="sr-only">{title}</h1>
       )}
       {sub ? (
-        <p className="mt-1 truncate text-[13px] text-pi-body">{sub}</p>
+        <p className="mt-1 basis-full truncate text-[13px] text-pi-body">
+          {sub}
+        </p>
       ) : null}
     </div>
     {actions ? (
@@ -87,18 +94,20 @@ export const ToolbarRule = () => (
 );
 
 /**
- * The page's one scroller, both axes. Heading, table and pager scroll as a
- * page, and the table header's `sticky top-0` resolves against this box, so it
- * stops at the top of the content area. Not positioned: an absolute overlay
- * (a selection bar) hangs off a `relative` wrapper outside it, so it neither
- * scrolls nor clips.
+ * The page's one scroller, both axes. Heading and table scroll as a page, and
+ * the table header's `sticky top-0` resolves against this box, so it stops at
+ * the top of the content area. Native bars hidden: they reserved a strip under
+ * the last row. Wrap it in a `relative flex min-h-0 min-w-0 flex-1 flex-col`
+ * box with <OverlayScrollbars> as its next sibling; that wrapper also holds
+ * any absolute overlay (a selection bar), so it neither scrolls nor clips.
+ * The pager goes after the wrapper, outside the scroller.
  */
 export const PAGE_SCROLL =
-  "flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none";
+  "table-scroller scrollbar-hide flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none";
 
 /**
  * Holds still against the page's horizontal scroll while a widened table
- * slides under it: the heading, KPIs, toolbars and the pager. It has to be a
+ * slides under it: the heading, KPIs and toolbars. It has to be a
  * direct child of the scroller (or of a `contents` wrapper), since a sticky box
  * cannot leave its containing block. Kept on its own compositor layer so it
  * stays painted in place during asynchronous horizontal scrolling.
@@ -122,7 +131,7 @@ export const Pinned = ({
 
 /**
  * The table region: edge to edge and white, no card. It does not scroll — the
- * page does — and the pager sits after it in a `Pinned` block, outside it.
+ * page does — and the pager sits below the page scroller, outside it.
  */
 export const TableCard = ({
   children,
@@ -133,7 +142,7 @@ export const TableCard = ({
 }) => (
   <div
     className={cn(
-      "flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background",
+      "table-region flex min-w-0 flex-1 flex-col bg-background",
       className
     )}
   >
@@ -232,9 +241,9 @@ export const DotChip = ({
   </span>
 );
 
-/** The reference EmptyState: an icon tile, a title, one line, one action. */
+/** An icon tile, a title, one line, one action: the app's one empty state. */
 export const EmptyState = ({
-  icon: Icon,
+  icon,
   title,
   body,
   action,
@@ -246,21 +255,12 @@ export const EmptyState = ({
   action?: React.ReactNode;
   className?: string;
 }) => (
-  <div
-    className={cn(
-      "flex flex-col items-center px-6 py-14 text-center",
-      className
-    )}
-  >
-    <span className="grid size-11 place-items-center rounded-lg border border-pi-line bg-pi-page text-pi-body">
-      <Icon aria-hidden className="size-5" />
-    </span>
-    <h2 className="mt-4 text-[16px] font-medium text-pi-ink">{title}</h2>
-    {body ? (
-      <p className="mt-2 max-w-[340px] text-[13px] leading-relaxed text-pi-body">
-        {body}
-      </p>
-    ) : null}
-    {action ? <div className="mt-5">{action}</div> : null}
-  </div>
+  <SharedEmpty
+    icon={icon}
+    title={title}
+    body={body}
+    actions={action}
+    sticky={false}
+    className={className}
+  />
 );

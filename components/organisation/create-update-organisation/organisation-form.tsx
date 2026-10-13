@@ -2,8 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Control, Controller, FieldErrors } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import Typography from "@/components/common/typography";
+import { Field } from "@/components/inbox/v2/ui";
 import { OrganizationFormData } from "@/schemas/organisations";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +15,8 @@ type Props = {
   inputClassName?: string;
   wrapperClass?: string;
   showLegalNameDescription?: boolean;
+  /** So a footer button outside the form can submit it (`form=`). */
+  formId?: string;
 };
 
 /**
@@ -33,6 +34,7 @@ const OrganisationForm = ({
   inputClassName,
   wrapperClass,
   showLegalNameDescription = false,
+  formId,
 }: Props) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,66 +44,53 @@ const OrganisationForm = ({
 
   return (
     <form
+      id={formId}
       role="presentation"
       onSubmit={onSubmit}
       noValidate
       className={cn("w-full", wrapperClass)}
     >
-      <div>
-        <Controller
-          control={control}
-          name="legalName"
-          render={({ field }) => (
-            <div className="flex flex-col gap-1">
-              <Label
-                htmlFor="organisation-legal-name"
-                className="text-base font-semibold"
-              >
-                Legal Name
-                <span className="text-destructive-foreground">*</span>
-              </Label>
-              <Input
-                {...field}
-                id="organisation-legal-name"
-                placeholder="Enter Legal Name"
-                className={cn("h-14", inputClassName)}
-                ref={inputRef}
-                aria-invalid={!!errors.legalName}
-                aria-describedby={
-                  errors.legalName ? "organisation-legal-name-error" : undefined
-                }
-                onChange={(event) => {
-                  const sanitizedValue = event.target.value.replace(/^\s+/, "");
-                  field.onChange(sanitizedValue);
-                }}
-                onBlur={(event) => {
-                  field.onBlur();
-                  const trimmedValue = event.target.value.trim();
-                  if (trimmedValue !== field.value) {
-                    field.onChange(trimmedValue);
-                  }
-                }}
-              />
-            </div>
-          )}
-        />
-        {showLegalNameDescription && (
-          <Typography variant="sm" className="block text-secondary-foreground">
-            As per your official registration.
-          </Typography>
-        )}
-        {errors.legalName ? (
-          <Typography
-            id="organisation-legal-name-error"
-            variant="sm"
-            className="block text-xs text-destructive-foreground"
+      {/* The form standard (7 Oct 2026): a 12px label over the 38px box, no
+          star (required is the norm), and the error as one 12px line under
+          the box. */}
+      <Controller
+        control={control}
+        name="legalName"
+        render={({ field }) => (
+          <Field
+            label="Legal name"
+            htmlFor="organisation-legal-name"
+            error={errors.legalName?.message}
+            hint={
+              showLegalNameDescription ? (
+                <p className="text-[12px] leading-4 text-pi-faint">
+                  As per your official registration.
+                </p>
+              ) : null
+            }
           >
-            {errors.legalName.message}
-          </Typography>
-        ) : (
-          <div className="h-5" />
+            <Input
+              {...field}
+              id="organisation-legal-name"
+              placeholder="Enter legal name"
+              className={inputClassName}
+              ref={inputRef}
+              aria-invalid={!!errors.legalName}
+              onChange={(event) => {
+                const sanitizedValue = event.target.value.replace(/^\s+/, "");
+                field.onChange(sanitizedValue);
+              }}
+              onBlur={(event) => {
+                field.onBlur();
+                const trimmedValue = event.target.value.trim();
+                if (trimmedValue !== field.value) {
+                  field.onChange(trimmedValue);
+                }
+              }}
+            />
+          </Field>
         )}
-      </div>
+      />
 
       {ButtonComponent ? (
         ButtonComponent
@@ -110,7 +99,7 @@ const OrganisationForm = ({
           id="create"
           type="submit"
           loading={isLoading}
-          className="h-14 w-full"
+          className="mt-6 w-full"
         >
           Create
         </Button>

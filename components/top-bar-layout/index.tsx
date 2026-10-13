@@ -20,11 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import NotificationBell from "@/components/notifications/bell";
+import { notificationActions } from "@/hooks/pages/notifications/use-notifications";
 import { cn } from "@/lib/utils";
 import type { UserCompany } from "@/types/pages/organisation";
 import OrganisationSwitcher from "./organization-switcher";
@@ -39,7 +36,8 @@ import OrganisationSwitcher from "./organization-switcher";
  *   notifications, preferences and the profile.
  */
 
-export type Crumb = string;
+/** A plain label, or one that goes somewhere: a page above the current one. */
+export type Crumb = string | { label: string; onClick: () => void };
 
 type Props = {
   crumbs?: Crumb[];
@@ -61,7 +59,9 @@ const iconButton =
 
 /** The page's own search listens for "/", so the pill and ⌘K both send it. */
 const focusPageSearch = () =>
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "/", bubbles: true }));
+  window.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "/", bubbles: true })
+  );
 
 const AppTopBar = ({
   crumbs = [],
@@ -94,20 +94,36 @@ const AppTopBar = ({
     <header className="sticky top-0 z-20 flex h-14 flex-none items-center gap-0.5 border-b border-pi-line bg-background px-6">
       <div className="flex min-w-0 items-center gap-2 text-[14px]">
         {leadingContent}
-        {crumbs.map((crumb, i) => (
-          <React.Fragment key={`${i}-${crumb}`}>
-            {i > 0 && <span className="flex-none text-pi-faint">/</span>}
-            <span
-              className={cn(
-                i === crumbs.length - 1
-                  ? "min-w-0 truncate font-medium text-pi-ink"
-                  : "flex-none text-pi-body"
+        {crumbs.map((crumb, i) => {
+          const label = typeof crumb === "string" ? crumb : crumb.label;
+          const last = i === crumbs.length - 1;
+          return (
+            <React.Fragment key={`${i}-${label}`}>
+              {i > 0 && <span className="flex-none text-pi-faint">/</span>}
+              {typeof crumb !== "string" && !last ? (
+                // Back up the trail: the page this one was opened from.
+                <button
+                  type="button"
+                  onClick={crumb.onClick}
+                  className="-mx-1 flex-none rounded-xs px-1 text-pi-body transition-colors hover:bg-pi-fill hover:text-pi-ink"
+                >
+                  {label}
+                </button>
+              ) : (
+                <span
+                  aria-current={last ? "page" : undefined}
+                  className={cn(
+                    last
+                      ? "min-w-0 truncate font-medium text-pi-ink"
+                      : "flex-none text-pi-body"
+                  )}
+                >
+                  {label}
+                </span>
               )}
-            >
-              {crumb}
-            </span>
-          </React.Fragment>
-        ))}
+            </React.Fragment>
+          );
+        })}
       </div>
 
       <div className="min-w-4 flex-1" />
@@ -138,7 +154,9 @@ const AppTopBar = ({
           <span className="grid size-6 place-items-center rounded-xs bg-gradient-to-br from-[#3146B0] to-[#6478D2] text-[12px] font-semibold text-white">
             {company.initials}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-pi-ink">{company.name}</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-pi-ink">
+            {company.name}
+          </span>
           <ChevronsUpDown className="ml-auto size-3.5 flex-none text-pi-faint" />
         </span>
       )}
@@ -148,25 +166,22 @@ const AppTopBar = ({
       <div className="flex flex-none items-center gap-2">
         {companyAction}
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <button type="button" aria-label="Notifications" className={iconButton}>
-              <Bell className="size-[18px]" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-72 p-0">
-            <p className="border-b border-pi-line px-4 py-3 text-[13px] font-medium text-pi-ink">
-              Notifications
-            </p>
-            <p className="px-4 py-6 text-center text-[13px] text-pi-faint">
-              You&apos;re all caught up.
-            </p>
-          </PopoverContent>
-        </Popover>
+        {companyId ? (
+          <NotificationBell
+            companyId={companyId}
+            companies={companies ?? []}
+            onCompanyChange={onCompanyChange}
+            className={iconButton}
+          />
+        ) : null}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="Preferences" className={iconButton}>
+            <button
+              type="button"
+              aria-label="Preferences"
+              className={iconButton}
+            >
               <Settings className="size-[18px]" />
             </button>
           </DropdownMenuTrigger>
@@ -185,6 +200,11 @@ const AppTopBar = ({
                 <MonitorPlay className="mr-2 size-4" /> System
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={notificationActions.openSettings}>
+              <Bell className="size-4" />
+              Notification settings
+            </DropdownMenuItem>
             {onGuide && (
               <>
                 <DropdownMenuSeparator />
@@ -210,8 +230,12 @@ const AppTopBar = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel className="break-all font-normal">
-              <span className="block text-[12px] text-pi-faint">Signed in as</span>
-              <span className="mt-1 block text-[13px] text-pi-ink">{user.email}</span>
+              <span className="block text-[12px] text-pi-faint">
+                Signed in as
+              </span>
+              <span className="mt-1 block text-[13px] text-pi-ink">
+                {user.email}
+              </span>
             </DropdownMenuLabel>
             {onGuide && (
               <>

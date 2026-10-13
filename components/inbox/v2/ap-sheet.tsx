@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import useSheetHeight from "@/hooks/pages/inbox/use-sheet-height";
 import { createPortal } from "react-dom";
 import { prepareReviewMarkup } from "./review-layout";
 import { useReviewAssistant } from "./review-assistant";
@@ -41,12 +42,20 @@ type Props = {
    * document pane and splitter go and the form has the width to itself.
    */
   noDocument?: boolean;
+  /**
+   * The inbox's own document viewer, drawn into the sheet's document pane in
+   * place of the sheet's. It is the one AR and JV use, so all three routes
+   * share one viewer — and the source highlight that follows the form.
+   */
+  preview?: React.ReactNode;
 };
 
 const CSS_ID = "ap-sheet-css";
 
-const ApSheet = ({ itemId, status, noDocument }: Props) => {
+const ApSheet = ({ itemId, status, noDocument, preview }: Props) => {
   const host = useRef<HTMLDivElement>(null);
+  // Sizes the document pane to the sheet, not the window.
+  useSheetHeight(host);
   const [statusHost, setStatusHost] = useState<HTMLElement | null>(null);
   const [markup, setMarkup] = useState<string | null>(null);
 
@@ -67,6 +76,27 @@ const ApSheet = ({ itemId, status, noDocument }: Props) => {
       slot.remove();
     };
   }, [markup]);
+
+  // The inbox viewer takes over the sheet's document pane. The sheet still
+  // decides when the pane shows (its extraction run first, then the page), so
+  // the viewer mounts inside the sheet's own preview box and the sheet's bar
+  // and body are hidden beside it (sheet-bridge.css, `.has-react-preview`).
+  const [previewHost, setPreviewHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const box = host.current?.querySelector<HTMLElement>("#doc-preview");
+    if (!box || !preview) return;
+    const slot = document.createElement("div");
+    slot.className = "react-preview";
+    box.classList.add("has-react-preview");
+    box.append(slot);
+    setPreviewHost(slot);
+    return () => {
+      box.classList.remove("has-react-preview");
+      slot.remove();
+      setPreviewHost(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markup, !!preview]);
 
   // The stylesheet is document-wide and identical for every bill, so it is
   // added once and never removed — re-adding it per bill would restyle the
@@ -146,13 +176,15 @@ const ApSheet = ({ itemId, status, noDocument }: Props) => {
         ref={host}
         className={cn(
           "ap-sheet min-h-0 flex-1 overflow-auto",
-          noDocument && "[&_.doc-pane]:!hidden [&_.splitter]:!hidden"
+          noDocument &&
+            "ap-sheet--no-doc [&_.doc-pane]:!hidden [&_.splitter]:!hidden"
         )}
         // The sheet's own markup, verbatim. It is generated from a file in this
         // repo, never from user or network content.
         dangerouslySetInnerHTML={markup ? { __html: markup } : undefined}
       />
       {reviewAssistant}
+      {previewHost && preview && createPortal(preview, previewHost)}
       {statusHost &&
         createPortal(
           <StatusPill status={status} className="shrink-0" />,

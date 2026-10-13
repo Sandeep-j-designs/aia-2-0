@@ -1,12 +1,25 @@
 import React from "react";
 import { Check, Copy, FileText, ShieldCheck } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { Item, routeNames } from "./store";
+import { GodownAllocation, Item, routeNames } from "./store";
+import {
+  allocationDetail,
+  allocationLabel,
+  headerCostLock,
+} from "@/config/pages/inbox/mock-cost-centres";
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
     value
   );
+/** "Main Store 12 MT · Peenya 8 MT", for a split line's tooltip. */
+const godownDetail = (rows: GodownAllocation[]) =>
+  rows
+    .map(
+      (r) =>
+        `${r.godown} ${r.qty.toLocaleString("en-IN")}${r.unit ? ` ${r.unit}` : ""}`
+    )
+    .join(" · ");
 /** What a payable reads as on the books: a credit against the vendor. */
 const credit = (value: number) => `${money(value)} Cr`;
 const date = (value: string) =>
@@ -87,9 +100,21 @@ function Detail({ label, value }: { label: string; value?: string }) {
  * status dot, the value at 13px. A posted record's values are settled, so a
  * filled field takes the success dot and an empty one a hollow ring.
  */
-function FieldRow({ label, value }: { label: string; value?: string }) {
+function FieldRow({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value?: string;
+  /** Hover detail, e.g. what a cost centre class splits into. */
+  title?: string;
+}) {
   return (
-    <div className="flex min-h-[44px] items-center gap-3 border-b border-pi-line px-4 py-3 last:border-b-0">
+    <div
+      className="flex min-h-[44px] items-center gap-3 border-b border-pi-line px-4 py-3 last:border-b-0"
+      title={title}
+    >
       <dt className="w-[34%] min-w-[120px] max-w-[200px] shrink-0 text-[12px] text-pi-body">
         {label}
       </dt>
@@ -127,8 +152,11 @@ const CARD =
   "overflow-hidden rounded-lg border border-pi-line bg-pi-surface-panel shadow-contact";
 const TABLE_CARD =
   "overflow-hidden rounded-lg border border-pi-line bg-pi-surface-panel shadow-table";
-const THEAD =
-  "border-b border-pi-line bg-pi-head-bg text-[12px] text-pi-body";
+const THEAD = "border-b border-pi-line bg-pi-head-bg text-[12px] text-pi-body";
+/** Hairline column rules in the head and body, as on the page tables; the
+ *  totals footer is a summary block and stays unruled. */
+const COLUMN_RULES =
+  "[&_:is(thead,tbody)_:is(th,td):not(:last-child)]:border-r [&_:is(thead,tbody)_:is(th,td)]:border-pi-line";
 
 export function ApprovedDetails({
   item,
@@ -138,9 +166,19 @@ export function ApprovedDetails({
   company: string;
 }) {
   const f = item.snapshot || item.form;
+  // A header class or cost centre answers for every line; null when the lines
+  // carry their own. Older drafts predate `costMode`, so infer it.
+  const headerLock = headerCostLock({
+    costMode: f.costMode ?? (f.costClass ? "class" : "centre"),
+    costClass: f.costClass,
+    costCentre: f.costCentre,
+  });
   const journal = item.route === "JV";
   const ar = item.route === "AR" ? item.arSnapshot || item.arSheet : undefined;
   const subtotal = f.lines.reduce((sum, line) => sum + line.amount, 0);
+  // A Godown column only when a line landed stock somewhere.
+  const stocked =
+    !journal && f.lines.some((l) => l.godown || l.godownAllocation?.length);
   const adjustments = Math.round((item.amount - subtotal) * 100) / 100;
   /*
     The tax block as it came off the document. Both sides of the invoice carry
@@ -238,8 +276,32 @@ export function ApprovedDetails({
             value={date(f.due)}
           />
           <FieldRow label="GST registration" value={f.gst} />
-          <FieldRow label="Cost centre" value={f.costCentre} />
-          <FieldRow label="Cost centre class" value={f.costClass} />
+          {/* The header holds a class or one cost centre, never both, so it
+              is one row named for whichever it holds. */}
+          <FieldRow
+            label={f.costMode === "class" ? "Cost centre class" : "Cost centre"}
+            value={headerLock ? headerLock.label : "Line by line"}
+            title={headerLock?.detail}
+          />
+          {(f.partyCostCentre || f.partyCostAllocation?.length) && (
+            <FieldRow
+              label={
+                item.route === "AR"
+                  ? "Customer cost centre"
+                  : "Vendor cost centre"
+              }
+              value={
+                f.partyCostAllocation?.length
+                  ? allocationLabel(f.partyCostAllocation)
+                  : f.partyCostCentre
+              }
+              title={
+                f.partyCostAllocation?.length
+                  ? allocationDetail(f.partyCostAllocation)
+                  : undefined
+              }
+            />
+          )}
           {/* The document this voucher was read off, named the way the bills
               screen names it. */}
           <FieldRow label="Bill document" value={item.file?.name} />
@@ -262,7 +324,12 @@ export function ApprovedDetails({
         </SectionTitle>
         <div className={TABLE_CARD}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px] text-pi-ink">
+            <table
+              className={cn(
+                "w-full text-left text-[13px] text-pi-ink",
+                COLUMN_RULES
+              )}
+            >
               <thead className={THEAD}>
                 <tr>
                   {/* Description and ledger are two columns, as on the bills
@@ -273,6 +340,7 @@ export function ApprovedDetails({
                     {journal ? "Ledger" : "Ledger name"}
                   </th>
                   <th className="px-4 py-3 font-medium">Cost centre</th>
+                  {stocked && <th className="px-4 py-3 font-medium">Godown</th>}
                   <th className="px-4 py-3 text-right font-medium">
                     {journal ? "Debit" : "Amount"}
                   </th>
@@ -288,9 +356,36 @@ export function ApprovedDetails({
                     <td className="px-4 py-4 font-medium">
                       {line.ledger || "—"}
                     </td>
-                    <td className="px-4 py-4 text-[12px] text-pi-body">
-                      {line.costCentre || "—"}
+                    <td
+                      className="px-4 py-4 text-[12px] text-pi-body"
+                      title={
+                        headerLock
+                          ? headerLock.detail
+                          : line.costAllocation?.length
+                            ? allocationDetail(line.costAllocation)
+                            : undefined
+                      }
+                    >
+                      {headerLock
+                        ? headerLock.label
+                        : line.costAllocation?.length
+                          ? allocationLabel(line.costAllocation)
+                          : line.costCentre || "—"}
                     </td>
+                    {stocked && (
+                      <td
+                        className="px-4 py-4 text-[12px] text-pi-body"
+                        title={
+                          line.godownAllocation?.length
+                            ? godownDetail(line.godownAllocation)
+                            : undefined
+                        }
+                      >
+                        {line.godownAllocation?.length
+                          ? `Split · ${line.godownAllocation.length} godowns`
+                          : line.godown || "—"}
+                      </td>
+                    )}
                     <td className="fig whitespace-nowrap px-4 py-4 text-right">
                       {money(journal ? line.dr : line.amount)}
                     </td>
@@ -307,7 +402,7 @@ export function ApprovedDetails({
                   <>
                     <tr>
                       <th
-                        colSpan={3}
+                        colSpan={stocked ? 4 : 3}
                         className="px-4 pt-4 text-[12px] font-normal text-pi-body"
                       >
                         Sub total
@@ -325,7 +420,7 @@ export function ApprovedDetails({
                       <>
                         <tr>
                           <th
-                            colSpan={3}
+                            colSpan={stocked ? 4 : 3}
                             className="px-4 pt-3 text-[12px] font-medium text-pi-ink"
                           >
                             GST
@@ -337,7 +432,7 @@ export function ApprovedDetails({
                         {taxHeads.map(([head, amount]) => (
                           <tr key={head}>
                             <th
-                              colSpan={3}
+                              colSpan={stocked ? 4 : 3}
                               className="px-4 pl-8 pt-2 text-left text-[12px] font-normal text-pi-body"
                             >
                               {taxSide} {head}
@@ -351,7 +446,7 @@ export function ApprovedDetails({
                     ) : (
                       <tr>
                         <th
-                          colSpan={3}
+                          colSpan={stocked ? 4 : 3}
                           className="px-4 pt-3 text-[12px] font-normal text-pi-body"
                         >
                           Taxes &amp; adjustments
@@ -363,7 +458,7 @@ export function ApprovedDetails({
                     )}
                     {/* the rule the grand total sits under */}
                     <tr aria-hidden>
-                      <td colSpan={4} className="px-4 pt-4">
+                      <td colSpan={stocked ? 5 : 4} className="px-4 pt-4">
                         <div className="h-px bg-pi-rule-ledger" />
                       </td>
                     </tr>
@@ -371,7 +466,7 @@ export function ApprovedDetails({
                 )}
                 <tr>
                   <th
-                    colSpan={3}
+                    colSpan={stocked ? 4 : 3}
                     className="px-4 py-4 text-[13px] font-medium text-pi-ink"
                   >
                     {journal ? "Total" : "Grand total"}
@@ -425,7 +520,10 @@ export function ApprovedDetails({
                         <Detail label="Discount" value={`${row.discount}%`} />
                         <Detail label="Tax" value={row.tax} />
                         <Detail label="Godown" value={row.godown} />
-                        <Detail label="Cost centre" value={row.costCentre} />
+                        <Detail
+                          label="Cost centre"
+                          value={headerLock?.label || row.costCentre}
+                        />
                       </dl>
                     </div>
                   ))}
@@ -439,9 +537,13 @@ export function ApprovedDetails({
                       <span>
                         {row.ledger || "Ledger"} · {row.description || "—"} ·{" "}
                         {row.tax || "No tax"} ·{" "}
-                        {row.costCentre || "No cost centre"}
+                        {headerLock?.label ||
+                          row.costCentre ||
+                          "No cost centre"}
                       </span>
-                      <span className="fig text-pi-ink">{money(row.amount)}</span>
+                      <span className="fig text-pi-ink">
+                        {money(row.amount)}
+                      </span>
                     </div>
                   ))}
                 {ar.taxes
@@ -451,11 +553,11 @@ export function ApprovedDetails({
                       key={row.id}
                       className="flex flex-wrap justify-between gap-2 text-[12px] text-pi-body"
                     >
-                      <span>
-                        {row.ledger || "Tax"} ·{" "}
-                        {row.costCentre || "No cost centre"}
+                      {/* a tax ledger takes no cost centre, so none is shown */}
+                      <span>{row.ledger || "Tax"}</span>
+                      <span className="fig text-pi-ink">
+                        {money(row.amount)}
                       </span>
-                      <span className="fig text-pi-ink">{money(row.amount)}</span>
                     </div>
                   ))}
               </div>
@@ -476,7 +578,12 @@ export function ApprovedDetails({
           <SectionTitle>Bill allocation</SectionTitle>
           <div className={TABLE_CARD}>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-[13px] text-pi-ink">
+              <table
+                className={cn(
+                  "w-full text-left text-[13px] text-pi-ink",
+                  COLUMN_RULES
+                )}
+              >
                 <thead className={THEAD}>
                   <tr>
                     <th className="px-4 py-3 font-medium">Ref type</th>

@@ -16,9 +16,13 @@ import { CountPill } from "@/components/inbox/v2/ui";
  * screen that owns the state.
  */
 
-/** Eyebrow, 30px/500 title, meta line, and the page's actions on the right. */
+/**
+ * The register's meta line and its actions. Eyebrow and title are not drawn:
+ * the top bar's trail names the page (8 Oct 2026), so the title is for
+ * assistive tech only.
+ */
 export const MasterHeading = ({
-  eyebrow,
+  eyebrow: _eyebrow,
   title,
   meta,
   actions,
@@ -28,12 +32,11 @@ export const MasterHeading = ({
   meta?: React.ReactNode;
   actions?: React.ReactNode;
 }) => (
-  <div className="flex shrink-0 flex-wrap items-end justify-between gap-x-6 gap-y-3 px-[var(--inset-page)] pb-5 pt-8">
+  <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-[var(--inset-page)] pb-5 pt-6">
     <div className="min-w-0">
-      <span className="workspace-eyebrow">{eyebrow}</span>
-      <h1 className="page-title truncate">{title}</h1>
+      <h1 className="sr-only">{title}</h1>
       {meta ? (
-        <p className="mt-2 truncate text-[13px] text-pi-faint">{meta}</p>
+        <p className="truncate text-[13px] text-pi-body">{meta}</p>
       ) : null}
     </div>
     {actions ? (
@@ -196,9 +199,19 @@ export const MasterToolbar = ({ children }: { children: React.ReactNode }) => (
  * heading, summary and toolbar scroll away as a page, the table header sticks
  * at the top of the content area, and a widened table scrolls sideways here.
  * Not positioned, so nothing absolute inside it hangs off the scroller.
+ * Native bars hidden: render it inside SCROLLER_BOX with OverlayScrollbars as
+ * its next sibling, so the bars float over the rows instead of reserving a
+ * strip under the last one.
  */
 export const PAGE_SCROLLER =
-  "flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none";
+  "table-scroller scrollbar-hide flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none";
+
+/**
+ * The scroller's own box: positioned, so the overlay bars (and anything
+ * floating over the table) sit over it and end above the pager, which goes
+ * after this box rather than inside the scroller.
+ */
+export const SCROLLER_BOX = "relative flex min-h-0 min-w-0 flex-1 flex-col";
 
 /**
  * Everything above the table, pinned against the horizontal scroll so only
@@ -212,12 +225,14 @@ export const PAGE_CHROME = "sticky left-0 shrink-0 [transform:translateZ(0)]";
  * its own. It fills the rest of the page so an empty state has room.
  */
 export const TABLE_SHELL =
-  "flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background";
+  "table-region flex min-w-0 flex-1 flex-col bg-background";
 
-/** The table's own classes: fixed layout, hairline row dividers only. Its own
- *  white ground, because a widened table runs past the region's right edge. */
+/** The table's own classes: fixed layout, hairline row dividers and a
+ *  hairline rule on every column's right edge but the last (Actions, which
+ *  shades its edge instead: `.pin-edge-r`). Its own white ground, because a
+ *  widened table runs past the region's right edge. */
 export const MASTER_TABLE_CLASS =
-  "table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line";
+  "table-fixed border-separate border-spacing-0 bg-background [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line";
 
 /** The head strip: sticky, opaque, one hairline under it. */
 export const MASTER_HEADER_CLASS =
@@ -282,11 +297,14 @@ export const SyncChip = ({
   status,
   title,
   detail,
+  className,
 }: {
   status?: string | null;
   /** Tooltip heading. Omit to draw the chip without a tooltip. */
   title?: string;
   detail?: string;
+  /** `-ml-2` in a table cell, so the dot sits on the header's line. */
+  className?: string;
 }) => {
   const state = syncStateOf(status);
   const chip = (
@@ -298,7 +316,8 @@ export const SyncChip = ({
           ? "bg-pi-danger-bg text-pi-danger"
           : state === "not_synced"
             ? "text-pi-faint"
-            : "text-pi-body"
+            : "text-pi-body",
+        className
       )}
     >
       <span
@@ -314,7 +333,9 @@ export const SyncChip = ({
       message={
         <span className="flex flex-col">
           <span className="font-medium">{title}</span>
-          {detail ? <span className="text-xs text-pi-faint">{detail}</span> : null}
+          {detail ? (
+            <span className="text-xs text-pi-faint">{detail}</span>
+          ) : null}
         </span>
       }
     >
@@ -324,31 +345,32 @@ export const SyncChip = ({
 };
 
 /**
- * A master form's header: back, eyebrow and title, then Cancel (outline) and
- * Save (lit-edge primary). It sits above the form's own scroller, so it stays.
+ * A master form's bar: back, then Cancel (outline) and Save (lit-edge
+ * primary), above the form's own scroller so it stays. The page names itself
+ * in the top bar's trail ("Accounting / Chart of Accounts / New Ledger"), so
+ * the title here is for assistive tech only — an eyebrow and a 30px title
+ * repeated the trail (8 Oct 2026). Like the bill form's bar, it runs on the
+ * form panel's column.
  */
 export const FormHeader = ({
-  eyebrow,
   title,
   back,
   actions,
 }: {
-  eyebrow: string;
   title: string;
   /** The back chevron button. */
   back: React.ReactNode;
   actions: React.ReactNode;
 }) => (
-  <div className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-pi-line bg-pi-page px-[var(--inset-page)] pb-4 pt-6">
-    <div className="-ml-2 self-end pb-0.5">{back}</div>
-    <div className="mr-auto min-w-0">
-      <span className="workspace-eyebrow">{eyebrow}</span>
-      <h1 className="page-title truncate">{title}</h1>
+  <div className="sticky top-0 z-10 shrink-0 border-b border-pi-line bg-pi-page px-[var(--inset-page)] py-3">
+    <div className="mx-auto flex w-full max-w-[1040px] items-center gap-3">
+      <div className="-ml-2">{back}</div>
+      <h1 className="sr-only">{title}</h1>
+      <div className="ml-auto flex items-center gap-2">{actions}</div>
     </div>
-    <div className="flex items-center gap-2">{actions}</div>
   </div>
 );
 
 /** The form column on the slate page: white field cards, 16px apart. */
 export const FORM_BODY =
-  "flex w-full max-w-none flex-col gap-4 px-[var(--inset-page)] py-8";
+  "flex w-full max-w-none flex-col gap-4 px-[var(--inset-page)] py-6";

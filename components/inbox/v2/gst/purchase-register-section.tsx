@@ -16,7 +16,6 @@ import type {
   PrFileStatus,
 } from "@/types/pages/inbox/gst";
 import { downloadText, toCsv } from "@/utils/pages/inbox/gst";
-import { T } from "@/components/inbox/v2/ui";
 import ColumnsMappingModal from "./columns-mapping-modal";
 import { DropZone, StatusItem } from "./sheet-parts";
 
@@ -65,8 +64,6 @@ const PurchaseRegisterSection = ({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className={T.label}>Purchase Register</span>
-
       {files.map((file) => {
         const config = PR_FILE_STATUS_CONFIG[file.status];
         const failed = file.status === PrFileStatusEnums.EXTRACTION_FAILED;
@@ -122,17 +119,14 @@ const PurchaseRegisterSection = ({
 
       <DropZone
         stacked
-        title="Upload Purchase Registers"
-        tooltip="Upload Purchase, Journal and/or Debit/Credit Notes Register. The system will take data in first sheet only."
+        title={
+          files.length ? "Add Another Register" : "Upload Purchase Register"
+        }
+        tooltip="Purchase, Journal and Debit/Credit Note registers. Only the first sheet is read."
         hint={
-          <>
-            <span className="text-[12px] leading-5 text-pi-body">
-              Supports {PR_ALLOWED_EXTENSIONS.join(", ")}
-            </span>
-            <span className="text-[12px] leading-4 text-pi-faint">
-              Size: 20 MB Max
-            </span>
-          </>
+          <span className="text-[12px] leading-4 text-pi-body">
+            {PR_ALLOWED_EXTENSIONS.join(" or ")} · up to 20 MB
+          </span>
         }
         extensions={PR_ALLOWED_EXTENSIONS}
         onError={(message) => notify(message, "error")}
@@ -141,11 +135,11 @@ const PurchaseRegisterSection = ({
 
       <Button
         variant="link-secondary"
-        className="mx-auto h-auto gap-2 py-1 text-pi-body no-underline hover:text-pi-brand hover:no-underline"
+        className="ml-auto h-auto gap-1.5 py-1 text-[12px] text-pi-body no-underline hover:text-pi-brand hover:no-underline"
         onClick={downloadTemplate}
       >
         <Download className="h-3.5 w-3.5" aria-hidden />
-        Download PR Template
+        Download Template
       </Button>
 
       {mappingFile && (

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import useSheetHeight from "@/hooks/pages/inbox/use-sheet-height";
 import { prepareReviewMarkup } from "./review-layout";
 import { useReviewAssistant } from "./review-assistant";
 import { AR_SHEET_VERSION } from "@/components/inbox/v2/ar-sheet-version";
@@ -35,6 +36,8 @@ const CSS_ID = "ar-sheet-css";
 
 const ArSheet = ({ itemId }: Props) => {
   const host = useRef<HTMLDivElement>(null);
+  // Sizes the document pane to the sheet, not the window.
+  useSheetHeight(host);
   const [markup, setMarkup] = useState<string | null>(null);
 
   const reviewAssistant = useReviewAssistant(host, markup, "ar");

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Check, ChevronRight } from "@/components/icons";
 import {
   companyOf,
@@ -7,6 +7,7 @@ import {
   type Form,
   type Item,
 } from "@/components/inbox/v2/store";
+import { headerCostLock } from "@/config/pages/inbox/mock-cost-centres";
 import VoucherDetails from "./voucher-details";
 import LedgerLines from "./ledger-lines";
 import { Sheet } from "./sheet";
@@ -202,7 +203,21 @@ const JournalVoucher = ({
     },
   ];
   const open = checks.filter((c) => !c.ok);
-  const done = checks.length - open.length;
+
+  /*
+    No header of its own (6 Oct 2026, as on the bill): the total is in the
+    totals card below, and the review count only repeated the dots. A failed
+    approve opens Needs you instead — the Inbox says so with this event.
+  */
+  const openRef = useRef(open.length);
+  openRef.current = open.length;
+  useEffect(() => {
+    const onFailed = () => {
+      if (openRef.current) setNeeds(true);
+    };
+    window.addEventListener(JOURNAL_APPROVE_FAILED, onFailed);
+    return () => window.removeEventListener(JOURNAL_APPROVE_FAILED, onFailed);
+  }, []);
 
   const go = (check: Check) => {
     setNeeds(false);
@@ -222,7 +237,7 @@ const JournalVoucher = ({
     <LedgerLines
       lines={form.lines}
       errors={errors}
-      costClass={form.costClass}
+      costLock={headerCostLock(form)}
       readOnly={readOnly}
       onLineChange={setLine}
       onAmountChange={setAmount}
@@ -242,54 +257,6 @@ const JournalVoucher = ({
   return (
     // The review editor body, laid out as the Finops review form (Oct 2026)
     <div className="jv-form journal-voucher flex min-h-full min-w-0 flex-col gap-6 bg-pi-surface-panel px-6 pb-7 pt-5">
-      <div className="cr-header">
-        <p className="cr-kicker">
-          Journal total
-          <span className="cr-kicker-note">Read from the source</span>
-        </p>
-        <div className="cr-heading-row">
-          <div className="cr-total">
-            <strong>{formatRupees(totals.totalDebit)}</strong>
-            <span className="cr-draft">
-              <i aria-hidden="true" />
-              Draft · not in books
-            </span>
-          </div>
-          {readOnly ? null : (
-            <div className="cr-progress" aria-live="polite">
-              <span>
-                <b>
-                  {done} of {checks.length}
-                </b>{" "}
-                resolved
-              </span>
-              {open.length ? (
-                <button
-                  type="button"
-                  className="cr-open"
-                  onClick={() => setNeeds(true)}
-                >
-                  {open.length} to review
-                  <ChevronRight size={14} aria-hidden="true" />
-                </button>
-              ) : (
-                <span className="cr-ready">
-                  <Check size={14} aria-hidden="true" />
-                  Ready to approve
-                </span>
-              )}
-              <div className="cr-bar" aria-hidden="true">
-                <i
-                  style={{
-                    transform: `scaleX(${checks.length ? done / checks.length : 1})`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       <VoucherDetails
         form={form}
         attempted={attempted && !readOnly}
@@ -372,6 +339,9 @@ const JournalVoucher = ({
     </div>
   );
 };
+
+/** Raised by the Inbox when approving this journal fails its checks. */
+export const JOURNAL_APPROVE_FAILED = "aia-journal-approve-failed";
 
 type Check = {
   key: string;

@@ -1,5 +1,9 @@
 import type { PillTone } from "@/components/inbox/v2/ui";
 import {
+  costCentreByName,
+  isLeafCostCentre,
+} from "@/config/pages/inbox/mock-cost-centres";
+import {
   AR_IMPORT_ALLOWED_FILE_EXTENSIONS,
   OPENABLE_AR_IMPORT_BATCH_STATUSES,
   mappingFieldGroups,
@@ -141,6 +145,35 @@ const REQUIRED_FIELD_LABELS = {
   total_amount: "Total Amount",
 } as const;
 
+/**
+ * A preview row's cost centre is the invoice's one cost centre — it goes to
+ * the voucher header, not onto each line. Like production's bulk upload, it
+ * must name a centre in the masters, and one at the bottom of the tree: a
+ * parent such as Commercial rolls up its children and is not posted to here.
+ */
+const costCentreIssue = (value: unknown): PreviewIssue | null => {
+  const name = String(value ?? "").trim();
+  if (!name) return null;
+  const centre = costCentreByName(name);
+  if (!centre)
+    return {
+      group: "format",
+      code: "cost_centre_not_found",
+      field: "cost_centre",
+      severity: "error",
+      message: `No cost centre named '${name}'.`,
+    };
+  if (!isLeafCostCentre(centre))
+    return {
+      group: "format",
+      code: "cost_centre_not_leaf",
+      field: "cost_centre",
+      severity: "error",
+      message: `'${name}' has cost centres under it. Pick one of those.`,
+    };
+  return null;
+};
+
 export const validatePreviewPayload = (
   payload: PreviewPayload,
   masters: SalesCustomerMaster[]
@@ -211,6 +244,8 @@ export const validatePreviewPayload = (
       severity: "warning",
       message: "hsn_sac must be a 4, 6, or 8 digit code.",
     });
+  const centreIssue = costCentreIssue(payload.cost_centre);
+  if (centreIssue) issues.push(centreIssue);
   return issues;
 };
 
@@ -291,6 +326,9 @@ export const buildPreviewRows = ({
       voucher_type: "Sales",
       gstin: master?.gstin ?? "",
       place_of_supply: master?.state ?? "",
+      // The invoice's cost centre, prefilled from what the books hold for this
+      // customer and editable in the preview. It becomes the voucher header's
+      // one cost centre, never a value stamped onto each line.
       cost_centre: master?.costCentre ?? "",
       sales_ledger: item ? (get("sales_ledger") ?? salesLedger) : "",
       item_name: item ? (get("item_name") ?? "") : "",
@@ -358,6 +396,10 @@ export const editPreviewRow = (
       finalPayload.place_of_supply = master.state;
       if (master.gstin) issues = issues.filter((i) => i.field !== "gstin");
     }
+  }
+  if (field === "cost_centre") {
+    const centreIssue = costCentreIssue(value);
+    if (centreIssue) issues = [...issues, centreIssue];
   }
   return withIssues({ ...row, finalPayload }, issues);
 };

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ArrowLeftRight,
   CircleAlert,
@@ -23,9 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import { Tooltip } from "@/components/common/tooltip";
 import { cn } from "@/lib/utils";
 import { useColumnResize } from "@/hooks/pages/inbox/use-column-resize";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import { isCashLedger } from "@/hooks/pages/inbox/use-banking";
 import type { BankLedgerData } from "@/types/pages/inbox/banking";
 import { ColumnFilter, QuickFilter } from "@/components/inbox/v2/filter-panel";
@@ -157,6 +159,10 @@ const BankList = ({
     sizes: BANK_LIST_SIZES,
     storageKey: "banking.list.widths.v1",
   });
+  // The page scroller; it owns the horizontal scroll the pinned Action
+  // column shades against.
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const pinEdges = usePinEdges(scroller);
 
   const anyFilter = !!(search || names.length || types.length || banks.length);
   const reset = () => {
@@ -237,7 +243,9 @@ const BankList = ({
         return ledger.accountType ? (
           <span className="truncate">{typeOf(ledger)}</span>
         ) : (
-          <DotChip tone="warn">{NOT_MAPPED}</DotChip>
+          <DotChip tone="warn" className="-ml-2">
+            {NOT_MAPPED}
+          </DotChip>
         );
       case "bankName":
         if (cash) return dash;
@@ -246,12 +254,14 @@ const BankList = ({
             {bankOf(ledger)}
           </span>
         ) : (
-          <DotChip tone="warn">{NOT_MAPPED}</DotChip>
+          <DotChip tone="warn" className="-ml-2">
+            {NOT_MAPPED}
+          </DotChip>
         );
       case "unreconciledCount": {
         const count = ledger.unreconciledCount;
         return count > 0 ? (
-          <DotChip tone="warn">
+          <DotChip tone="warn" className="-ml-2">
             <span className="fig">{count}</span>{" "}
             {count === 1 ? "Transaction" : "Transactions"}
           </DotChip>
@@ -269,7 +279,11 @@ const BankList = ({
   const unmapped = accounts.filter((l) => !l.accountType || !l.bankName).length;
 
   return (
-    <div className={PAGE_SCROLL}>
+    <>
+      {/* The scroller's own box, so the overlay bars sit over the table and
+          end above the pager. */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+    <div ref={scroller} className={PAGE_SCROLL} {...pinEdges}>
       <Pinned>
         <PageHead
           eyebrow="Banking"
@@ -404,7 +418,7 @@ const BankList = ({
                 ))}
                 <TableHead
                   style={{ width: ACTIONS_WIDTH }}
-                  className="sticky right-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
+                  className="pin-edge-r sticky right-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
                 >
                   <span
                     className={cn(T.head, "flex h-4 items-center truncate")}
@@ -442,6 +456,8 @@ const BankList = ({
                         className={cn(
                           "h-14 overflow-hidden px-4 py-0 align-middle",
                           T.cell,
+                          // Body ink; the ledger name carries its own.
+                          "text-pi-body",
                           ROW_GROUND
                         )}
                       >
@@ -451,7 +467,7 @@ const BankList = ({
                     <TableCell
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
-                        "sticky right-0 z-[1] h-14 bg-background px-2 py-0 align-middle",
+                        "pin-edge-r sticky right-0 z-[1] h-14 bg-background px-2 py-0 align-middle",
                         ROW_GROUND
                       )}
                     >
@@ -504,26 +520,44 @@ const BankList = ({
           </Table>
           {!pageRows.length && (
             <EmptyBlock
-              title={
-                anyFilter
-                  ? "No ledgers match your filters."
-                  : "No bank or cash ledgers found."
-              }
+              {...(anyFilter
+                ? {
+                    title: "No accounts match these filters",
+                    body: "Clear the search or filters to see every bank and cash ledger.",
+                    filters: search.trim()
+                      ? [{ label: `Search: “${search.trim()}”` }]
+                      : [],
+                    onClear: reset,
+                  }
+                : {
+                    icon: Landmark,
+                    title: "No bank or cash accounts yet",
+                    body: "Upload a statement and AI Accountant reads the account from it, then lists its transactions for review.",
+                    actions: (
+                      <Button onClick={() => onUpload()}>
+                        <Upload className="h-4 w-4" />
+                        Upload Statement
+                      </Button>
+                    ),
+                  })}
             />
           )}
         </div>
       </TableCard>
-
-      <Pinned>
-        <Pager
-          page={page}
-          pageSize={pageSize}
-          total={rows.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-      </Pinned>
     </div>
+        <OverlayScrollbars scroller={scroller} />
+      </div>
+
+      {/* Below the page scroller, not inside it: the pager stays at the
+          bottom of the viewport, and the horizontal bar ends above it. */}
+      <Pager
+        page={page}
+        pageSize={pageSize}
+        total={rows.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
+    </>
   );
 };
 

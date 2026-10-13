@@ -79,8 +79,11 @@ export const resolveStatementStatus = (statement: Statement): Resolved => {
 
 export const StatementStatusPill = ({
   statement,
+  className,
 }: {
   statement: Statement;
+  /** At a table call site, `-ml-2` puts the dot on the column's text line. */
+  className?: string;
 }) => {
   const status = resolveStatementStatus(statement);
   // Precision Indigo dot-chip: the tone lives in the dot; work in progress
@@ -91,7 +94,7 @@ export const StatementStatusPill = ({
     </DotChip>
   );
   return (
-    <span className="inline-flex min-w-0 items-center gap-1">
+    <span className={cn("inline-flex min-w-0 items-center gap-1", className)}>
       {status.failure ? (
         <Tooltip message={status.failure}>{pill}</Tooltip>
       ) : (
@@ -144,20 +147,22 @@ export const DeleteStatementDialog = ({
     title="Confirm Delete Statement"
     onClose={onClose}
     className="max-w-[460px]"
+    footer={
+      <>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button isDestructive onClick={() => statement && onConfirm(statement)}>
+          <Trash2 className="h-4 w-4" />
+          Delete statement
+        </Button>
+      </>
+    }
   >
     <p className={T.value}>
       You are about to delete a statement that contains categorized
       transactions. Deleting it will permanently remove its categorization data.
     </p>
     <p className={cn(T.value, "mt-2")}>Are you sure you want to proceed?</p>
-    <div className="mt-6 flex justify-end gap-2">
-      <Button variant="outline" onClick={onClose}>
-        Cancel
-      </Button>
-      <Button isDestructive onClick={() => statement && onConfirm(statement)}>
-        <Trash2 className="h-4 w-4" />
-        Delete
-      </Button>
-    </div>
   </PageDialog>
 );

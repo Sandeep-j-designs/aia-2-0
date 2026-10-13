@@ -1,0 +1,36 @@
+/*
+ * The godown split, opened under its field instead of in a dialog
+ * (7 Oct 2026) — the bill form's tax and party panels: header-row ground,
+ * hairline, 8px corners, and a notch on the top edge pointing at the control
+ * that opened it. --notch-x is set from the opener's centre.
+ */
+.panel {
+  position: relative;
+  background: var(--pi-head-bg);
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  padding: 12px 16px 16px;
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: var(--notch-x, 24px);
+  width: 10px;
+  height: 10px;
+  border-top: 1px solid var(--pi-line);
+  border-left: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+  transform: rotate(45deg);
+}
+
+/* The split icon rides inside the godown box, just after the picked name
+   (7 Oct 2026); --after-x is where that name ends. */
+.afterValue {
+  position: absolute;
+  top: 50%;
+  left: var(--after-x, auto);
+  right: var(--after-right, auto);
+  transform: translateY(-50%);
+  z-index: 1;
+}

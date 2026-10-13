@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,12 +17,16 @@ import type {
   GodownAllocationDraftRow,
   Option,
 } from "@/types/pages/inbox/inventory";
-import { PageDialog, Pill, T } from "@/components/inbox/v2/ui";
+import { Pill, T } from "@/components/inbox/v2/ui";
 import NumericInput from "./numeric-input";
+import styles from "./create-item.module.css";
 
 type Props = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  /** Referenced by the opener's aria-controls. */
+  id: string;
+  /** The control that opened the split; the notch points at it. */
+  anchorRef: React.RefObject<HTMLElement>;
+  onClose: () => void;
   /** The opening balance line being split. */
   quantity: number;
   rate: number;
@@ -35,10 +39,10 @@ type Props = {
 };
 
 const COLUMNS = [
-  { key: "godown", label: "Godown/Location", className: "w-[44%]" },
+  { key: "godown", label: "Godown/Location", className: "w-[36%]" },
   { key: "quantity", label: "Qty", className: "text-right" },
   { key: "rate", label: "Rate", className: "text-right" },
-  { key: "amount", label: "Amount", className: "text-right" },
+  { key: "amount", label: "Amount", className: "w-[22%] text-right" },
   { key: "actions", label: "", className: "w-12" },
 ];
 
@@ -46,14 +50,21 @@ let rowSeq = 0;
 const newRowId = () => `draft-${Date.now().toString(36)}-${rowSeq++}`;
 
 /**
+ * The split now opens as a panel under the godown field, the full width of
+ * the card, instead of a dialog (7 Oct 2026): the bill form's sub-forms all
+ * moved inline so the line being split stays in view. The draft and its
+ * checks are unchanged — rows only reach the form through Apply, which stays
+ * disabled until the split adds up; Cancel, or the opener again, drops it.
+ *
  * production's AP godown-split-modal (accounts-payable/tally/create-voucher/
  * line-items-section/item-details-section/godown-split-modal*.tsx), as the
  * stock item's opening balance uses it. The Discount column is left out: an
  * opening balance has none.
  */
-const GodownSplitModal = ({
-  open,
-  onOpenChange,
+const GodownSplitPanel = ({
+  id,
+  anchorRef,
+  onClose,
   quantity,
   rate,
   amount,
@@ -173,8 +184,29 @@ const GodownSplitModal = ({
         amount: row.amount,
       }))
     );
-    onOpenChange(false);
+    onClose();
   };
+
+  // The notch sits over the opener's centre, re-aimed as the card resizes.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const aim = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const a = anchor.getBoundingClientRect();
+      const b = panel.getBoundingClientRect();
+      if (!a.width || !b.width) return;
+      const at = `${Math.round(a.left - b.left + a.width / 2 - 5)}px`;
+      if (panel.style.getPropertyValue("--notch-x") !== at)
+        panel.style.setProperty("--notch-x", at);
+    };
+    aim();
+    const ro = new ResizeObserver(aim);
+    ro.observe(panel);
+    return () => ro.disconnect();
+  });
 
   const formattedAmount = parentLineAmount.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
@@ -182,135 +214,156 @@ const GodownSplitModal = ({
   });
 
   return (
-    <PageDialog
-      open={open}
-      title="Allocate Godown/Location"
-      onClose={() => onOpenChange(false)}
-      className="max-w-[860px]"
+    <div
+      ref={panelRef}
+      id={id}
+      role="region"
+      aria-label="Split godown/location"
+      className={cn(styles.panel, "sm:col-span-full")}
     >
-      <div className="mb-4">
-        <Pill tone="neutral" className="text-[12px]">
+      <div className="mb-3 flex min-w-0 items-center gap-3">
+        <h3 className={cn(T.label, "truncate text-pi-ink")}>
+          Allocate Godown/Location
+        </h3>
+        <Pill tone="neutral" className="flex-none text-[12px]">
           Total Quantity: <span className="fig">{parentLineQuantity}</span> |
           Amount: <span className="fig">₹{formattedAmount}</span>
         </Pill>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-pi-line">
-      <Table className="border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line [&_tr:last-child_td]:border-b-0">
-        <TableHeader className="[&_tr]:shadow-none">
-          <TableRow className="bg-pi-head-bg hover:bg-pi-head-bg [&_th]:border-b [&_th]:border-pi-line">
-            {COLUMNS.map((column) => (
-              <TableHead
-                key={column.key}
-                className={cn("h-11 px-3", T.head, column.className)}
-              >
-                {column.label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {finalRows.map((row) => (
-            <TableRow key={row.id} className="border-0 hover:bg-transparent">
-              <TableCell className="px-3 py-3 align-top">
-                <ComboBox
-                  title="Select Godown/Location"
-                  options={godownOptions}
-                  selectedValue={row.godownUuid}
-                  onChange={(value) =>
-                    update(row.id, { godownUuid: String(value) })
-                  }
-                  isMultiSelect={false}
-                  hasSearch={false}
-                />
-              </TableCell>
-              <TableCell className="px-3 py-3 align-top">
-                <NumericInput
-                  aria-label="Quantity"
-                  value={row.quantity}
-                  onChange={(value) => update(row.id, { quantity: value ?? 0 })}
-                  allowNegative
-                  disabled={isAmountEditableMode}
-                  className="text-right"
-                />
-              </TableCell>
-              <TableCell className="px-3 py-3 align-top">
-                <NumericInput
-                  aria-label="Rate"
-                  value={row.rate}
-                  disabled
-                  className="text-right"
-                />
-              </TableCell>
-              <TableCell className="px-3 py-3 align-top">
-                <NumericInput
-                  aria-label="Amount"
-                  value={row.amount}
-                  onChange={(value) => update(row.id, { amount: value ?? 0 })}
-                  allowNegative
-                  disabled={!isAmountEditableMode}
-                  className="text-right"
-                />
-              </TableCell>
-              <TableCell className="px-3 py-3 align-top">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove row"
-                  className="text-pi-faint hover:text-pi-danger"
-                  onClick={() =>
-                    setDraftRows((rows) => rows.filter((r) => r.id !== row.id))
-                  }
-                  disabled={draftRows.length === 1}
+      <div className="overflow-x-auto rounded-lg border border-pi-line bg-background">
+        <Table className="border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line [&_tr:last-child_td]:border-b-0">
+          <TableHeader className="[&_tr]:shadow-none">
+            <TableRow className="bg-pi-head-bg hover:bg-pi-head-bg [&_th]:border-b [&_th]:border-pi-line">
+              {COLUMNS.map((column) => (
+                <TableHead
+                  key={column.key}
+                  className={cn(
+                    "h-9 whitespace-nowrap px-3",
+                    T.head,
+                    column.className
+                  )}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TableCell>
+                  {column.label}
+                </TableHead>
+              ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {finalRows.map((row) => (
+              <TableRow key={row.id} className="border-0 hover:bg-transparent">
+                <TableCell className="px-3 py-2 align-top">
+                  <ComboBox
+                    title="Select Godown/Location"
+                    options={godownOptions}
+                    selectedValue={row.godownUuid}
+                    onChange={(value) =>
+                      update(row.id, { godownUuid: String(value) })
+                    }
+                    isMultiSelect={false}
+                    hasSearch={false}
+                  />
+                </TableCell>
+                <TableCell className="px-3 py-2 align-top">
+                  <NumericInput
+                    aria-label="Quantity"
+                    value={row.quantity}
+                    onChange={(value) =>
+                      update(row.id, { quantity: value ?? 0 })
+                    }
+                    allowNegative
+                    disabled={isAmountEditableMode}
+                    className="text-right"
+                  />
+                </TableCell>
+                <TableCell className="px-3 py-2 align-top">
+                  <NumericInput
+                    aria-label="Rate"
+                    value={row.rate}
+                    disabled
+                    className="text-right"
+                  />
+                </TableCell>
+                <TableCell className="px-3 py-2 align-top">
+                  <NumericInput
+                    aria-label="Amount"
+                    value={row.amount}
+                    onChange={(value) => update(row.id, { amount: value ?? 0 })}
+                    allowNegative
+                    disabled={!isAmountEditableMode}
+                    className="text-right"
+                  />
+                </TableCell>
+                <TableCell className="px-3 py-2 align-top">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove row"
+                    className="h-9 w-9 text-pi-faint hover:text-pi-danger"
+                    onClick={() =>
+                      setDraftRows((rows) =>
+                        rows.filter((r) => r.id !== row.id)
+                      )
+                    }
+                    disabled={draftRows.length === 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="mt-2 w-fit px-2"
-        onClick={addRow}
-      >
-        <Plus className="h-4 w-4" />
-        Add New Row
-      </Button>
-
-      <div className="mt-6 flex w-full items-center justify-between gap-4">
-        <div className="flex flex-col gap-1 text-[13px] text-pi-danger">
-          {hasDuplicateGodowns ? (
-            <span>Duplicate godown selections are not allowed.</span>
-          ) : null}
-          {!amountMatchesParent ? (
-            <span>Total allocation amount must match the line amount.</span>
-          ) : null}
-          {!quantityMatchesParent ? (
-            <span>Total allocation quantity must match the line quantity.</span>
-          ) : null}
+      {/* Add row, the checks, then Cancel / Apply on one line: the split
+          stays a draft until it adds up (7 Oct 2026). */}
+      <div className="mt-3 flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex min-w-0 items-center gap-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-fit flex-none px-2 text-pi-brand hover:bg-pi-brand-tint"
+            onClick={addRow}
+          >
+            <Plus className="h-4 w-4" />
+            Add New Row
+          </Button>
+          <div
+            role="status"
+            className="flex min-w-0 flex-col text-[12px] leading-4 text-pi-danger"
+          >
+            {hasDuplicateGodowns ? (
+              <span>Duplicate godown selections are not allowed.</span>
+            ) : null}
+            {!amountMatchesParent ? (
+              <span>Total allocation amount must match the line amount.</span>
+            ) : null}
+            {!quantityMatchesParent ? (
+              <span>
+                Total allocation quantity must match the line quantity.
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="flex flex-none items-center gap-2">
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="ghost" size="sm" type="button" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" onClick={save} disabled={isSaveDisabled}>
-            Save
+          <Button
+            type="button"
+            size="sm"
+            onClick={save}
+            disabled={isSaveDisabled}
+          >
+            Apply split
           </Button>
         </div>
       </div>
-    </PageDialog>
+    </div>
   );
 };
 
-export default GodownSplitModal;
+export default GodownSplitPanel;

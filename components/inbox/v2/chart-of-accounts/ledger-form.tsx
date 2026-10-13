@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft } from "@/components/icons";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormJourney } from "../form-journey";
+import { FormJourney, MoreDetails, StarterPicks } from "../form-journey";
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_UNDER_SLUG,
@@ -36,8 +36,14 @@ import {
   detailToFormValues,
   formValuesToDetail,
 } from "@/utils/pages/inbox/chart-of-accounts";
-import { FieldCard, Notice, PageButton, T } from "@/components/inbox/v2/ui";
-import { ComboField, SwitchRow, type FormApi } from "./form-fields";
+import { PageButton, T } from "@/components/inbox/v2/ui";
+import {
+  ComboField,
+  FormCard,
+  SwitchList,
+  SwitchRow,
+  type FormApi,
+} from "./form-fields";
 import { FORM_BODY, FormHeader } from "./master-parts";
 import {
   AddressSection,
@@ -84,8 +90,31 @@ type Props = {
   onUnbuilt: (what: string) => void;
 };
 
+/** The quick picks above a new ledger: the four groups most ledgers go in. */
+const STARTERS: [string, string][] = [
+  ["indirect-expenses", "Business expense"],
+  ["sundry-creditors", "Supplier"],
+  ["sundry-debtors", "Customer"],
+  ["bank-accounts", "Bank account"],
+];
+
 /** DEV: GET /api/accounts/company-feature?companyId=… (cost centre flag). */
 const COST_CENTRE_ENABLED = true;
+
+/*
+ * Faint tags beside a switch's label while it is locked, the sentence in the
+ * title — the note no longer wraps under the control (7 Oct 2026).
+ */
+const GST_LOCK_TAG = {
+  tag: "Off for GST ledgers",
+  tagTitle:
+    "A ledger with GST Applicable cannot behave as a Duties & Taxes ledger.",
+};
+const EXCLUSIVE_TAG = {
+  tag: "One or the other",
+  tagTitle:
+    "Maintain Balances Bill by Bill and Inventory Values are Affected cannot both be enabled.",
+};
 
 /** Flatten rhf's nested errors to "path" → message. */
 const flattenErrors = (
@@ -248,11 +277,23 @@ const LedgerForm = ({
       onBack();
     },
     (errors) => {
-      if (formType !== "form-8") return;
-      const tabs = flattenErrors(errors)
-        .map(([path]) => tabOfField(path))
-        .filter((t): t is PartyTab => !!t);
-      if (tabs.length && !tabs.includes(partyTab)) setPartyTab(tabs[0]);
+      if (formType === "form-8") {
+        const tabs = flattenErrors(errors)
+          .map(([path]) => tabOfField(path))
+          .filter((t): t is PartyTab => !!t);
+        if (tabs.length && !tabs.includes(partyTab)) setPartyTab(tabs[0]);
+      }
+      // With no summary banner, take the accountant to the first field that
+      // failed — after the frame that draws the messages (and the tab).
+      requestAnimationFrame(() => {
+        const first = document.querySelector<HTMLElement>(
+          '#ledger-form [data-invalid="true"]'
+        );
+        first?.scrollIntoView({ block: "center" });
+        first
+          ?.querySelector<HTMLElement>("input, textarea, button")
+          ?.focus({ preventScroll: true });
+      });
     }
   );
 
@@ -286,57 +327,95 @@ const LedgerForm = ({
       .filter((t): t is PartyTab => !!t)
   );
 
-  /** The eight forms, composed as their production files compose them. */
+  /*
+   * The eight forms, composed as their production files compose them, laid
+   * out as the bill form is (8 Oct 2026): what decides the posting or the tax
+   * stays on the form — the group, the statutory details, the settings — and
+   * the optional groups sit under More details. A bank ledger keeps its bank
+   * details out; they are what the ledger is for.
+   */
+  const settings = (
+    title: string,
+    rows: React.ReactNode,
+    panel?: React.ReactNode
+  ) => (
+    <FormCard title={title}>
+      <SwitchList>{rows}</SwitchList>
+      {panel}
+    </FormCard>
+  );
+  const billWise = (
+    <SwitchRow
+      label="Bill wise tracking"
+      checked={isYes(values.maintainBalancesBillByBill)}
+      onChange={(c) => f.set("maintainBalancesBillByBill", yesNo(c))}
+      error={f.error("maintainBalancesBillByBill")}
+    />
+  );
+  const dutySwitch = dutyAllowed ? (
+    <SwitchRow
+      label="Behave as Duties & Taxes Ledger"
+      checked={duty}
+      disabled={gstApplicable}
+      {...(gstApplicable ? GST_LOCK_TAG : {})}
+      onChange={(c) => f.set("behaveAsDutiesTaxesLedger", yesNo(c))}
+      error={f.error("behaveAsDutiesTaxesLedger")}
+    />
+  ) : null;
+  const ADDRESS_TAX_OPENING = [
+    "Address",
+    "Tax registration",
+    "Opening balance",
+  ];
+
   const body = (() => {
     switch (formType) {
       case "form-1":
         return (
           <>
             {basic(COST_CENTRE_ENABLED)}
-            <AddressSection f={f} />
-            <TaxRegistrationSection f={f} includePanItNo={false} />
             <BankAccountSection f={f} />
-            <OpeningBalanceSection f={f} />
+            <MoreDetails groups={ADDRESS_TAX_OPENING}>
+              <AddressSection f={f} />
+              <TaxRegistrationSection f={f} includePanItNo={false} />
+              <OpeningBalanceSection f={f} />
+            </MoreDetails>
           </>
         );
       case "form-2":
         return (
           <>
             {basic(COST_CENTRE_ENABLED)}
-            <AddressSection f={f} />
-            <TaxRegistrationSection
-              f={f}
-              includeGstTreatment={taxRegistration}
-              includeGstin={taxRegistration}
-            />
-            <OpeningBalanceSection f={f} />
-            <FieldCard title="Additional settings">
-              <SwitchRow
-                label="Bill wise tracking"
-                checked={isYes(values.maintainBalancesBillByBill)}
-                onChange={(c) => f.set("maintainBalancesBillByBill", yesNo(c))}
-                error={f.error("maintainBalancesBillByBill")}
+            {settings("Additional settings", billWise)}
+            <MoreDetails groups={ADDRESS_TAX_OPENING}>
+              <AddressSection f={f} />
+              <TaxRegistrationSection
+                f={f}
+                includeGstTreatment={taxRegistration}
+                includeGstin={taxRegistration}
               />
-            </FieldCard>
+              <OpeningBalanceSection f={f} />
+            </MoreDetails>
           </>
         );
       case "form-3":
         return (
           <>
             {basic(COST_CENTRE_ENABLED)}
-            <AddressSection
-              f={f}
-              includeMobileNo={false}
-              includeEmailId={false}
-            />
-            <OpeningBalanceSection f={f} />
+            <MoreDetails groups={["Address", "Opening balance"]}>
+              <AddressSection
+                f={f}
+                includeMobileNo={false}
+                includeEmailId={false}
+              />
+              <OpeningBalanceSection f={f} />
+            </MoreDetails>
           </>
         );
       case "form-4":
         return (
           <>
             {basic(COST_CENTRE_ENABLED)}
-            <AddressSection f={f} disabled={duty} />
             {!duty ? (
               <StatutorySection
                 f={f}
@@ -344,39 +423,33 @@ const LedgerForm = ({
                 typeOfSupplyOptions={FORM4_TYPE_OF_SUPPLY_OPTIONS}
               />
             ) : null}
-            <TaxRegistrationSection
-              f={f}
-              disabled={duty}
-              includeGstTreatment={taxRegistration}
-              includeGstin={taxRegistration}
-              disableGstTreatment={gstApplicable}
-              disableGstin={gstApplicable}
-              gstTreatmentLabel="GST Treatment (Registration Type)"
-            />
-            <OpeningBalanceSection f={f} />
-            <FieldCard title="Additional Fields">
-              <SwitchRow
-                label="Bill wise tracking"
-                checked={isYes(values.maintainBalancesBillByBill)}
-                onChange={(c) => f.set("maintainBalancesBillByBill", yesNo(c))}
-                error={f.error("maintainBalancesBillByBill")}
-              />
-              {dutyAllowed ? (
-                <SwitchRow
-                  label="Behave as Duties & Taxes Ledger"
-                  checked={duty}
-                  disabled={gstApplicable}
-                  onChange={(c) => f.set("behaveAsDutiesTaxesLedger", yesNo(c))}
-                  error={f.error("behaveAsDutiesTaxesLedger")}
+            {settings(
+              "Additional settings",
+              <>
+                {billWise}
+                {dutySwitch}
+              </>,
+              // What the duty switch opens: its tinted panel.
+              dutyAllowed && duty ? (
+                <DutyTaxesSection
+                  f={f}
+                  typeOfDutyTaxOptions={TYPE_OF_DUTY_TAX_OPTIONS}
                 />
-              ) : null}
-            </FieldCard>
-            {dutyAllowed && duty ? (
-              <DutyTaxesSection
+              ) : null
+            )}
+            <MoreDetails groups={ADDRESS_TAX_OPENING}>
+              <AddressSection f={f} disabled={duty} />
+              <TaxRegistrationSection
                 f={f}
-                typeOfDutyTaxOptions={TYPE_OF_DUTY_TAX_OPTIONS}
+                disabled={duty}
+                includeGstTreatment={taxRegistration}
+                includeGstin={taxRegistration}
+                disableGstTreatment={gstApplicable}
+                disableGstin={gstApplicable}
+                gstTreatmentLabel="GST Treatment (Registration Type)"
               />
-            ) : null}
+              <OpeningBalanceSection f={f} />
+            </MoreDetails>
           </>
         );
       case "form-5": {
@@ -394,7 +467,6 @@ const LedgerForm = ({
                 options={FORM5_TYPE_OF_LEDGER_OPTIONS}
               />
             )}
-            <AddressSection f={f} disabled={duty} />
             {!duty ? (
               <StatutorySection
                 f={f}
@@ -402,53 +474,53 @@ const LedgerForm = ({
                 typeOfSupplyOptions={FORM5_TYPE_OF_SUPPLY_OPTIONS}
               />
             ) : null}
-            <TaxRegistrationSection
-              f={f}
-              disabled={duty}
-              includeGstTreatment={false}
-              includeGstin={false}
-            />
-            <OpeningBalanceSection f={f} />
-            <FieldCard title="Additional Fields">
-              <SwitchRow
-                label="Maintain Balances Bill by Bill"
-                checked={billByBill}
-                disabled={inventory && !billByBill}
-                onChange={(c) => {
-                  f.set("maintainBalancesBillByBill", yesNo(c));
-                  if (c) f.set("inventoryValuesAffected", YES_NO.NO);
-                }}
-                error={f.error("maintainBalancesBillByBill")}
-              />
-              {inventoryAllowed ? (
+            {settings(
+              "Additional settings",
+              <>
                 <SwitchRow
-                  label="Inventory Values are Affected"
-                  checked={inventory}
-                  disabled={billByBill && !inventory}
+                  label="Maintain Balances Bill by Bill"
+                  checked={billByBill}
+                  disabled={inventory && !billByBill}
+                  {...(inventory && !billByBill ? EXCLUSIVE_TAG : {})}
                   onChange={(c) => {
-                    f.set("inventoryValuesAffected", yesNo(c));
-                    if (c) f.set("maintainBalancesBillByBill", YES_NO.NO);
+                    f.set("maintainBalancesBillByBill", yesNo(c));
+                    if (c) f.set("inventoryValuesAffected", YES_NO.NO);
                   }}
-                  error={f.error("inventoryValuesAffected")}
+                  error={f.error("maintainBalancesBillByBill")}
                 />
-              ) : null}
-              {dutyAllowed ? (
-                <SwitchRow
-                  label="Behave as Duties & Taxes Ledger"
-                  checked={duty}
-                  disabled={gstApplicable}
-                  onChange={(c) => f.set("behaveAsDutiesTaxesLedger", yesNo(c))}
-                  error={f.error("behaveAsDutiesTaxesLedger")}
+                {inventoryAllowed ? (
+                  <SwitchRow
+                    label="Inventory Values are Affected"
+                    checked={inventory}
+                    disabled={billByBill && !inventory}
+                    {...(billByBill && !inventory ? EXCLUSIVE_TAG : {})}
+                    onChange={(c) => {
+                      f.set("inventoryValuesAffected", yesNo(c));
+                      if (c) f.set("maintainBalancesBillByBill", YES_NO.NO);
+                    }}
+                    error={f.error("inventoryValuesAffected")}
+                  />
+                ) : null}
+                {dutySwitch}
+              </>,
+              dutyAllowed && duty ? (
+                <DutyTaxesSection
+                  f={f}
+                  typeOfDutyTaxOptions={TYPE_OF_DUTY_TAX_OPTIONS_WITH_OTHERS}
+                  showOthersPercentage
                 />
-              ) : null}
-            </FieldCard>
-            {dutyAllowed && duty ? (
-              <DutyTaxesSection
+              ) : null
+            )}
+            <MoreDetails groups={ADDRESS_TAX_OPENING}>
+              <AddressSection f={f} disabled={duty} />
+              <TaxRegistrationSection
                 f={f}
-                typeOfDutyTaxOptions={TYPE_OF_DUTY_TAX_OPTIONS_WITH_OTHERS}
-                showOthersPercentage
+                disabled={duty}
+                includeGstTreatment={false}
+                includeGstin={false}
               />
-            ) : null}
+              <OpeningBalanceSection f={f} />
+            </MoreDetails>
           </>
         );
       }
@@ -461,27 +533,22 @@ const LedgerForm = ({
               f={f}
               typeOfDutyTaxOptions={TYPE_OF_DUTY_TAX_OPTIONS}
             />
-            <AddressSection
-              f={f}
-              disabled={dutiesGroup}
-              includeMobileNo={false}
-              includeEmailId={false}
-            />
-            <TaxRegistrationSection
-              f={f}
-              disabled={dutiesGroup}
-              includeGstTreatment={false}
-              includeGstin={false}
-            />
-            <OpeningBalanceSection f={f} />
-            <FieldCard>
-              <SwitchRow
-                label="Bill wise tracking"
-                checked={isYes(values.maintainBalancesBillByBill)}
-                onChange={(c) => f.set("maintainBalancesBillByBill", yesNo(c))}
-                error={f.error("maintainBalancesBillByBill")}
+            {settings("Additional settings", billWise)}
+            <MoreDetails groups={ADDRESS_TAX_OPENING}>
+              <AddressSection
+                f={f}
+                disabled={dutiesGroup}
+                includeMobileNo={false}
+                includeEmailId={false}
               />
-            </FieldCard>
+              <TaxRegistrationSection
+                f={f}
+                disabled={dutiesGroup}
+                includeGstTreatment={false}
+                includeGstin={false}
+              />
+              <OpeningBalanceSection f={f} />
+            </MoreDetails>
           </>
         );
       }
@@ -489,37 +556,25 @@ const LedgerForm = ({
         return (
           <>
             {basic(false)}
-            <AddressSection
-              f={f}
-              title="Address"
-              includeMobileNo={false}
-              includeEmailId={false}
-            />
-            <TaxRegistrationSection
-              f={f}
-              includeGstTreatment={false}
-              includeGstin={false}
-            />
-            <OpeningBalanceSection f={f} />
+            <MoreDetails groups={ADDRESS_TAX_OPENING}>
+              <AddressSection
+                f={f}
+                title="Address"
+                includeMobileNo={false}
+                includeEmailId={false}
+              />
+              <TaxRegistrationSection
+                f={f}
+                includeGstTreatment={false}
+                includeGstin={false}
+              />
+              <OpeningBalanceSection f={f} />
+            </MoreDetails>
           </>
         );
       case "form-8":
         return (
           <>
-            {submitted && errorList.length ? (
-              <Notice tone="danger" role="alert">
-                <p className="font-semibold">
-                  Fix {errorList.length === 1 ? "this" : "these"} before saving:
-                </p>
-                <ul className="mt-1 list-disc pl-5">
-                  {[...new Set(errorList.map(([, message]) => message))].map(
-                    (message) => (
-                      <li key={message}>{message}</li>
-                    )
-                  )}
-                </ul>
-              </Notice>
-            ) : null}
             {basic(COST_CENTRE_ENABLED)}
             <PartyDetailsSection f={f} />
             <PartyDetailsTabs
@@ -529,7 +584,9 @@ const LedgerForm = ({
               onTabChange={setPartyTab}
               tabsWithErrors={tabsWithErrors}
             />
-            <DocumentsSection onUnbuilt={onUnbuilt} />
+            <MoreDetails groups={["Documents"]}>
+              <DocumentsSection onUnbuilt={onUnbuilt} />
+            </MoreDetails>
           </>
         );
     }
@@ -538,7 +595,6 @@ const LedgerForm = ({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <FormHeader
-        eyebrow="Chart of Accounts"
         title={existing ? "Edit Ledger" : "New Ledger"}
         back={
           <PageButton
@@ -569,55 +625,27 @@ const LedgerForm = ({
           className={FORM_BODY}
         >
           <FormJourney
-            title={
-              existing
-                ? "A clear view of your ledger."
-                : "Let’s set up your ledger."
-            }
-            description="Start with the account group. We’ll show the fields relevant to that choice."
             starter={
               !existing ? (
-                <div
-                  className="form-starters"
-                  role="group"
-                  aria-label="Choose an account purpose"
-                >
-                  {[
-                    ["indirect-expenses", "Business expense"],
-                    ["sundry-creditors", "Supplier"],
-                    ["sundry-debtors", "Customer"],
-                    ["bank-accounts", "Bank account"],
-                  ].map(([slug, label]) => {
+                <StarterPicks
+                  label="Start from"
+                  options={STARTERS.filter(([slug]) =>
+                    underOptions.some((option) => option.underSlug === slug)
+                  )}
+                  value={underSlug}
+                  onPick={(slug) => {
                     const option = underOptions.find(
-                      (option) => option.underSlug === slug
+                      (o) => o.underSlug === slug
                     );
-                    return option ? (
-                      <button
-                        key={slug}
-                        type="button"
-                        aria-pressed={underSlug === slug}
-                        onClick={() => f.set("under", option.value)}
-                      >
-                        {label}
-                      </button>
-                    ) : null;
-                  })}
-                </div>
+                    if (option) f.set("under", option.value);
+                  }}
+                />
               ) : undefined
             }
           >
-            {submitted && errorList.length && formType !== "form-8" ? (
-              <Notice tone="danger" role="alert">
-                <p className="font-medium">A few details need your attention</p>
-                <ul className="mt-2 list-disc pl-4">
-                  {[...new Set(errorList.map(([, message]) => message))].map(
-                    (message) => (
-                      <li key={message}>{message}</li>
-                    )
-                  )}
-                </ul>
-              </Notice>
-            ) : null}
+            {/* No summary banner (7 Oct 2026): each failing field says what
+                is wrong under its own box, and a party tab with one carries
+                a dot. */}
             {body}
           </FormJourney>
         </form>

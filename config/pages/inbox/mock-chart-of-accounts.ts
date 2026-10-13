@@ -95,7 +95,9 @@ const ledger = (
     groupReserveName: parent.reserveName,
     nature: parent.nature ?? "",
     currency: "INR",
-    isCostCentreOn: false,
+    // Tally's default for "Cost centres are applicable": Yes on the income
+    // and expense side, No on assets, liabilities and parties.
+    isCostCentreOn: parent.nature === "Income" || parent.nature === "Expenses",
     isBillWiseOn: false,
     isInventoryAffected: false,
     isDutyAndTaxes: false,

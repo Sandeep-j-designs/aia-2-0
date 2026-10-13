@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowDown,
@@ -54,6 +54,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import BulkActionBar from "@/components/common/bulk-action-bar";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import {
   DEFAULT_PREVIEW_ROW_STATUS_FILTER,
   FIXED_PREVIEW_COLUMN_KEY_SET,
@@ -64,7 +65,12 @@ import {
   PREVIEW_NUMBER_COLUMNS,
   PREVIEW_ROW_STATUS_OPTIONS,
 } from "@/config/pages/inbox/sales-upload";
+import {
+  COST_CENTRES,
+  isLeafCostCentre,
+} from "@/config/pages/inbox/mock-cost-centres";
 import { useColumnResize } from "@/hooks/pages/inbox/use-column-resize";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import {
   salesUpload,
   type SalesBatchEntry,
@@ -233,6 +239,16 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
     sizes: PREVIEW_COLUMN_SIZES,
     storageKey: "sales-upload-preview.widths.v1",
   });
+  // The page scroller, which owns the horizontal scroll; the resize hook's
+  // element is the table's box inside it, not the element that scrolls.
+  const scroller = useRef<HTMLDivElement | null>(null);
+  // Shades the pinned edges while columns are scrolled under them.
+  const pinEdges = usePinEdges(scroller);
+  // The pinned edges: the last left-pinned column shown (else the checkbox),
+  // and Status on the right, the innermost of the two right bookends (else
+  // Actions).
+  const leftPinEdge = [...LEFT_PINNED].reverse().find((k) => shown.includes(k));
+  const rightPinEdge = shown.includes("row_status");
   const leftOffset = (key: PreviewColumnKey) => {
     let left = SELECT_WIDTH;
     for (const k of LEFT_PINNED) {
@@ -342,8 +358,7 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
     key: PreviewColumnKey
   ) => {
     const value = row.finalPayload[key];
-    if (blank(value))
-      return <span className="text-pi-faint">-</span>;
+    if (blank(value)) return <span className="text-pi-faint">-</span>;
     if (PREVIEW_DATE_COLUMNS.has(key)) return formatDate(value);
     if (PREVIEW_AMOUNT_COLUMNS.has(key))
       return <AmountText value={Number(value)} />;
@@ -396,7 +411,8 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
           "relative h-11 whitespace-nowrap bg-pi-head-bg px-4 py-0 align-middle",
           T.head,
           (pinnedLeft || pinnedRight) && "sticky z-20",
-          pinnedRight && "border-l border-pi-line"
+          key === leftPinEdge && "pin-edge-l",
+          pinnedRight && "pin-edge-r"
         )}
       >
         <div
@@ -539,10 +555,13 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
           "h-14 overflow-hidden px-4 py-0 align-middle",
           T.cell,
           (pinnedLeft || pinnedRight) && "sticky z-[1]",
-          pinnedRight && "border-l border-pi-line",
+          key === leftPinEdge && "pin-edge-l",
+          pinnedRight && "pin-edge-r",
+          // An error cell is a red inset edge on the row's own ground — no
+          // pink fill (7 Oct 2026, the form standard's error rule).
           issues.length
             ? error
-              ? "bg-pi-danger-bg"
+              ? cn(ground, "shadow-[inset_0_0_0_1px_var(--pi-danger)]")
               : "bg-pi-warning-bg"
             : ground,
           canEdit && !isEditing && "cursor-text",
@@ -550,7 +569,10 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
         )}
       >
         {key === "row_status" ? (
-          <RowStatusPill row={row} />
+          // -ml-2: the chip's padding, so its dot sits on the header's line.
+          <span className="-ml-2 inline-flex max-w-full">
+            <RowStatusPill row={row} />
+          </span>
         ) : isEditing ? (
           <Input
             autoFocus
@@ -562,6 +584,8 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
                   ? "number"
                   : "text"
             }
+            // the cost centre column suggests the leaf centres it accepts
+            list={key === "cost_centre" ? "sales-cost-centres" : undefined}
             defaultValue={String(row.finalPayload[key] ?? "")}
             onBlur={(e) => commit(row, key, e.target.value)}
             onKeyDown={(e) => {
@@ -603,9 +627,7 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
                     aria-label={issues.map((i) => i.message).join(" ")}
                     className={cn(
                       "ml-auto grid size-4 flex-none place-items-center rounded-sm",
-                      error
-                        ? "text-pi-danger"
-                        : "text-pi-warning"
+                      error ? "text-pi-danger" : "text-pi-warning"
                     )}
                   >
                     <AlertCircle className="size-3.5" />
@@ -621,265 +643,313 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
   };
 
   return (
-    // Not scrolling itself: the positioning context the selection bar hangs
-    // off, so the bar neither scrolls nor clips with the page.
-    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-pi-page">
-      {/* The page's one scroller, both axes: header, table and pager scroll
-        as a page and the table header sticks at the top of the content area.
-        Not positioned, so the absolute selection bar inside resolves against
-        the wrapper above. */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none">
-      {/* Pinned against horizontal scroll so only the table slides. */}
-      <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
-      <FlowHeader
-        title="Preview"
-        fileName={batch.originalFileName}
-        onClose={() => onExit("uploads")}
-        step={2}
-      />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-pi-page">
+      <datalist id="sales-cost-centres">
+        {COST_CENTRES.filter(isLeafCostCentre).map((centre) => (
+          <option key={centre.id} value={centre.name}>
+            {centre.category}
+          </option>
+        ))}
+      </datalist>
+      {/* The scroller's own box, not scrolling itself: the positioning
+        context the overlay bars and the selection bar hang off, so they sit
+        over the table, neither scroll nor clip with the page, and end above
+        the pager. */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* The page's one scroller, both axes: header and table scroll as a
+        page and the table header sticks at the top of the content area. Not
+        positioned, so the absolute selection bar inside resolves against the
+        box above. Native bars reserve a strip under the last row; the overlay
+        bars float over the rows instead. */}
+        <div
+          ref={scroller}
+          className="table-scroller scrollbar-hide flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none"
+        >
+          {/* Pinned against horizontal scroll so only the table slides. */}
+          <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
+            <FlowHeader
+              title="Preview"
+              fileName={batch.originalFileName}
+              onClose={() => onExit("uploads")}
+              step={2}
+            />
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 px-[var(--inset-page)] pb-4">
-        <div className="relative w-full sm:w-[222px]">
-          <Input
-            aria-label="Search preview rows"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
-            className={cn("h-9 bg-background pr-9", T.cell, "text-foreground")}
-          />
-          {!search && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-xs border border-pi-line bg-pi-head-bg"
-            >
-              <Slash className="h-3 w-3 text-pi-faint" />
-            </span>
-          )}
-        </div>
-        <span className="flex-1" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="h-9">
-              <Columns3 aria-hidden />
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="max-h-[360px] w-56 overflow-y-auto"
-          >
-            <DropdownMenuLabel className={T.label}>
-              Show columns
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {PREVIEW_COLUMNS.map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column.key}
-                checked={visible.includes(column.key)}
-                disabled={FIXED_PREVIEW_COLUMN_KEY_SET.has(column.key)}
-                onSelect={(e) => e.preventDefault()}
-                onCheckedChange={(checked) =>
-                  setVisible((current) =>
-                    checked
-                      ? [...current, column.key]
-                      : current.filter((k) => k !== column.key)
-                  )
-                }
+            <div className="flex shrink-0 flex-wrap items-center gap-2 px-[var(--inset-page)] pb-4">
+              <div className="relative w-full sm:w-[222px]">
+                <Input
+                  aria-label="Search preview rows"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(0);
+                  }}
+                  className={cn(
+                    "h-9 bg-background pr-9",
+                    T.cell,
+                    "text-foreground"
+                  )}
+                />
+                {!search && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-xs border border-pi-line bg-pi-head-bg"
+                  >
+                    <Slash className="h-3 w-3 text-pi-faint" />
+                  </span>
+                )}
+              </div>
+              <span className="flex-1" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-9">
+                    <Columns3 aria-hidden />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="max-h-[360px] w-56 overflow-y-auto"
+                >
+                  <DropdownMenuLabel className={T.label}>
+                    Show columns
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {PREVIEW_COLUMNS.map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.key}
+                      checked={visible.includes(column.key)}
+                      disabled={FIXED_PREVIEW_COLUMN_KEY_SET.has(column.key)}
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={(checked) =>
+                        setVisible((current) =>
+                          checked
+                            ? [...current, column.key]
+                            : current.filter((k) => k !== column.key)
+                        )
+                      }
+                    >
+                      {column.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="secondary"
+                disabled={complete}
+                onClick={onEditMapping}
               >
-                {column.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button variant="secondary" disabled={complete} onClick={onEditMapping}>
-          <Pencil aria-hidden />
-          Edit Mapping
-        </Button>
-        <Button disabled={complete} onClick={openCreate} title="Ctrl/Cmd+Enter">
-          {createLabel}
-        </Button>
-      </div>
+                <Pencil aria-hidden />
+                Edit Mapping
+              </Button>
+              <Button
+                disabled={complete}
+                onClick={openCreate}
+                title="Ctrl/Cmd+Enter"
+              >
+                {createLabel}
+              </Button>
+            </div>
 
-      {/* The reference history-metrics line: figure first, its label faint. */}
-      <div className="mx-[var(--inset-page)] mb-3 flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1 text-[12px] leading-5 text-pi-faint">
-        <span className="flex items-center gap-2">
-          <FileSpreadsheet className="size-3.5" aria-hidden />
-          <span className="fig text-[16px] font-medium text-pi-ink">
-            {summary.totalRecords}
-          </span>
-          Total Records
-        </span>
-        <span className="flex items-center gap-2">
-          <TriangleAlert className="size-3.5 text-pi-danger" aria-hidden />
-          <span className="fig text-[16px] font-medium text-pi-danger">
-            {summary.issueRows}
-          </span>
-          Issues Found
-        </span>
-        <span className="flex items-center gap-2">
-          <CheckCheck className="size-3.5 text-pi-success" aria-hidden />
-          <span className="fig text-[16px] font-medium text-pi-ink">
-            {summary.validRows}
-          </span>
-          Valid Rows
-        </span>
-      </div>
-      </div>
+            {/* The reference history-metrics line: figure first, its label faint. */}
+            <div className="mx-[var(--inset-page)] mb-3 flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1 text-[12px] leading-5 text-pi-faint">
+              <span className="flex items-center gap-2">
+                <FileSpreadsheet className="size-3.5" aria-hidden />
+                <span className="fig text-[16px] font-medium text-pi-ink">
+                  {summary.totalRecords}
+                </span>
+                Total Records
+              </span>
+              <span className="flex items-center gap-2">
+                <TriangleAlert
+                  className="size-3.5 text-pi-danger"
+                  aria-hidden
+                />
+                <span className="fig text-[16px] font-medium text-pi-danger">
+                  {summary.issueRows}
+                </span>
+                Issues Found
+              </span>
+              <span className="flex items-center gap-2">
+                <CheckCheck className="size-3.5 text-pi-success" aria-hidden />
+                <span className="fig text-[16px] font-medium text-pi-ink">
+                  {summary.validRows}
+                </span>
+                Valid Rows
+              </span>
+            </div>
+          </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Edge to edge, no card. It no longer scrolls — the page does — but
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* Edge to edge, no card. It no longer scrolls — the page does — but
           still carries the resize ref, since its width is the space the
           columns are sized to. */}
-        <div
-          ref={resize.gridRef}
-          role="region"
-          aria-label="Preview rows"
-          className="flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background"
-        >
-          <Table
-            style={{ width: resize.tableWidth }}
-            className="table-fixed border-separate border-spacing-0 [&_td]:border-b [&_td]:border-pi-line"
-          >
-            <TableHeader className="sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none [&_th]:border-b [&_th]:border-pi-line">
-              <TableRow className="hover:bg-transparent">
-                <TableHead
-                  style={{ width: SELECT_WIDTH }}
-                  className="sticky left-0 z-20 h-11 bg-pi-head-bg px-3 py-0 align-middle"
-                >
-                  <Checkbox
-                    aria-label="Select every row on this page"
-                    checked={allOnPage}
-                    disabled={!selectable.length}
-                    onCheckedChange={(checked) =>
-                      setSelected(
-                        checked
-                          ? [
-                              ...new Set([
-                                ...selected,
-                                ...selectable.map((r) => r.importRowUuid),
-                              ]),
-                            ]
-                          : selected.filter(
-                              (x) =>
-                                !selectable.some((r) => r.importRowUuid === x)
-                            )
-                      )
-                    }
-                  />
-                </TableHead>
-                {shown.map(headCell)}
-                <TableHead
-                  style={{ width: ACTIONS_WIDTH }}
-                  className="sticky right-0 z-20 h-11 border-l border-pi-line bg-pi-head-bg px-4 py-0 align-middle"
-                >
-                  <span className={cn(T.head, "flex h-4 items-center")}>
-                    Actions
-                  </span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pageRows.map((row) => {
-                const ticked = selected.includes(row.importRowUuid);
-                // Opaque grounds for the sticky bookends, so scrolled columns
-                // never show through; the row hover wash rides on top.
-                const ground = ticked
-                  ? "bg-pi-brand-tint"
-                  : cn("bg-background", wash);
-                const created = row.rowStatus === "created";
-                const name = String(
-                  row.finalPayload.reference_number || row.sourceRowNumber
-                );
-                return (
-                  <TableRow
-                    key={row.importRowUuid}
-                    aria-selected={ticked}
-                    className={cn(
-                      "group hover:bg-transparent",
-                      ticked && "bg-pi-brand-tint hover:bg-pi-brand-tint"
-                    )}
-                  >
-                    <TableCell
+            <div
+              ref={resize.gridRef}
+              role="region"
+              aria-label="Preview rows"
+              {...pinEdges}
+              className="table-region flex min-w-0 flex-1 flex-col bg-background"
+            >
+              {/* Hairline column rules on every column but Actions; the pinned
+              edges shade instead while columns scroll under them. */}
+              <Table
+                style={{ width: resize.tableWidth }}
+                className="table-fixed border-separate border-spacing-0 [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line"
+              >
+                <TableHeader className="sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none [&_th]:border-b [&_th]:border-pi-line">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead
+                      style={{ width: SELECT_WIDTH }}
                       className={cn(
-                        "sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
-                        ground,
-                        ticked && "shadow-[inset_2px_0_0_var(--pi-brand)]"
+                        "sticky left-0 z-20 h-11 bg-pi-head-bg px-3 py-0 align-middle",
+                        !leftPinEdge && "pin-edge-l"
                       )}
                     >
                       <Checkbox
-                        aria-label={`Select row ${name}`}
-                        checked={ticked}
-                        disabled={created}
+                        aria-label="Select every row on this page"
+                        checked={allOnPage}
+                        disabled={!selectable.length}
                         onCheckedChange={(checked) =>
                           setSelected(
                             checked
-                              ? [...selected, row.importRowUuid]
-                              : selected.filter((x) => x !== row.importRowUuid)
+                              ? [
+                                  ...new Set([
+                                    ...selected,
+                                    ...selectable.map((r) => r.importRowUuid),
+                                  ]),
+                                ]
+                              : selected.filter(
+                                  (x) =>
+                                    !selectable.some(
+                                      (r) => r.importRowUuid === x
+                                    )
+                                )
                           )
                         }
                       />
-                    </TableCell>
-                    {shown.map((key) => bodyCell(row, key, ground))}
-                    <TableCell
+                    </TableHead>
+                    {shown.map(headCell)}
+                    <TableHead
+                      style={{ width: ACTIONS_WIDTH }}
                       className={cn(
-                        "sticky right-0 z-[1] h-14 border-l border-pi-line px-4 py-0 align-middle",
-                        ground
+                        "sticky right-0 z-20 h-11 bg-pi-head-bg px-4 py-0 align-middle",
+                        !rightPinEdge && "pin-edge-r"
                       )}
                     >
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        // Grey until hovered: a column of red bins down every
-                        // row shouts louder than the data it sits beside.
-                        className="text-pi-faint hover:bg-pi-danger-bg hover:text-pi-danger"
-                        disabled={created}
-                        aria-label={`Delete row ${name}`}
-                        title="Delete row"
-                        onClick={() => setDeleteIds([row.importRowUuid])}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </TableCell>
+                      <span className={cn(T.head, "flex h-4 items-center")}>
+                        Actions
+                      </span>
+                    </TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          {!pageRows.length && (
-            <div className="sticky left-0 px-6 py-16 text-center">
-              {rows.length && rows.every((r) => r.rowStatus === "created") ? (
-                <>
-                  <h2 className="text-[16px] font-medium leading-[22px] text-pi-ink">
-                    Every row in this upload has been created
-                  </h2>
-                  <p className={cn(T.value, "mt-2")}>
-                    The invoices are in All Invoices. Show Created rows with the
-                    Status filter to look back at them here.
-                  </p>
-                  <Button
-                    variant="secondary"
-                    className="mt-4"
-                    onClick={() => onExit("all")}
-                  >
-                    Go to All Invoices
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-[16px] font-medium leading-[22px] text-pi-ink">
-                    No rows match these filters
-                  </h2>
-                  <p className={cn(T.value, "mt-2")}>
-                    Clear the search or widen the Status filter to see more.
-                  </p>
-                </>
+                </TableHeader>
+                <TableBody>
+                  {pageRows.map((row) => {
+                    const ticked = selected.includes(row.importRowUuid);
+                    // Opaque grounds for the sticky bookends, so scrolled columns
+                    // never show through; the row hover wash rides on top.
+                    const ground = ticked
+                      ? "bg-pi-brand-tint"
+                      : cn("bg-background", wash);
+                    const created = row.rowStatus === "created";
+                    const name = String(
+                      row.finalPayload.reference_number || row.sourceRowNumber
+                    );
+                    return (
+                      <TableRow
+                        key={row.importRowUuid}
+                        aria-selected={ticked}
+                        className={cn(
+                          "group hover:bg-transparent",
+                          ticked && "bg-pi-brand-tint hover:bg-pi-brand-tint"
+                        )}
+                      >
+                        <TableCell
+                          className={cn(
+                            "sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
+                            !leftPinEdge && "pin-edge-l",
+                            ground,
+                            ticked && "shadow-[inset_2px_0_0_var(--pi-brand)]"
+                          )}
+                        >
+                          <Checkbox
+                            aria-label={`Select row ${name}`}
+                            checked={ticked}
+                            disabled={created}
+                            onCheckedChange={(checked) =>
+                              setSelected(
+                                checked
+                                  ? [...selected, row.importRowUuid]
+                                  : selected.filter(
+                                      (x) => x !== row.importRowUuid
+                                    )
+                              )
+                            }
+                          />
+                        </TableCell>
+                        {shown.map((key) => bodyCell(row, key, ground))}
+                        <TableCell
+                          className={cn(
+                            "sticky right-0 z-[1] h-14 px-4 py-0 align-middle",
+                            !rightPinEdge && "pin-edge-r",
+                            ground
+                          )}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            // Grey until hovered: a column of red bins down every
+                            // row shouts louder than the data it sits beside.
+                            className="text-pi-faint hover:bg-pi-danger-bg hover:text-pi-danger"
+                            disabled={created}
+                            aria-label={`Delete row ${name}`}
+                            title="Delete row"
+                            onClick={() => setDeleteIds([row.importRowUuid])}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {!pageRows.length && (
+                <div className="sticky left-0 px-6 py-16 text-center">
+                  {rows.length &&
+                  rows.every((r) => r.rowStatus === "created") ? (
+                    <>
+                      <h2 className="text-[16px] font-medium leading-[22px] text-pi-ink">
+                        Every row in this upload has been created
+                      </h2>
+                      <p className={cn(T.value, "mt-2")}>
+                        The invoices are in All Invoices. Show Created rows with
+                        the Status filter to look back at them here.
+                      </p>
+                      <Button
+                        variant="secondary"
+                        className="mt-4"
+                        onClick={() => onExit("all")}
+                      >
+                        Go to All Invoices
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-[16px] font-medium leading-[22px] text-pi-ink">
+                        No rows match these filters
+                      </h2>
+                      <p className={cn(T.value, "mt-2")}>
+                        Clear the search or widen the Status filter to see more.
+                      </p>
+                    </>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
         </div>
+        <OverlayScrollbars scroller={scroller} />
 
         {selected.length > 0 && (
           <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
@@ -892,76 +962,74 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
             />
           </div>
         )}
-
-        {/* At the end of the table, pinned against horizontal scroll. */}
-        <div className="sticky left-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
-          <div className="flex items-center gap-2">
-            <span className={cn(T.cell, "text-foreground")}>
-              Rows per page:
-            </span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(value) => {
-                setPageSize(Number(value));
-                setPage(0);
-              }}
-            >
-              <SelectTrigger
-                aria-label="Rows per page"
-                className={cn(
-                  "h-auto w-[72px] rounded-md border-border px-2 py-1",
-                  T.cell,
-                  "text-foreground"
-                )}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZES.map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-0 sm:gap-1">
-            <PageButton
-              label="First page"
-              disabled={page === 0}
-              onClick={() => setPage(0)}
-            >
-              <ChevronsLeft />
-            </PageButton>
-            <PageButton
-              label="Previous page"
-              disabled={page === 0}
-              onClick={() => setPage(page - 1)}
-            >
-              <ChevronLeft />
-            </PageButton>
-            <span className={cn(T.cell, "px-2 tabular-nums text-foreground")}>
-              {filtered.length
-                ? `${page * pageSize + 1} - ${Math.min((page + 1) * pageSize, filtered.length)} of ${filtered.length}`
-                : "0 of 0"}
-            </span>
-            <PageButton
-              label="Next page"
-              disabled={page >= lastPage}
-              onClick={() => setPage(page + 1)}
-            >
-              <ChevronRight />
-            </PageButton>
-            <PageButton
-              label="Last page"
-              disabled={page >= lastPage}
-              onClick={() => setPage(lastPage)}
-            >
-              <ChevronsRight />
-            </PageButton>
-          </div>
-        </div>
       </div>
+
+      {/* Below the page scroller, not inside it: the pager stays at the
+          bottom of the viewport, and the horizontal bar ends above it. */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
+        <div className="flex items-center gap-2">
+          <span className={cn(T.cell, "text-foreground")}>Rows per page:</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => {
+              setPageSize(Number(value));
+              setPage(0);
+            }}
+          >
+            <SelectTrigger
+              aria-label="Rows per page"
+              className={cn(
+                "h-auto w-[72px] rounded-md border-border px-2 py-1",
+                T.cell,
+                "text-foreground"
+              )}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZES.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-0 sm:gap-1">
+          <PageButton
+            label="First page"
+            disabled={page === 0}
+            onClick={() => setPage(0)}
+          >
+            <ChevronsLeft />
+          </PageButton>
+          <PageButton
+            label="Previous page"
+            disabled={page === 0}
+            onClick={() => setPage(page - 1)}
+          >
+            <ChevronLeft />
+          </PageButton>
+          <span className={cn(T.cell, "px-2 tabular-nums text-foreground")}>
+            {filtered.length
+              ? `${page * pageSize + 1} - ${Math.min((page + 1) * pageSize, filtered.length)} of ${filtered.length}`
+              : "0 of 0"}
+          </span>
+          <PageButton
+            label="Next page"
+            disabled={page >= lastPage}
+            onClick={() => setPage(page + 1)}
+          >
+            <ChevronRight />
+          </PageButton>
+          <PageButton
+            label="Last page"
+            disabled={page >= lastPage}
+            onClick={() => setPage(lastPage)}
+          >
+            <ChevronsRight />
+          </PageButton>
+        </div>
       </div>
 
       <PageDialog
@@ -969,6 +1037,24 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
         open={createOpen}
         onClose={creating ? undefined : () => setCreateOpen(false)}
         className="max-w-[480px]"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              disabled={creating}
+              onClick={() => setCreateOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              loading={creating}
+              disabled={!eligibleRows}
+              onClick={() => void confirmCreate()}
+            >
+              {selectedMode ? "Create selected invoices" : "Create invoices"}
+            </Button>
+          </>
+        }
       >
         <p className={T.value}>
           {selectedMode
@@ -978,22 +1064,6 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
             ? ` ${errorRows} row${errorRows === 1 ? "" : "s"} with errors will stay in preview.`
             : ""}
         </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button
-            variant="secondary"
-            disabled={creating}
-            onClick={() => setCreateOpen(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            loading={creating}
-            disabled={!eligibleRows}
-            onClick={() => void confirmCreate()}
-          >
-            {selectedMode ? "Create Selected Invoices" : "Create Invoices"}
-          </Button>
-        </div>
       </PageDialog>
 
       <PageDialog
@@ -1001,19 +1071,21 @@ const PreviewPage = ({ entry, onEditMapping, onExit, notify }: Props) => {
         open={!!deleteIds}
         onClose={() => setDeleteIds(null)}
         className="max-w-[480px]"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeleteIds(null)}>
+              Cancel
+            </Button>
+            <Button isDestructive onClick={confirmDelete}>
+              {deleteIds?.length === 1 ? "Delete row" : "Delete rows"}
+            </Button>
+          </>
+        }
       >
         <p className={T.value}>
           This will remove {deleteIds?.length ?? 0} selected preview row
           {deleteIds?.length === 1 ? "" : "s"} from this upload batch.
         </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button variant="secondary" onClick={() => setDeleteIds(null)}>
-            Cancel
-          </Button>
-          <Button isDestructive onClick={confirmDelete}>
-            Delete
-          </Button>
-        </div>
       </PageDialog>
     </div>
   );

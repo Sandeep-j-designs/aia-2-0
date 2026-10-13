@@ -1,15 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { format } from "date-fns";
 import {
-  AlertTriangle,
   CircleCheck,
-  Download,
+  CloudDownload,
   FileSpreadsheet,
   FolderSync,
-  NeedsYou,
   Plus,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ComboBox } from "@/components/common/combo-box";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import {
   DEFAULT_PERIOD,
   GSTR2B_MATCH_TYPE,
@@ -19,8 +19,10 @@ import {
 import {
   hasDataFor,
   invoicesFor,
+  statusFor,
   useGstState,
 } from "@/hooks/pages/inbox/use-gst";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import type {
   GstinOption,
   GstPeriod,
@@ -36,24 +38,27 @@ import {
   isoDay,
   monthsIn,
 } from "@/utils/pages/inbox/gst";
-import { SearchBox } from "@/components/inbox/v2/banking/table-parts";
-import { AmountText, T } from "@/components/inbox/v2/ui";
+import PageTopBar from "@/components/common/page-top-bar";
 import {
-  EmptyState,
-  KpiCard,
-  KpiRow,
-  PageHead,
+  SearchBox,
+  UNDERLINE_TAB,
+} from "@/components/inbox/v2/banking/table-parts";
+import { AmountText, CountPill } from "@/components/inbox/v2/ui";
+import FlowEmptyState from "@/components/inbox/v2/empty-state";
+import {
   TOOLBAR,
   PAGE_SCROLL,
   Pinned,
   TableCard,
+  ToolbarRule,
 } from "@/components/inbox/v2/banking/page-parts";
+import { cn } from "@/lib/utils";
 import InvoiceView from "./invoice-view";
 import MonthView from "./month-view";
 import PeriodPicker from "./period-picker";
 import ReconciliationSheet from "./reconciliation-sheet";
 import SummaryView from "./summary-view";
-import { ResultTabs } from "./table-parts";
+import { ReconOverview, STATUS_ORDER } from "./table-parts";
 import VendorView from "./vendor-view";
 
 export type GstTab = "summary" | "month" | "vendor" | "invoice";
@@ -114,6 +119,13 @@ const GstReconciliation = ({
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<InvoiceTableFilterState>({});
   const tab: GstTab = view.tab ?? "summary";
+  // The page scroller; it owns the horizontal scroll that Invoice View's
+  // pinned ITC and Actions columns shade against.
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const pinEdges = usePinEdges(scroller);
+  // Where a paged view puts its pager: below the scroller, not inside it.
+  // The views keep their own page state and portal the pager here.
+  const [pagerSlot, setPagerSlot] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => setFilters({}), [period.from.getTime(), period.to.getTime()]);
 
@@ -150,7 +162,7 @@ const GstReconciliation = ({
     // DEV: POST /api/gst-reconciliation/export-results { companyId, customerGstin, dateFrom, dateTo, companyName } → .xlsx
     const fileName = `gst-reconciliation-export-${isoDay(period.from)}-${isoDay(period.to)}.csv`;
     downloadText(fileName, buildExportCsv(rows));
-    notify("File downloaded successfully", "success");
+    notify(`Exported ${fileName}`, "success");
   };
 
   // Read-only KPIs from the summary rows already computed for the period.
@@ -174,20 +186,105 @@ const GstReconciliation = ({
   const atRisk = sum(missing2b, "prTaxValue");
   const atRiskCount = sum(missing2b, "prCount");
   const toReview = probable + missingPr + atRiskCount;
+  /** "Aug 2026", or "Jul – Sep 2026" across months. */
+  const periodName = (() => {
+    const keys = monthsIn(period);
+    const name = (key: string) =>
+      format(new Date(`${key}-01T00:00:00`), "MMM yyyy");
+    return keys.length > 1
+      ? `${name(keys[0]).split(" ")[0]} – ${name(keys[keys.length - 1])}`
+      : name(keys[0]);
+  })();
+
+  /** Search applies to the lists, not to the period's totals. */
+  const searchable = tab === "vendor" || tab === "invoice";
+  const tabCount = (id: GstTab) =>
+    id === "summary"
+      ? summaryRows.filter((r) => r.matchStatus !== "total").length
+      : id === "month"
+        ? monthRows.length - 1
+        : id === "vendor"
+          ? vendorRows.length
+          : invoiceCount;
+  const { twoB, pr } = statusFor(state, period);
+  const twoBLines = twoB.reduce((n, item) => n + item.gstr2bLineCount, 0);
 
   return (
-    // One scroller for the whole page: heading, KPIs, strips, table and pager
-    // scroll together and the table header sticks at the top.
-    <div className={PAGE_SCROLL}>
-      <Pinned>
-        <PageHead
-          eyebrow="Compliance"
-          title="GSTR-2B"
-          actions={
-            <>
+    <>
+      {/* The scroller's own box, so the overlay bars sit over the table and
+          end above the pager. */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* One scroller for the whole page: tabs, toolbar, strip and table
+            scroll together and the table header sticks at the top. */}
+        <div ref={scroller} className={PAGE_SCROLL} {...pinEdges}>
+          <Pinned>
+            {/*
+              The page pattern every module uses (8 Oct 2026): the tabs and
+              the page's actions share the first row, the toolbar comes next,
+              then the table. The top bar's trail names the page.
+            */}
+            <div className="px-[var(--inset-page)] pt-6">
+              <PageTopBar
+                title="GST Reconciliation"
+                className={cn("flex-wrap gap-x-4 gap-y-2", !hasData && "pb-0")}
+                leading={
+                  hasData ? (
+                    <div
+                      role="tablist"
+                      aria-label="Reconciliation results"
+                      className="flex shrink-0 gap-6 overflow-x-auto overflow-y-hidden border-b border-pi-line"
+                    >
+                      {GST_RECON_TABS.map((entry) => (
+                        <button
+                          key={entry.value}
+                          role="tab"
+                          type="button"
+                          aria-selected={tab === entry.value}
+                          data-state={
+                            tab === entry.value ? "active" : "inactive"
+                          }
+                          onClick={() => onNavigate({ tab: entry.value })}
+                          className={cn(
+                            UNDERLINE_TAB,
+                            "inline-flex flex-none items-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none"
+                          )}
+                        >
+                          {entry.label}
+                          <CountPill>{tabCount(entry.value)}</CountPill>
+                        </button>
+                      ))}
+                    </div>
+                  ) : undefined
+                }
+                showExportButton={hasData}
+                onExport={exportResults}
+                primaryText="New Reconciliation"
+                primaryIcon={FolderSync}
+                onPrimaryButtonClick={() => setSheetOpen(true)}
+              />
+            </div>
+
+            {/* What the results are for — the GSTIN and the period — beside
+                the search, as every register's filters sit. */}
+            <div className={TOOLBAR}>
+              {hasData && searchable ? (
+                <>
+                  <SearchBox
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search..."
+                    label={
+                      tab === "vendor"
+                        ? "Search vendor name or GSTIN"
+                        : "Search vendor name, GSTIN or invoice no"
+                    }
+                  />
+                  <ToolbarRule />
+                </>
+              ) : null}
               <label className="flex items-center gap-2">
-                <span className={T.label}>GSTIN</span>
-                <span className="w-[200px] [&_button]:font-mono [&_button]:text-[13px]">
+                <span className="text-[13px] text-pi-body">GSTIN</span>
+                <span className="w-[196px] [&_button]:font-mono [&_button]:text-[13px]">
                   <ComboBox<string>
                     title="Select GSTIN"
                     options={gstinOptions}
@@ -205,128 +302,106 @@ const GstReconciliation = ({
                 </span>
               </label>
               <div className="flex items-center gap-2">
-                <span className={T.label}>GSTR Period</span>
+                <span className="text-[13px] text-pi-body">Period</span>
                 <PeriodPicker value={period} onChange={setPeriod} />
               </div>
-              {hasData && (
-                <Button onClick={() => setSheetOpen(true)}>
-                  <FolderSync className="h-3.5 w-3.5" aria-hidden />
-                  New Reconciliation
-                </Button>
-              )}
-            </>
-          }
-        />
-      </Pinned>
-
-      {!hasData ? (
-        <TableCard className="justify-center">
-          <EmptyState
-            icon={FileSpreadsheet}
-            title="No reconciliation for this period"
-            body={
-              <>
-                Click on &quot;Start Reconciliation&quot; to upload your
-                purchase register and fetch GSTR-2B data to get AI-powered
-                matches
-              </>
-            }
-            action={
-              <Button onClick={() => setSheetOpen(true)}>
-                Start Reconciliation
-              </Button>
-            }
-          />
-        </TableCard>
-      ) : (
-        <>
-          <Pinned>
-            <KpiRow>
-              <KpiCard
-                icon={CircleCheck}
-                label="Matched"
-                value={matched}
-                unit={matched === 1 ? "invoice" : "invoices"}
-                meta={`of ${twoBTotal?.gstr2bCount ?? 0} GSTR-2B invoices`}
-              />
-              <KpiCard
-                icon={NeedsYou}
-                label="To review"
-                value={toReview}
-                unit={toReview === 1 ? "invoice" : "invoices"}
-                meta={`${probable} probable · ${missingPr} missing in PR · ${atRiskCount} missing in 2B`}
-              />
-              <KpiCard
-                icon={AlertTriangle}
-                label="ITC at risk"
-                value={<AmountText value={atRisk} />}
-                tone={atRisk > 0 ? "danger" : undefined}
-                meta={
-                  atRiskCount
-                    ? `Tax on ${atRiskCount} PR invoice${atRiskCount === 1 ? "" : "s"} not in 2B`
-                    : "Every PR invoice is in 2B"
-                }
-              />
-            </KpiRow>
-            <ResultTabs
-              value={tab}
-              onChange={(next) => onNavigate({ tab: next as GstTab })}
-              tabs={GST_RECON_TABS.map((t) => ({
-                id: t.value,
-                label: t.label,
-                count:
-                  t.value === "month"
-                    ? monthRows.length - 1
-                    : t.value === "vendor"
-                      ? vendorRows.length
-                      : t.value === "invoice"
-                        ? invoiceCount
-                        : undefined,
-              }))}
-            />
-            <div className={TOOLBAR}>
-              <SearchBox
-                value={search}
-                onChange={setSearch}
-                placeholder="Search..."
-                label="Search vendor name, GSTIN or invoice no"
-              />
-              <span className="flex-1" />
-              <Button variant="outline" onClick={exportResults}>
-                <Download className="h-3.5 w-3.5" aria-hidden />
-                Export Results
-              </Button>
             </div>
+
+            {/* The period at a glance, on Summary only: every other tab
+                starts straight at its table. Each figure opens its invoices. */}
+            {hasData && tab === "summary" ? (
+              <ReconOverview
+                matched={matched}
+                of={twoBTotal?.gstr2bCount ?? 0}
+                statuses={STATUS_ORDER.map((type) => {
+                  const row = summaryRows.find((r) => r.matchStatus === type);
+                  return {
+                    type,
+                    count: row ? Math.max(row.gstr2bCount, row.prCount) : 0,
+                  };
+                })}
+                atRisk={atRisk}
+                atRiskCount={atRiskCount}
+                onOpen={(types) => drill({ matchType: types })}
+              />
+            ) : null}
           </Pinned>
 
-          {tab === "summary" && (
-            <SummaryView
-              rows={summaryRows}
-              onOpenStatus={(matchStatus) =>
-                drill({ matchType: [matchStatus] })
-              }
-            />
+          {!hasData ? (
+            <TableCard className="border-t border-pi-line">
+              {/* Where the period's data is: the stages a reconciliation
+                  needs, with what is already in, as the other modules'
+                  empty states draw them. */}
+              <FlowEmptyState
+                flow={[
+                  {
+                    label: "GSTR-2B invoices",
+                    count: twoBLines,
+                    icon: CloudDownload,
+                    current: !twoBLines,
+                  },
+                  {
+                    label: "Purchase registers",
+                    count: pr.length,
+                    icon: FileSpreadsheet,
+                    current: !!twoBLines && !pr.length,
+                  },
+                  {
+                    label: "Reconciled",
+                    count: 0,
+                    icon: CircleCheck,
+                    current: !!twoBLines && !!pr.length,
+                  },
+                ]}
+                title={`No reconciliation for ${periodName}`}
+                body="Bring in GSTR-2B for the period and your purchase register, then run the reconciliation. Every invoice is matched and anything missing on either side is flagged."
+                actions={
+                  <Button onClick={() => setSheetOpen(true)}>
+                    <FolderSync className="h-4 w-4" aria-hidden />
+                    Start Reconciliation
+                  </Button>
+                }
+              />
+            </TableCard>
+          ) : (
+            <>
+              {tab === "summary" && (
+                <SummaryView
+                  rows={summaryRows}
+                  onOpenStatus={(matchStatus) =>
+                    drill({ matchType: [matchStatus] })
+                  }
+                />
+              )}
+              {tab === "month" && <MonthView rows={monthRows} />}
+              {tab === "vendor" && (
+                <VendorView
+                  rows={vendorRows}
+                  searching={!!term}
+                  onOpenVendor={(g) => drill({ gstin: [g] })}
+                  pagerSlot={pagerSlot}
+                />
+              )}
+              {tab === "invoice" && (
+                <InvoiceView
+                  company={company}
+                  rows={rows}
+                  search={search}
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  notify={notify}
+                  pagerSlot={pagerSlot}
+                />
+              )}
+            </>
           )}
-          {tab === "month" && <MonthView rows={monthRows} />}
-          {tab === "vendor" && (
-            <VendorView
-              rows={vendorRows}
-              searching={!!term}
-              onOpenVendor={(g) => drill({ gstin: [g] })}
-            />
-          )}
-          {tab === "invoice" && (
-            <InvoiceView
-              company={company}
-              rows={rows}
-              search={search}
-              filters={filters}
-              onFiltersChange={setFilters}
-              notify={notify}
-            />
-          )}
-        </>
-      )}
+        </div>
+        <OverlayScrollbars scroller={scroller} />
+      </div>
+
+      {/* Below the page scroller, not inside it: the pager stays at the
+          bottom of the viewport, and the horizontal bar ends above it. */}
+      <div ref={setPagerSlot} className="contents" />
 
       {sheetOpen && (
         <ReconciliationSheet
@@ -351,7 +426,7 @@ const GstReconciliation = ({
           }}
         />
       )}
-    </div>
+    </>
   );
 };
 

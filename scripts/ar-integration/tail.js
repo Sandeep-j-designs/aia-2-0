@@ -180,7 +180,8 @@
       state.printedCustomer = {
         name:  doc.customerName,
         gstin: doc.customerGstin || '',
-        pan:   doc.customerPan || ''
+        pan:   doc.customerPan || '',
+        address: doc.customerAddress || ''
       };
       /* And offered as a master this invoice would add, rather than left as a
          blank required field with nothing to say about itself. This is the
@@ -297,17 +298,25 @@
  /* The invoice's lines, as the inbox's flat `form.lines` — one row per thing
     billed, whichever table it is sitting in. Sales credits, so `cr` carries
     the amount and `dr` is zero; the AP bridge is the mirror of this. */
+ /* Cost centres leave as NAMES, like every value on the inbox's form. A line
+    posts its own answer only when its ledger takes one and no header class or
+    centre has answered for the whole invoice — the rule the cells draw. */
+ const ccName=id=>byId(MASTERS.costCentres,id)?.name||'';
+ const ccSplitOut=sp=>sp?sp.categories.map(c=>({category:c.category,rows:c.rows.filter(x=>x.centre).map(x=>({centre:ccName(x.centre)||x.centre,pct:num(x.pct)}))})):null;
+ const gdOut=r=>({godown:r.gdSplit?'':(byId(MASTERS.godowns,r.godown)?.name||''),godownAllocation:r.gdSplit?r.gdSplit.rows.map(x=>({godown:byId(MASTERS.godowns,x.godown)?.name||x.godown,qty:num(x.qty),unit:gdUnit(r),amount:gdShare(r,x.qty)})):null});
+ const ccOut=(r,on=ccApplies(r))=>(ccLocked()||!on)?{costCentre:'',costAllocation:null}
+   :r.ccSplit?{costCentre:'',costAllocation:ccSplitOut(r.ccSplit)}:{costCentre:ccName(r.costCentre),costAllocation:null};
  const snapLines=()=>{
   const out=[];
   const salesName=byId(MASTERS.salesLedgers,state.salesLedger)?.name||'';
   if(state.mode==='item')
    state.items.filter(r=>num(r.qty)*num(r.rate)||num(r.amountOverride)).forEach(r=>{
     const amt=num(r.amountOverride)||r2(num(r.qty)*num(r.rate));
-    out.push({description:r.description||'',ledger:salesName,amount:amt,dr:0,cr:amt,costCentre:r.costCentre||''});
+    out.push({description:r.description||'',ledger:salesName,amount:amt,dr:0,cr:amt,...ccOut(r),...gdOut(r)});
    });
   state.ledgers.filter(r=>num(r.amount)).forEach(r=>{
    const amt=num(r.amount);
-   out.push({description:r.description||'',ledger:ledgerNameOf(r.ledger)||salesName,amount:amt,dr:0,cr:amt,costCentre:r.costCentre||''});
+   out.push({description:r.description||'',ledger:ledgerNameOf(r.ledger)||salesName,amount:amt,dr:0,cr:amt,...ccOut(r)});
   });
   return out;
  };
@@ -329,8 +338,11 @@
     date:state.invoiceDate,
     due:state.dueDate,
     party,
-    costClass:state.costCentreClass,
-    costCentre:state.invoiceCostCentre,
+    costMode:state.ccMode,
+    costClass:ccClass()?.name||'',
+    costCentre:ccName(ccHeader()),
+    ...(()=>{const c=customerCcOn()?ccOut({costCentre:state.customerCostCentre,ccSplit:state.customerCcSplit},true):{costCentre:'',costAllocation:null};
+      return {partyCostCentre:c.costCentre,partyCostAllocation:c.costAllocation};})(),
     narration:state.narration,
     lines:snapLines()
    },
@@ -344,7 +356,13 @@
    if(context.sheet){for(const d of context.sheet.__drafted||[]){const list=NM_LIST[d.kind]?.();if(list&&d.master&&!list.some(x=>x.id===d.master.id))list.push(d.master);}state=JSON.parse(JSON.stringify(context.sheet));state.allocated=false;delete state.reverseCharge;if(state.voucherType==='sales-rcm')state.voucherType='sales';if(state.salesLedger==='led-sales-rcm')state.salesLedger='led-sales-local';refreshCustomerList();refreshItemsList();refreshSalesLedgerList();}
    else if(context.manual){state=freshState();state.document={name:context.fileName};state.voucherType='sales';state.voucherNo=context.form?.voucherNo||'';}
    else if(context.form){
-    state.voucherNo=context.form.voucherNo;state.invoiceDate=context.form.date;state.dueDate=context.form.due;state.costCentreClass=context.form.costClass;state.invoiceCostCentre=context.form.costCentre;
+    state.voucherNo=context.form.voucherNo;state.invoiceDate=context.form.date;state.dueDate=context.form.due;
+    /* the form holds names; the sheet holds ids. A header answer locks the
+       lines, so whatever the seed put on them goes — as it would on the form */
+    state.ccMode=context.form.costMode||(context.form.costCentre?'centre':'class');
+    state.costCentreClass=ccId(MASTERS.costCentreClasses,context.form.costClass);
+    state.invoiceCostCentre=ccId(MASTERS.costCentres,context.form.costCentre);
+    if(ccLocked())clearLineCcs();
    }
    readyForSnapshots=true;render();snapshot();
   }

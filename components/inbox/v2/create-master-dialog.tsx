@@ -9,7 +9,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Field, RequiredNote } from "./ui";
 
 export type MasterKind = "ledger" | "vendor";
 
@@ -129,29 +129,25 @@ const CreateMasterDialog = ({
           noValidate
           className="flex min-h-0 max-h-[calc(100dvh-48px)] flex-col"
         >
-          <DialogHeader className="refined-dialog-header shrink-0 space-y-1 border-b border-pi-line px-7 pb-5 pt-7">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-pi-brand">
-              Add to your books
-            </p>
-            <DialogTitle className="text-[22px] font-medium tracking-[-0.02em] text-pi-ink">
+          <DialogHeader className="refined-dialog-header shrink-0 space-y-0 border-b border-pi-line px-7 pb-5 pt-7 text-left">
+            <DialogTitle className="pr-8 text-[22px] font-medium tracking-[-0.02em] text-pi-ink">
               {kind === "vendor" ? "New vendor" : "New ledger"}
             </DialogTitle>
-            <DialogDescription className="text-[13px] leading-5 text-pi-body">
+            <DialogDescription className="pt-2 text-[13px] leading-5 text-pi-body">
               {description}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-7 py-6">
-            <div className="modern-field space-y-2">
-              <Label
-                htmlFor="master-name"
-                className="text-[12px] font-medium text-pi-body"
-              >
-                {kind === "vendor" ? "Vendor name" : "Ledger name"}{" "}
-                <span aria-hidden="true" className="text-pi-danger">
-                  *
-                </span>
-              </Label>
+          {/* The form standard (7 Oct 2026): Field boxes at 38px, required
+              unmarked with the note top-right, GSTIN marked optional, one
+              12px error line under its box. */}
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain px-7 py-6">
+            <RequiredNote className="-mb-2 self-end" />
+            <Field
+              label={kind === "vendor" ? "Vendor name" : "Ledger name"}
+              htmlFor="master-name"
+              error={tried && nameError ? nameError : undefined}
+            >
               <Input
                 id="master-name"
                 autoFocus
@@ -163,29 +159,12 @@ const CreateMasterDialog = ({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 aria-invalid={tried && !!nameError}
-                aria-describedby={
-                  tried && nameError ? "master-name-error" : undefined
-                }
               />
-              {tried && nameError && (
-                <p
-                  id="master-name-error"
-                  className="text-[12px] text-pi-danger"
-                >
-                  {nameError}
-                </p>
-              )}
-            </div>
+            </Field>
 
             {kind === "ledger" ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="modern-field space-y-2">
-                  <Label
-                    htmlFor="master-group"
-                    className="text-[12px] font-medium text-pi-body"
-                  >
-                    Account group
-                  </Label>
+              <div className="grid grid-cols-1 items-start gap-x-5 gap-y-4 sm:grid-cols-2">
+                <Field label="Account group" htmlFor="master-group">
                   <Select value={group} onValueChange={setGroup}>
                     <SelectTrigger id="master-group">
                       <SelectValue />
@@ -198,14 +177,8 @@ const CreateMasterDialog = ({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="modern-field space-y-2">
-                  <Label
-                    htmlFor="master-gst"
-                    className="text-[12px] font-medium text-pi-body"
-                  >
-                    GST applicability
-                  </Label>
+                </Field>
+                <Field label="GST applicability" htmlFor="master-gst">
                   <Select value={gst} onValueChange={setGst}>
                     <SelectTrigger id="master-gst">
                       <SelectValue />
@@ -218,17 +191,16 @@ const CreateMasterDialog = ({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="modern-field space-y-2">
-                  <Label
-                    htmlFor="master-gstin"
-                    className="text-[12px] font-medium text-pi-body"
-                  >
-                    GSTIN (optional)
-                  </Label>
+              <div className="grid grid-cols-1 items-start gap-x-5 gap-y-4 sm:grid-cols-2">
+                <Field
+                  label="GSTIN"
+                  htmlFor="master-gstin"
+                  optional
+                  error={tried && gstinError ? gstinError : undefined}
+                >
                   <Input
                     id="master-gstin"
                     value={gstin}
@@ -238,29 +210,15 @@ const CreateMasterDialog = ({
                     placeholder="e.g. 29ABCDE1234F1Z5"
                     maxLength={15}
                     aria-invalid={tried && !!gstinError}
-                    aria-describedby={
-                      tried && gstinError ? "master-gstin-error" : undefined
-                    }
                   />
-                  {tried && gstinError && (
-                    <p
-                      id="master-gstin-error"
-                      className="text-[12px] text-pi-danger"
-                    >
-                      {gstinError}
-                    </p>
-                  )}
-                </div>
-                <div className="modern-field space-y-2">
-                  <span className="text-[12px] font-medium text-pi-body">
-                    Under
-                  </span>
+                </Field>
+                <Field label="Under">
                   {/* Not a choice: a vendor is a Sundry Creditors ledger. Said,
                     so the accountant knows where it lands. */}
-                  <p className="flex h-10 items-center text-[13px] text-pi-ink">
+                  <p className="flex h-[38px] items-center text-[14px] text-pi-ink">
                     Sundry Creditors
                   </p>
-                </div>
+                </Field>
               </div>
             )}
 
@@ -283,11 +241,13 @@ const CreateMasterDialog = ({
             </div>
           </div>
 
-          <DialogFooter className="shrink-0 gap-2 border-t border-pi-line bg-pi-head-bg px-7 py-4 sm:space-x-0">
+          <DialogFooter className="shrink-0 gap-3 border-t border-pi-line bg-background px-7 py-4 sm:space-x-0">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">Create {noun}</Button>
+            <Button type="submit">
+              {kind === "vendor" ? "Create vendor" : "Create ledger"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

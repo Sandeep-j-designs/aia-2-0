@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Input } from "@/components/ui/input";
+import { Lock } from "@/components/icons";
 import {
   COA_BANK_OPTIONS,
   COUNTRIES,
@@ -24,12 +25,17 @@ import type {
   Option,
   UnderOption,
 } from "@/types/pages/inbox/chart-of-accounts";
-import { Field, FieldCard } from "@/components/inbox/v2/ui";
+import { RequiredNote } from "@/components/inbox/v2/ui";
 import {
   ComboField,
+  FieldCell,
+  FormCard,
+  colsFor,
   DateInputField,
   InlineSwitch,
   OpeningBalanceFields,
+  SwitchList,
+  SwitchPanel,
   RateField,
   TextField,
   digits,
@@ -38,11 +44,23 @@ import {
 } from "./form-fields";
 
 /**
- * Production's forms/shared-sections/*, each drawn as one of the Inbox's
- * field cards (two columns on the section ground) instead of a heading over
- * a bare grid. The props are production's, so each form composes them the
- * way its production file does.
+ * Production's forms/shared-sections/*, each drawn as one of the review
+ * form's sections (a brand heading over a hairline, no card — 7 Oct 2026). The props are
+ * production's, so each form composes them the way its production file does.
+ *
+ * Symmetric grids: each card runs thirds, or halves when it holds two
+ * fields, and every field takes one column (FormCard in form-fields.tsx).
+ * Quarters went on 8 Oct 2026, to match the bill form.
  */
+
+/** PAN is characters 3–12 of a GSTIN; true while a PAN still matches it. */
+export const panFromGstin = (gstin: string, pan: string) =>
+  gstin.length >= 12 && !!pan && gstin.slice(2, 12) === pan;
+
+export const FROM_GSTIN_PAN =
+  "Filled from characters 3–12 of the GSTIN. Change it if the PAN differs.";
+export const FROM_GSTIN_STATE =
+  "Filled from the GSTIN's state code. Change it if the supply is from elsewhere.";
 
 /* ------------------------------------------------------------ Basic Details */
 type BasicProps = {
@@ -88,14 +106,24 @@ export const BasicDetailsSection = ({
   afterUnder,
 }: BasicProps) => {
   const optionGroups = useUnderGroups(underOptions);
+  // Name, group, currency, plus Type of Ledger and the cost-centre flag
+  // where the form draws them, in thirds.
+  const count = 3 + (afterUnder ? 1 : 0) + (showCostCentre ? 1 : 0);
   return (
-    <FieldCard title="Basic Details">
+    // Always the first section: no hairline, and the form's one note that
+    // required is the norm (fields that are not say "Optional").
+    <FormCard
+      title="Basic Details"
+      cols={colsFor(count)}
+      first
+      aside={<RequiredNote />}
+    >
       <TextField
         f={f}
         name="name"
         label="Ledger Name"
         required
-        placeholder="E.g., Reliance Industries Ltd"
+        placeholder="e.g. Reliance Ltd"
       />
       <ComboField
         f={f}
@@ -117,13 +145,30 @@ export const BasicDetailsSection = ({
           label="Cost Centre Applicable"
           title="Select Cost Centre Applicable"
           options={YES_NO_OPTIONS}
+          optional={false}
           hideClearButton
         />
       ) : null}
-      <Field label="Currency of Ledger">
-        <Input value="INR" disabled aria-label="Currency of Ledger" />
-      </Field>
-    </FieldCard>
+      {/* Locked, not disabled: a white box like the rest, the lock says why
+          it cannot change (the bill form's rule for values off the master). */}
+      <FieldCell label="Currency of Ledger" htmlFor="coa-currencyOfLedger">
+        <div
+          className="relative"
+          title="Ledgers are kept in the company's base currency."
+        >
+          <Input
+            id="coa-currencyOfLedger"
+            value="INR"
+            readOnly
+            className="pr-9"
+          />
+          <Lock
+            aria-hidden
+            className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-pi-faint"
+          />
+        </div>
+      </FieldCell>
+    </FormCard>
   );
 };
 
@@ -142,33 +187,14 @@ export const AddressSection = ({
   includeMobileNo?: boolean;
   includeEmailId?: boolean;
   includeContactPerson?: boolean;
-}) => (
-  <FieldCard title={title}>
-    <TextField
-      f={f}
-      name="address"
-      label="Address"
-      placeholder="Enter Address"
-      disabled={disabled}
-      multiline
-      wide
-    />
-    <ComboField
-      f={f}
-      name="country"
-      label="Country"
-      title="Select Country"
-      options={COUNTRIES}
-      disabled={disabled}
-    />
-    <ComboField
-      f={f}
-      name="state"
-      label="State"
-      title="Select State"
-      options={INDIAN_STATES}
-      disabled={disabled}
-    />
+}) => {
+  // Every box one line (7 Oct 2026); the address opens to its full text
+  // while focused. Thirds: with contact fields the address takes two of
+  // them with Pincode beside it, then Country, State and Mobile, then Email.
+  // Without them, the address takes the row and Country, State and Pincode
+  // share the next.
+  const contact = includeMobileNo || includeEmailId || includeContactPerson;
+  const pincode = (
     <TextField
       f={f}
       name="pincode"
@@ -179,40 +205,71 @@ export const AddressSection = ({
       filter={digits(6)}
       disabled={disabled}
     />
-    {includeContactPerson ? (
+  );
+  return (
+    <FormCard title={title} cols={3}>
       <TextField
         f={f}
-        name="contactPerson"
-        label="Contact Person"
-        placeholder="Enter Contact Person"
+        name="address"
+        label="Address"
+        placeholder="Enter Address"
         disabled={disabled}
+        multiline
+        span={contact ? 8 : 12}
       />
-    ) : null}
-    {includeMobileNo ? (
-      <TextField
+      {contact ? pincode : null}
+      <ComboField
         f={f}
-        name="mobileNo"
-        label="Mobile Number"
-        type="tel"
-        inputMode="numeric"
-        maxLength={10}
-        prefix="+91"
-        filter={digits(10)}
+        name="country"
+        label="Country"
+        title="Select Country"
+        options={COUNTRIES}
         disabled={disabled}
       />
-    ) : null}
-    {includeEmailId ? (
-      <TextField
+      <ComboField
         f={f}
-        name="emailId"
-        label="Email"
-        type="email"
-        placeholder="Enter Email"
+        name="state"
+        label="State"
+        title="Select State"
+        options={INDIAN_STATES}
         disabled={disabled}
       />
-    ) : null}
-  </FieldCard>
-);
+      {contact ? null : pincode}
+      {includeContactPerson ? (
+        <TextField
+          f={f}
+          name="contactPerson"
+          label="Contact Person"
+          placeholder="Enter Contact Person"
+          disabled={disabled}
+        />
+      ) : null}
+      {includeMobileNo ? (
+        <TextField
+          f={f}
+          name="mobileNo"
+          label="Mobile Number"
+          type="tel"
+          inputMode="numeric"
+          maxLength={10}
+          prefix="+91"
+          filter={digits(10)}
+          disabled={disabled}
+        />
+      ) : null}
+      {includeEmailId ? (
+        <TextField
+          f={f}
+          name="emailId"
+          label="Email"
+          type="email"
+          placeholder="Enter Email"
+          disabled={disabled}
+        />
+      ) : null}
+    </FormCard>
+  );
+};
 
 /* ------------------------------------------------- Tax Registration Details */
 export const TaxRegistrationSection = ({
@@ -233,64 +290,86 @@ export const TaxRegistrationSection = ({
   disableGstTreatment?: boolean;
   disableGstin?: boolean;
   gstTreatmentLabel?: string;
-}) => (
-  <FieldCard title="Tax Registration Details">
-    {includeGstTreatment ? (
-      <ComboField
-        f={f}
-        name="gstTreatmentUuid"
-        label={gstTreatmentLabel}
-        title={`Select ${gstTreatmentLabel}`}
-        options={GST_TREATMENT_OPTIONS}
-        disabled={disabled || disableGstTreatment}
-        onPicked={(value) =>
-          f.set(
-            "gstTreatment",
-            GST_TREATMENT_OPTIONS.find((o) => o.value === value)
-              ?.korefiGstTreatment ?? ""
-          )
-        }
-      />
-    ) : null}
-    {includeGstin ? (
-      <TextField
-        f={f}
-        name="gstinUin"
-        label="GSTIN/UIN"
-        placeholder="Enter GSTIN/UIN"
-        maxLength={15}
-        disabled={disabled || disableGstin}
-        filter={(raw) => {
-          const next = upperAlnum(15)(raw);
-          // PAN is characters 3–12 of a GSTIN; production fills it as you type.
-          if (includePanItNo)
-            f.set("panItNo", next.length >= 12 ? next.slice(2, 12) : "");
-          return next;
-        }}
-      />
-    ) : null}
-    {includePanItNo ? (
-      <TextField
-        f={f}
-        name="panItNo"
-        label="PAN/IT No."
-        placeholder="Enter PAN/IT No."
-        maxLength={10}
-        disabled={disabled}
-        filter={upperAlnum(10)}
-      />
-    ) : null}
-  </FieldCard>
-);
+}) => {
+  // form-4: an applicable GST ledger carries no registration of its own, so
+  // treatment and GSTIN are locked; the tag says why while it applies.
+  const lockedByGst = !disabled && (disableGstTreatment || disableGstin);
+  const lockTag = lockedByGst
+    ? {
+        tag: "GST ledger",
+        tagTitle:
+          "A ledger with GST Applicable carries no registration of its own. Set GST Applicability to Not Applicable to enter one.",
+      }
+    : {};
+  const count =
+    Number(!!includeGstTreatment) +
+    Number(includeGstin) +
+    Number(includePanItNo);
+  return (
+    // GST Treatment, GSTIN, then PAN: one registration, read left to right.
+    <FormCard title="Tax Registration Details" cols={colsFor(count)}>
+      {includeGstTreatment ? (
+        <ComboField
+          f={f}
+          name="gstTreatmentUuid"
+          label={gstTreatmentLabel}
+          title={`Select ${gstTreatmentLabel}`}
+          options={GST_TREATMENT_OPTIONS}
+          disabled={disabled || disableGstTreatment}
+          {...(disableGstTreatment ? lockTag : {})}
+          onPicked={(value) =>
+            f.set(
+              "gstTreatment",
+              GST_TREATMENT_OPTIONS.find((o) => o.value === value)
+                ?.korefiGstTreatment ?? ""
+            )
+          }
+        />
+      ) : null}
+      {includeGstin ? (
+        <TextField
+          f={f}
+          name="gstinUin"
+          label="GSTIN/UIN"
+          placeholder="Enter GSTIN/UIN"
+          maxLength={15}
+          disabled={disabled || disableGstin}
+          {...(disableGstin ? lockTag : {})}
+          filter={(raw) => {
+            const next = upperAlnum(15)(raw);
+            // PAN is characters 3–12 of a GSTIN; production fills it as you type.
+            if (includePanItNo)
+              f.set("panItNo", next.length >= 12 ? next.slice(2, 12) : "");
+            return next;
+          }}
+        />
+      ) : null}
+      {includePanItNo ? (
+        <TextField
+          f={f}
+          name="panItNo"
+          label="PAN/IT No."
+          placeholder="Enter PAN/IT No."
+          maxLength={10}
+          disabled={disabled}
+          filter={upperAlnum(10)}
+          {...(includeGstin && panFromGstin(f.values.gstinUin, f.values.panItNo)
+            ? { tag: "From GSTIN", tagTitle: FROM_GSTIN_PAN }
+            : {})}
+        />
+      ) : null}
+    </FormCard>
+  );
+};
 
 /* ---------------------------------------------- Bank Account Details (form-1) */
 export const BankAccountSection = ({ f }: { f: FormApi }) => (
-  <FieldCard title="Bank Account Details">
+  <FormCard title="Bank Account Details" cols={3}>
     <TextField
       f={f}
       name="acHolderName"
       label="A/C Holder Name"
-      placeholder="Enter A/C Holder Name"
+      placeholder="Account holder"
       filter={(raw) => raw.replace(/[^a-zA-Z\s]/g, "")}
     />
     <ComboField
@@ -333,14 +412,14 @@ export const BankAccountSection = ({ f }: { f: FormApi }) => (
       maxLength={7}
       filter={digits(7)}
     />
-  </FieldCard>
+  </FormCard>
 );
 
 /* ---------------------------------------------------------- Opening Balance */
 export const OpeningBalanceSection = ({ f }: { f: FormApi }) => (
-  <FieldCard title="Opening Balance">
+  <FormCard title="Opening Balance" cols={3}>
     <OpeningBalanceFields f={f} />
-  </FieldCard>
+  </FormCard>
 );
 
 /* ------------------------------------------------ Statutory Details (4 / 5) */
@@ -359,71 +438,34 @@ export const StatutorySection = ({
   const hsnOn = v.setAlterHsnSac;
   const rateOn = v.setAlterTaxabilityRate;
   const applicable = v.gstApplicability === GST_APPLICABILITY.APPLICABLE;
+  const setByType =
+    !!v.typeOfLedger && v.typeOfLedger !== LEDGER_TYPES.NOT_APPLICABLE;
+  // Applicability and Type of Supply side by side; the two overrides are one
+  // switch list, and what each switch opens sits in the tinted panel under
+  // it (7 Oct 2026). While a switch is off its row says the value comes from
+  // the company or item master — the old disabled box's placeholder.
+  const inherited = { tag: "As per company/master" };
   return (
-    <FieldCard title="Statutory Details">
+    <FormCard title="Statutory Details" cols={2}>
       <ComboField
         f={f}
         name="gstApplicability"
         label="GST Applicability"
         title="Select GST Applicability"
         options={GST_APPLICABILITY_OPTIONS}
+        optional={false}
         hideClearButton
-        disabled={
-          !!v.typeOfLedger && v.typeOfLedger !== LEDGER_TYPES.NOT_APPLICABLE
-        }
+        disabled={setByType}
+        {...(setByType
+          ? {
+              tag: "Set by Type of Ledger",
+              tagTitle:
+                "GST Applicability must be Not Applicable when Type of Ledger is selected.",
+            }
+          : {})}
       />
       {applicable ? (
         <>
-          <InlineSwitch
-            label="Set/Alter HSN Code"
-            checked={hsnOn}
-            onChange={(checked) => {
-              f.set("setAlterHsnSac", checked);
-              f.set("hsnSac", "");
-            }}
-          />
-          {/* DEV: production's HsnSacAutoCompleteField — GET
-              /api/inventory/hsn-sac?companyUuid=…, cursor-paginated. */}
-          <TextField
-            f={f}
-            name="hsnSac"
-            label={hsnLabel}
-            placeholder={
-              hsnOn
-                ? "Select or type 2, 4, 6, or 8 digit HSN/SAC"
-                : "As per company/master"
-            }
-            inputMode="numeric"
-            maxLength={8}
-            filter={digits(8)}
-            disabled={!hsnOn}
-          />
-          <InlineSwitch
-            label="Set/Alter Taxability & GST Rate"
-            checked={rateOn}
-            onChange={(checked) => f.set("setAlterTaxabilityRate", checked)}
-          />
-          <ComboField
-            f={f}
-            name="taxabilityType"
-            label="Taxability Type"
-            required
-            title={rateOn ? "Select Taxability Type" : "As per company/master"}
-            options={TAXABILITY_TYPE_OPTIONS}
-            disabled={!rateOn}
-          />
-          {!rateOn || v.taxabilityType === TAXABILITY_TYPES.TAXABLE ? (
-            <RateField
-              f={f}
-              name="igstRate"
-              label="GST Rate"
-              required
-              placeholder={rateOn ? "Enter GST rate" : "As per company/master"}
-              disabled={
-                !rateOn || v.taxabilityType !== TAXABILITY_TYPES.TAXABLE
-              }
-            />
-          ) : null}
           <ComboField
             f={f}
             name="typeOfSupply"
@@ -432,9 +474,62 @@ export const StatutorySection = ({
             title="Select Type of Supply"
             options={typeOfSupplyOptions}
           />
+          <SwitchList label="GST overrides">
+            <InlineSwitch
+              label="Set/Alter HSN Code"
+              checked={hsnOn}
+              {...(hsnOn ? {} : inherited)}
+              onChange={(checked) => {
+                f.set("setAlterHsnSac", checked);
+                f.set("hsnSac", "");
+              }}
+            />
+            <InlineSwitch
+              label="Set/Alter Taxability & GST Rate"
+              checked={rateOn}
+              {...(rateOn ? {} : inherited)}
+              onChange={(checked) => f.set("setAlterTaxabilityRate", checked)}
+            />
+          </SwitchList>
+          {hsnOn || rateOn ? (
+            <SwitchPanel cols={3} label="GST overrides">
+              {hsnOn ? (
+                // DEV: production's HsnSacAutoCompleteField — GET
+                // /api/inventory/hsn-sac?companyUuid=…, cursor-paginated.
+                <TextField
+                  f={f}
+                  name="hsnSac"
+                  label={hsnLabel}
+                  placeholder="Select or type 2, 4, 6, or 8 digit HSN/SAC"
+                  inputMode="numeric"
+                  maxLength={8}
+                  filter={digits(8)}
+                />
+              ) : null}
+              {rateOn ? (
+                <ComboField
+                  f={f}
+                  name="taxabilityType"
+                  label="Taxability Type"
+                  required
+                  title="Select Taxability Type"
+                  options={TAXABILITY_TYPE_OPTIONS}
+                />
+              ) : null}
+              {rateOn && v.taxabilityType === TAXABILITY_TYPES.TAXABLE ? (
+                <RateField
+                  f={f}
+                  name="igstRate"
+                  label="GST Rate"
+                  required
+                  placeholder="Enter GST rate"
+                />
+              ) : null}
+            </SwitchPanel>
+          ) : null}
         </>
       ) : null}
-    </FieldCard>
+    </FormCard>
   );
 };
 
@@ -557,7 +652,11 @@ const TypeOfDutyField = ({ f, options }: { f: FormApi; options: Option[] }) => (
   />
 );
 
-/** production's SharedDutyTaxesSection (form-4 and form-5). */
+/**
+ * production's SharedDutyTaxesSection (form-4 and form-5). "Behave as Duties
+ * & Taxes Ledger" reveals it, so it is that switch's tinted panel, drawn
+ * under the Additional Fields list (7 Oct 2026).
+ */
 export const DutyTaxesSection = ({
   f,
   typeOfDutyTaxOptions,
@@ -567,7 +666,7 @@ export const DutyTaxesSection = ({
   typeOfDutyTaxOptions: Option[];
   showOthersPercentage?: boolean;
 }) => (
-  <FieldCard title="Duties & Taxes Details">
+  <SwitchPanel cols={3} label="Duties & Taxes Details">
     <TypeOfDutyField f={f} options={typeOfDutyTaxOptions} />
     {f.values.typeOfDutyTax === DUTY_TAX_TYPES.GST ? (
       <>
@@ -587,7 +686,7 @@ export const DutyTaxesSection = ({
         suffix=""
       />
     ) : null}
-  </FieldCard>
+  </SwitchPanel>
 );
 
 /** form-6's own duty fields: Taxability Type comes before Tax Type. */
@@ -601,7 +700,7 @@ export const Form6DutySection = ({
   const gst = f.values.typeOfDutyTax === DUTY_TAX_TYPES.GST;
   const taxable = f.values.taxabilityType === TAXABILITY_TYPES.TAXABLE;
   return (
-    <FieldCard title="Duties & Taxes Details">
+    <FormCard title="Duties & Taxes Details" cols={3}>
       <TypeOfDutyField f={f} options={typeOfDutyTaxOptions} />
       {gst ? (
         <>
@@ -628,7 +727,7 @@ export const Form6DutySection = ({
         </>
       ) : null}
       <NatureFields f={f} />
-    </FieldCard>
+    </FormCard>
   );
 };
 

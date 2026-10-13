@@ -139,3 +139,85 @@
   color: #777;
   font-size: 10px;
 }
+
+/* ------------------------------------------------------- source document */
+
+/* A page of the original, drawn from its rendered image. The highlight layer
+   sits over it in the page's own coordinates, so it zooms with the page. */
+.sheet {
+  position: relative;
+  overflow: hidden;
+}
+.sheet img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+/* The source of the field under review.
+   `--zinv` is 1 / the viewer's zoom: the page is scaled with CSS zoom, which
+   scales borders and the tag with it, so both are multiplied back to the size
+   they are at 100%. (`zoom` takes no calc(), hence the inverse is passed in.) */
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.spot {
+  position: absolute;
+  border-radius: 3px;
+  /* Everything but the source steps back a little. */
+  box-shadow: 0 0 0 200vmax var(--source-dim);
+  animation: source-in 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.box {
+  position: absolute;
+  border-radius: 3px;
+  border: calc(1.5px * var(--zinv, 1)) solid var(--pi-brand);
+  background: color-mix(in srgb, var(--pi-brand) 9%, transparent);
+  animation: source-in 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* A line's cell is the field; the rest of its line is context. */
+.row {
+  position: absolute;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--pi-brand) 5%, transparent);
+}
+.tag {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  zoom: var(--zinv, 1);
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--pi-brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+/* A figure on the right of the page takes its tag from its right edge, so
+   the tag sits over its own column rather than the one beside it. */
+.tagEnd {
+  left: auto;
+  right: 0;
+}
+.tagBelow {
+  bottom: auto;
+  top: 100%;
+  margin: 4px 0 0;
+}
+@keyframes source-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spot,
+  .box {
+    animation: none;
+  }
+}

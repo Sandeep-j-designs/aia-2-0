@@ -1,218 +1,151 @@
-import React, { useMemo, useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-import {
-  TABLE_CLASS,
-  nextSort,
-  sortRows,
-  type SortState,
-} from "@/components/inbox/v2/banking/table-parts";
-import type {
-  Gstr2bSummaryViewTableData,
-  SummaryViewTableSortKey,
-} from "@/types/pages/inbox/gst";
-import { T } from "@/components/inbox/v2/ui";
-import {
-  ROW_GROUND,
-  TableCard,
-} from "@/components/inbox/v2/banking/page-parts";
-import {
-  Count,
-  GROUPED_HEADER_CLASS,
-  GroupHead,
-  HeadCell,
-  MatchStatusPill,
-  Money,
-} from "./table-parts";
+import React, { useMemo } from "react";
+import type { Gstr2bSummaryViewTableData } from "@/types/pages/inbox/gst";
+import { MATCHED_TYPES } from "@/config/pages/inbox/gst";
+import { TableCard } from "@/components/inbox/v2/banking/page-parts";
+import LedgerTable, { type LedgerGroup } from "./breakdown-table";
+import { Count, MatchStatusPill, Rupees, STATUS_ORDER } from "./table-parts";
 
 /**
- * Summary View — production's summary-view: one row per match type, then the
- * Total, with GSTR-2B, Purchase Register and their Difference side by side.
+ * Summary View as a reconciliation ledger (13 Oct 2026): the statuses in two
+ * sections — Matched, and Needs attention — each with its subtotal, then the
+ * Total. GSTR-2B sits beside the Purchase Register in each group, and one
+ * Tax gap column replaces the three Difference columns, which were mostly
+ * dashes. Whole rupees: this view compares totals; paise stay on Invoices.
  *
  * PROTOTYPE: a status row opens Invoice View filtered to that status.
  * Production's rows are not clickable.
  */
 
-type Field = keyof Omit<Gstr2bSummaryViewTableData, "matchStatus">;
+type Row = Gstr2bSummaryViewTableData;
 
-const GROUPS: {
-  label: string;
-  cols: { field: Field; label: string; sortKey: SummaryViewTableSortKey }[];
-}[] = [
+const MISSING_IN_2B = "missing_in_2b";
+
+const GROUPS: LedgerGroup<Row>[] = [
   {
-    label: "GSTR-2B Data",
+    label: "Invoices",
     cols: [
-      { field: "gstr2bCount", label: "Count", sortKey: "gstr2bCountOrder" },
       {
-        field: "gstr2bTaxableValue",
-        label: "Taxable Value (₹)",
-        sortKey: "gstr2bTaxableValueOrder",
+        id: "c2b",
+        label: "2B",
+        render: (r) => <Count value={r.gstr2bCount} />,
+      },
+      { id: "cpr", label: "PR", render: (r) => <Count value={r.prCount} /> },
+    ],
+  },
+  {
+    label: "Taxable value",
+    cols: [
+      {
+        id: "t2b",
+        label: "2B",
+        render: (r) => <Rupees value={r.gstr2bTaxableValue} />,
       },
       {
-        field: "gstr2bTaxValue",
-        label: "Tax Value (₹)",
-        sortKey: "gstr2bTaxValueOrder",
+        id: "tpr",
+        label: "PR",
+        render: (r) => <Rupees value={r.prTaxableValue} />,
       },
     ],
   },
   {
-    label: "Purchase Register Data",
+    label: "Tax",
     cols: [
-      { field: "prCount", label: "Count", sortKey: "prCountOrder" },
       {
-        field: "prTaxableValue",
-        label: "Taxable Value (₹)",
-        sortKey: "prTaxableValueOrder",
+        id: "x2b",
+        label: "2B",
+        render: (r) => <Rupees value={r.gstr2bTaxValue} />,
       },
       {
-        field: "prTaxValue",
-        label: "Tax Value (₹)",
-        sortKey: "prTaxValueOrder",
+        id: "xpr",
+        label: "PR",
+        render: (r) => <Rupees value={r.prTaxValue} />,
       },
     ],
   },
   {
-    label: "Difference",
     cols: [
       {
-        field: "differenceCount",
-        label: "Count",
-        sortKey: "differenceCountOrder",
-      },
-      {
-        field: "differenceTaxableValue",
-        label: "Taxable Value (₹)",
-        sortKey: "differenceTaxableValueOrder",
-      },
-      {
-        field: "differenceTaxValue",
-        label: "Tax Value (₹)",
-        sortKey: "differenceTaxValueOrder",
+        id: "gap",
+        label: "Tax gap",
+        width: 148,
+        // the one red figure: tax on purchases the vendor never filed
+        render: (r) => (
+          <Rupees
+            value={r.differenceTaxValue}
+            signed
+            className={
+              r.matchStatus === MISSING_IN_2B ? "text-pi-danger" : undefined
+            }
+          />
+        ),
       },
     ],
   },
 ];
 
-const COLS = GROUPS.flatMap((g) => g.cols);
-const DIFF = new Set<Field>([
+const FIGURES: (keyof Omit<Row, "matchStatus">)[] = [
+  "gstr2bCount",
+  "gstr2bTaxableValue",
+  "gstr2bTaxValue",
+  "prCount",
+  "prTaxableValue",
+  "prTaxValue",
   "differenceCount",
   "differenceTaxableValue",
   "differenceTaxValue",
-]);
+];
+
+const subtotal = (label: string, rows: Row[]): Row =>
+  Object.fromEntries([
+    ["matchStatus", label],
+    ...FIGURES.map((f) => [f, rows.reduce((n, r) => n + r[f], 0)]),
+  ]) as Row;
 
 type Props = {
-  rows: Gstr2bSummaryViewTableData[];
+  rows: Row[];
   onOpenStatus: (matchStatus: string) => void;
 };
 
 const SummaryView = ({ rows, onOpenStatus }: Props) => {
-  const [sort, setSort] = useState<SortState<Field>>(null);
   const total = rows.find((r) => r.matchStatus === "total");
-  const statuses = useMemo(
-    () =>
-      sortRows(
-        rows.filter((r) => r.matchStatus !== "total"),
-        sort,
-        Object.fromEntries(
-          COLS.map((c) => [
-            c.field,
-            (r: Gstr2bSummaryViewTableData) => r[c.field],
-          ])
-        ) as Record<Field, (r: Gstr2bSummaryViewTableData) => number>
-      ),
-    [rows, sort]
-  );
-
-  const cells = (row: Gstr2bSummaryViewTableData, bold = false) =>
-    COLS.map(({ field }) => {
-      const value = row[field];
-      const red = DIFF.has(field) && value !== 0;
-      const ink = cn(red && "text-pi-danger", bold && "font-semibold");
-      return (
-        <TableCell
-          key={field}
-          className={cn("h-14 px-4 py-0 align-middle", T.cell, ROW_GROUND)}
-        >
-          {field.endsWith("Count") ? (
-            <Count value={value} className={ink} />
-          ) : (
-            <Money value={value} className={ink} />
-          )}
-        </TableCell>
-      );
-    });
+  const sections = useMemo(() => {
+    const ordered = STATUS_ORDER.map((s) =>
+      rows.find((r) => r.matchStatus === s)
+    ).filter((r): r is Row => !!r);
+    const matched = ordered.filter((r) =>
+      (MATCHED_TYPES as string[]).includes(r.matchStatus)
+    );
+    const open = ordered.filter(
+      (r) => !(MATCHED_TYPES as string[]).includes(r.matchStatus)
+    );
+    return [
+      {
+        label: "Matched",
+        subtotal: subtotal("matched", matched),
+        rows: matched,
+      },
+      {
+        label: "Needs attention",
+        subtotal: subtotal("open", open),
+        rows: open,
+      },
+    ];
+  }, [rows]);
 
   return (
     <TableCard>
       <div className="min-w-0 flex-1">
-        <Table className={cn(TABLE_CLASS, "w-full table-auto")}>
-          <colgroup>
-            <col style={{ width: 200 }} />
-            {COLS.map((c) => (
-              <col key={c.field} />
-            ))}
-          </colgroup>
-          <TableHeader className={GROUPED_HEADER_CLASS}>
-            <TableRow className="hover:bg-transparent">
-              <GroupHead label="Match Status" rowSpan={2} align="left" />
-              {GROUPS.map((g) => (
-                <GroupHead
-                  key={g.label}
-                  label={g.label}
-                  colSpan={g.cols.length}
-                />
-              ))}
-            </TableRow>
-            <TableRow className="hover:bg-transparent">
-              {COLS.map((c) => (
-                <HeadCell
-                  key={c.field}
-                  label={c.label}
-                  align="right"
-                  sort={sort?.key === c.field ? sort.dir : "none"}
-                  onSort={() => setSort((s) => nextSort(s, c.field))}
-                />
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {statuses.map((row) => (
-              <TableRow
-                key={row.matchStatus}
-                onClick={() => onOpenStatus(row.matchStatus)}
-                title="Open these invoices"
-                className="group cursor-pointer hover:bg-transparent"
-              >
-                <TableCell
-                  className={cn("h-14 px-4 py-0 align-middle", ROW_GROUND)}
-                >
-                  <MatchStatusPill matchType={row.matchStatus} />
-                </TableCell>
-                {cells(row)}
-              </TableRow>
-            ))}
-            {total && (
-              <TableRow className="bg-pi-head-bg hover:bg-pi-head-bg">
-                <TableCell
-                  className={cn(
-                    "h-14 px-4 py-0 align-middle",
-                    T.cell,
-                    "font-semibold text-pi-ink"
-                  )}
-                >
-                  Total
-                </TableCell>
-                {cells(total, true)}
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        <LedgerTable
+          lead={{ label: "Status", width: 232 }}
+          groups={GROUPS}
+          sections={sections}
+          rowKey={(r) => r.matchStatus}
+          renderLead={(r) => <MatchStatusPill matchType={r.matchStatus} />}
+          total={total}
+          onRowClick={(r) => onOpenStatus(r.matchStatus)}
+          rowTitle="Open these invoices"
+          minWidth={1040}
+        />
       </div>
     </TableCard>
   );

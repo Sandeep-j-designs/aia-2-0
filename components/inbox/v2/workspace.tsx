@@ -58,11 +58,10 @@ import {
   type GuideAction,
 } from "@/components/guide/actions";
 import FileIcon from "@/components/inbox/common/file-icon";
-import JournalVoucher from "@/components/inbox/journal";
-import {
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+import JournalVoucher, {
+  JOURNAL_APPROVE_FAILED,
+} from "@/components/inbox/journal";
+import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import PageTopBar from "@/components/common/page-top-bar";
 import {
   Popover,
@@ -70,6 +69,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import SidebarLayout from "@/components/sidebar-layout";
+import type { Crumb } from "@/components/top-bar-layout";
 import { PaneResizer } from "./pane-resizer";
 // Aliased: `Sheet` in this file already means the AP spreadsheet component.
 import {
@@ -83,7 +83,10 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -105,6 +108,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import { ColumnFilter, FilterPanel, QuickFilter } from "./filter-panel";
 import { format, parseISO } from "date-fns";
 import FilterChip from "@/components/common/filter-chip";
@@ -135,6 +140,7 @@ import InvoiceSheet from "./invoice-sheet";
 import { ExtractionLoader, RouteSwitchLoader } from "./document-loader";
 import {
   AmountText,
+  CELL_TRIGGER,
   CountPill,
   DateField,
   EditedMark,
@@ -187,6 +193,8 @@ import {
   routes,
   setPermissions,
   switchRoute,
+  setVoucherType,
+  FORM_VOUCHER_TYPES,
   update,
   updatePosted,
   useStore,
@@ -205,6 +213,7 @@ import UploadAnimation from "./upload-animation";
 import uploadStyles from "./upload-dialog.module.css";
 import Register, { type RegisterSyncState } from "./register";
 import BillRegister from "./bill-register";
+import { AiMark } from "./ai-mark";
 import SyncResultModal from "./sync/sync-result-modal";
 import SyncCloud from "./sync/sync-cloud";
 import SyncChromeButton from "./sync/sync-chrome-button";
@@ -213,7 +222,14 @@ import {
   useGridKeyboard,
 } from "@/hooks/pages/inbox/use-grid-keyboard";
 import KeyboardShortcuts from "./keyboard-shortcuts";
-import { Inbox as InboxIcon } from "@/components/icons";
+import {
+  CircleCheck,
+  Clock,
+  Inbox as InboxIcon,
+} from "@/components/icons";
+import { EmptyState as FlowEmptyState } from "./empty-state";
+import Notifications from "@/components/notifications";
+import { useInboxNotifications } from "@/hooks/pages/notifications/use-inbox-notifications";
 const money = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
     n
@@ -344,8 +360,8 @@ const EMPTY_STATES: Record<string, { title: string; body: string }> = {
     body: "Approve a document and its record appears here, with the voucher it created and the file it came from.",
   },
   Duplicate: {
-    title: "No duplicates",
-    body: "A document that matches one you already have waits here until you keep it or discard it.",
+    title: "No duplicates found",
+    body: "When a document matches one already in your books, it waits here until you keep it or discard it.",
   },
 };
 /**
@@ -433,6 +449,20 @@ const EASE = "cubic-bezier(0.2, 0, 0, 1)";
  * 45px — Figma 24421:72764, where every body row is 45 and the header is 40.
  */
 const ROW_HEIGHT = 45;
+/**
+ * Ink per column, so a row reads in order of importance: what the document
+ * is (file, vendor) and what it is worth (amount) in ink at 500; the fields
+ * that describe it in body ink. Status carries its own dot.
+ */
+const COLUMN_INK: Partial<Record<string, string>> = {
+  Vendor: "font-medium text-pi-ink",
+  Amount: "font-medium text-pi-ink",
+  "Voucher type": "text-pi-body",
+  "GST Registration": "text-pi-body",
+  Source: "text-pi-body",
+  User: "text-pi-body",
+  Received: "text-pi-body",
+};
 /** Reading layout before paint is the point; on the server there is none. */
 const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -607,6 +637,13 @@ const UPLOAD_GUIDELINES = [
   "Keep each document to 12 pages or fewer.",
   "We’ll let you know when your documents are ready to review.",
 ];
+/** The same tips, said about bills, for an upload opened from Purchases. */
+const PURCHASE_UPLOAD_GUIDELINES = [
+  "Printed or handwritten bills are welcome.",
+  "Use a clear, straight photo or scan for best results.",
+  "Keep each bill to 12 pages or fewer.",
+  "We’ll let you know when your bills are ready to review.",
+];
 
 const DIALOG_DWELL_MS = 800;
 const DIALOG_EXIT_MS = 200;
@@ -630,6 +667,12 @@ const TABLE_ENTER_MS = 420;
 const detailHref = (id: string, extra?: string) =>
   `/inbox?id=${encodeURIComponent(id)}${extra ? `&${extra}` : ""}`;
 
+/** A register tab as the review screen's counter names it. */
+const REGISTER_TAB_NAME: Record<string, string> = {
+  all: "All",
+  review: "Needs Review",
+  uploads: "Uploads",
+};
 /** The registers by name, for a hand-raised voucher's way back. */
 const moduleNames: Record<Route, string> = {
   AP: "Purchases",
@@ -685,6 +728,8 @@ const startedInboxCompanies = new Set<string>();
 export default function Workspace() {
   const state = useStore(),
     router = useRouter();
+  // Every queue change that deserves a notice raises it — on any screen.
+  useInboxNotifications(state.items);
   const [kickstartPreview, setKickstartPreview] = useState(
     () =>
       !state.startedCompanies?.includes(state.company) &&
@@ -774,6 +819,8 @@ export default function Workspace() {
   // column resize has to account for.
   const scrollerElement = useRef<HTMLDivElement | null>(null);
   useEffect(() => () => resizeCleanup.current?.(), []);
+  // Shades the pinned edges while columns are scrolled under them.
+  const pinEdges = usePinEdges(scrollerElement);
   const visible =
     visibilityByCompany[state.company] ?? defaultColumns(state.company);
   const setVisible = (next: React.SetStateAction<string[]>) =>
@@ -815,6 +862,9 @@ export default function Workspace() {
   // `filters.cols`, because the register does not have the Inbox's columns.
   const [registerParty, setRegisterParty] = useState(""),
     [source, setSource] = useState<Item["source"]>("upload"),
+    // Where the upload was opened from. Purchases asks for bills by name; the
+    // Inbox takes any document. Wording only — the AI still routes each file.
+    [uploadScope, setUploadScope] = useState<"inbox" | "purchases">("inbox"),
     [sender, setSender] = useState(actor),
     [files, setFiles] = useState<Pick<File, "name" | "size">[]>([]),
     [dragOver, setDragOver] = useState(false),
@@ -1291,6 +1341,8 @@ export default function Workspace() {
       stickyLeft[c] = left;
       return left + colWidth(c);
     }, SELECT_WIDTH);
+  /** The column whose right edge is the left pinned edge, if any is pinned. */
+  const leftPinEdge = Object.keys(stickyLeft).pop();
   /**
    * A pinned cell paints its own ground, or the columns scrolling under it
    * show through. The row's hover tint goes on as a background image over
@@ -1338,6 +1390,8 @@ export default function Workspace() {
   const inventoryModule = router.query.module === "INV";
   /** GST reconciliation at ?module=GST, its results tab in &tab=. */
   const gstModule = router.query.module === "GST";
+  /** The notification centre's full page, /notifications. */
+  const notificationsPage = router.pathname === "/notifications";
   const gstView: GstView = {
     tab: (["summary", "month", "vendor", "invoice"] as const).includes(
       router.query.tab as GstTab
@@ -1358,6 +1412,28 @@ export default function Workspace() {
   const inventoryView: InventoryView = {
     item: typeof router.query.item === "string" ? router.query.item : undefined,
   };
+  /* A master page names itself in the top bar's trail, so the page carries
+     no second heading (8 Oct 2026, user: "the headings inside the page are
+     repetitive with the path already mentioned in the topbar"). */
+  // The module crumb goes back to its list; the group crumb before it is a
+  // sidebar heading, not a page, so it stays a label.
+  const pageCrumbs: Crumb[] | undefined = notificationsPage
+    ? ["Notifications"]
+    : coaModule && coaView.ledger
+      ? [
+          "Accounting",
+          { label: "Chart of Accounts", onClick: () => goCoa({}) },
+          coaView.ledger === "new" ? "New Ledger" : "Edit Ledger",
+        ]
+      : inventoryModule && inventoryView.item
+        ? [
+            "Inventory",
+            { label: "Stock items", onClick: () => goInventory({}) },
+            inventoryView.item === "new"
+              ? "Create Stock Item"
+              : "Edit Stock Item",
+          ]
+        : undefined;
   const goCoa = (view: CoaView) =>
     void router.push(
       view.ledger
@@ -1404,8 +1480,51 @@ export default function Workspace() {
   const item = state.items.find(
     (x) => x.id === id && x.company === state.company
   );
-  /** Where leaving a record goes: its register if it was raised there. */
-  const exitHref = item?.created ? `/inbox?module=${item.route}` : "/inbox";
+  /*
+    One review screen, two doors (8 Oct 2026, Option B): the Inbox lists every
+    book and each register's Needs Review lists its own. The screen walks the
+    list it was opened from and returns to it, so a clerk working Sales stays
+    in Sales and the person clearing the Inbox stays in the Inbox. A document
+    opened from anywhere else (a link, a notice) isn't in the queue; its way
+    back is the Inbox, where document-level problems live.
+  */
+  const inQueue = !!item && state.queue.includes(item.id);
+  const [originKind = "inbox", originTab = ""] = (
+    (inQueue && state.queueFrom) ||
+    "inbox"
+  ).split(":");
+  const originRoute = routes.includes(originKind as Route)
+    ? (originKind as Route)
+    : undefined;
+  const originName = originRoute
+    ? `${moduleNames[originRoute]} › ${REGISTER_TAB_NAME[originTab] ?? "All"}`
+    : `Inbox › ${originTab || "Need review"}`;
+  const originHref = originRoute
+    ? `/inbox?module=${originRoute}${originTab && originTab !== "all" ? `&tab=${originTab}` : ""}`
+    : "/inbox";
+  /** Where leaving a record goes: the list it came from, or its register if
+      it was raised there by hand. */
+  const exitHref = item?.created ? `/inbox?module=${item.route}` : originHref;
+  /*
+    "Post as" moved this document out of the book whose list you are walking.
+    You stay on it — you just chose to re-type it — but the counter and a
+    note say where it went, and Next and Back keep to the list you came from.
+  */
+  const movedTo =
+    originRoute && item && !item.created && item.route !== originRoute
+      ? item.route
+      : undefined;
+  const movedTold = useRef("");
+  useEffect(() => {
+    if (!movedTo || !item || !originRoute) return;
+    const key = `${item.id}:${movedTo}`;
+    if (movedTold.current === key) return;
+    movedTold.current = key;
+    toast.info(`Moved to ${moduleNames[movedTo]}`, {
+      duration: 6500,
+      description: `It now waits in ${moduleNames[movedTo]} › Needs Review. Next and Back stay with ${moduleNames[originRoute]}.`,
+    });
+  }, [movedTo, item?.id]);
   /*
     A voucher raised by hand and left without anything entered goes when you
     leave it, so backing out of Create Bill does not leave an empty draft.
@@ -1416,11 +1535,44 @@ export default function Workspace() {
     openId.current = id;
     if (left && left !== id) discardIfBlank(left);
   }, [id]);
+  /*
+    The header's Voucher type is the inbox's value; the AP/AR form holds its
+    own copy in a select it now hides. Whenever the two differ, the form's
+    select is set to the header's type and its own change handler runs, so
+    the engine renumbers and re-checks exactly as if it had been picked there.
+    Retried a few times because a re-routed form mounts a moment later, and
+    restores a saved draft that carries its old type. A type the form does
+    not hold is left alone; the form's next snapshot then names what it has.
+  */
+  const headerType = item?.form.voucherType || "";
+  const headerRoute = item?.route;
+  // a re-routed form mounts when its switch ends, so the sync runs again then
+  const headerSwitching = !!item?.routeSwitch;
+  useEffect(() => {
+    if (!headerType || (headerRoute !== "AP" && headerRoute !== "AR")) return;
+    const sync = () => {
+      const select = document.querySelector<HTMLSelectElement>(
+        `.${headerRoute === "AP" ? "ap" : "ar"}-sheet select[data-bind="voucherType"]`
+      );
+      if (!select) return;
+      if (select.selectedOptions[0]?.textContent?.trim() === headerType) return;
+      const option = [...select.options].find(
+        (o) => o.textContent?.trim() === headerType
+      );
+      if (!option) return;
+      select.value = option.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const timers = [0, 300, 1000, 2500].map((ms) =>
+      window.setTimeout(sync, ms)
+    );
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [id, headerType, headerRoute, headerSwitching]);
   /** Create Bill / Create Invoice / New Journal Voucher: open a blank form. */
   const createVoucher = (route: Route) => {
     const created = createBlank(route);
     if (!created) return;
-    configure({ queue: [created.id] });
+    configure({ queue: [created.id], queueFrom: `${route}:all` });
     void router.push(detailHref(created.id));
   };
   // Attempting to approve one voucher says nothing about the next, and
@@ -1545,6 +1697,19 @@ export default function Workspace() {
    * screen, and its Current Module is not a guess.
    */
   const sync = useTallySync({ items: books, route: moduleRoute ?? null });
+  /*
+    A failed-sync notice links to ?sync=failures: the same narrowing as the
+    result card's "See what failed", then the param goes so a reload or the
+    back button doesn't re-apply it.
+  */
+  useEffect(() => {
+    if (router.query.sync !== "failures") return;
+    sync.reviewFailures();
+    const { sync: _sync, ...rest } = router.query;
+    void router.replace({ pathname: router.pathname, query: rest }, undefined, {
+      shallow: true,
+    });
+  }, [router.query.sync]);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const filtered = useMemo(
@@ -1696,7 +1861,10 @@ export default function Workspace() {
     setSelected([]);
   };
   const open = (x: Item) => {
-    configure({ queue: filtered.map((x) => x.id) });
+    configure({
+      queue: filtered.map((x) => x.id),
+      queueFrom: `inbox:${tab}`,
+    });
     event("Inbox Item Viewed", x, {
       ai_route: x.aiRoute,
       item_status: x.status,
@@ -1756,10 +1924,32 @@ export default function Workspace() {
       .find(
         (x) =>
           x &&
+          // A document "Post as" moved to another book left this list.
+          (!originRoute || x.route === originRoute) &&
           (reviewableOnly
             ? ["Needs Review", "Duplicate"].includes(x.status)
             : !["Deleted", "Failed"].includes(x.status))
       );
+    if (!next && reviewableOnly && originRoute) {
+      // The end of a book's list: say it is clear, and whether other books
+      // still have work, so finishing Sales doesn't hide waiting bills.
+      const elsewhere = getState().items.filter(
+        (x) =>
+          x.company === state.company &&
+          !x.created &&
+          x.route !== originRoute &&
+          ["Needs Review", "Duplicate"].includes(x.status)
+      ).length;
+      toast.success(`${moduleNames[originRoute]} is clear`, {
+        duration: 6500,
+        description: elsewhere
+          ? `${elsewhere} more ${elsewhere === 1 ? "document needs" : "documents need"} review in other books.`
+          : "Nothing else is waiting for review.",
+        action: elsewhere
+          ? { label: "Open Inbox", onClick: () => void router.push("/inbox") }
+          : undefined,
+      });
+    }
     void router.push(next ? detailHref(next.id) : exitHref);
   };
   const approveItem = () => {
@@ -1785,6 +1975,9 @@ export default function Workspace() {
         } as Record<Route, string[]>
       )[item.route].includes(error);
       if (!shownOnForm) notify(error, "error");
+      // the journal lists what is left in its Needs you sheet
+      if (item.route === "JV")
+        window.dispatchEvent(new Event(JOURNAL_APPROVE_FAILED));
       return;
     }
     notify(
@@ -1912,17 +2105,19 @@ export default function Workspace() {
     // as current is the child, not the parent.
     JV: "journal-vouchers",
   };
-  const navId = gstModule
-    ? "gst"
-    : coaModule
-      ? "chart-of-accounts"
-      : inventoryModule
-        ? "inventory"
-        : bankModule
-          ? "banking"
-          : moduleRoute
-            ? ROUTE_TO_NAV[moduleRoute]
-            : "inbox";
+  const navId = notificationsPage
+    ? "notifications"
+    : gstModule
+      ? "gst"
+      : coaModule
+        ? "chart-of-accounts"
+        : inventoryModule
+          ? "inventory"
+          : bankModule
+            ? "banking"
+            : moduleRoute
+              ? ROUTE_TO_NAV[moduleRoute]
+              : "inbox";
   const selectNav = (navItemId: string) => {
     if (navItemId === "inbox") {
       setFilters(defaultFilters);
@@ -1969,7 +2164,7 @@ export default function Workspace() {
    */
   const changeCompany = (value: string, quiet = false) => {
     if (value === state.company) return;
-    configure({ company: value, queue: [] });
+    configure({ company: value, queue: [], queueFrom: undefined });
     setSelected([]);
     setFilters(defaultFilters);
     setTab("Need review");
@@ -2053,6 +2248,15 @@ export default function Workspace() {
     A document mid Post-as change is being re-read, so the table says so the
     same way it does for a first read, and holds its cells until it lands.
   */
+  /** The voucher type is still the AI's decision: under review, on the
+   * route it chose, and not changed by hand from the table or Post as. */
+  const aiPickedType = (item: Item) =>
+    !!item.form.voucherType &&
+    item.form.voucherType !== "—" &&
+    !["Approved", "Deleted", "Received", "Extracting"].includes(item.status) &&
+    item.route === item.aiRoute &&
+    !item.edited.includes("Voucher Type") &&
+    !item.edited.includes("route");
   const isSwitching = (item: Item) =>
     !!item.routeSwitch && item.routeSwitch.until > Date.now();
   const canEditTableItem = (item: Item) =>
@@ -2316,8 +2520,9 @@ export default function Workspace() {
    */
   const intakeMode = useRef<"bulk" | "single" | "auto">("auto");
   /** Upload Documents above the Inbox table, and Upload Bills on Purchases. */
-  const openSingleUpload = () => {
+  const openSingleUpload = (scope: "inbox" | "purchases" = "inbox") => {
     intakeMode.current = "single";
+    setUploadScope(scope);
     setSource("upload");
     setSender(actor);
     setUploadErrors([]);
@@ -2777,7 +2982,13 @@ export default function Workspace() {
     );
   const content = (
     <>
-      <div className="flex h-full min-h-0 flex-col">
+      <div
+        className={cn(
+          "flex h-full min-h-0 flex-col",
+          // the review surface's palette and overscroll guard, on every form
+          item && "payable-review"
+        )}
+      >
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {!state.permissions.length ? (
             <EmptyState title="Inbox access required">
@@ -2813,7 +3024,9 @@ export default function Workspace() {
                   label={
                     item.created
                       ? `Back to ${moduleNames[item.route]}`
-                      : "Back to Inbox"
+                      : originRoute
+                        ? `Back to ${moduleNames[originRoute]}`
+                        : "Back to Inbox"
                   }
                   disabled={false}
                   onClick={() => void router.push(exitHref)}
@@ -2832,6 +3045,17 @@ export default function Workspace() {
                 )}
                 {reviewable && !item.created && (
                   <>
+                    {/*
+                      One control for where the document posts (7 Oct 2026,
+                      user: "They should be the same components not two
+                      different ones"). The book and the voucher type are one
+                      decision with two parts, so they are one grouped select:
+                      each book is a group heading, its types sit under it,
+                      and the trigger names both — "Purchase Voucher /
+                      Debit Note". A type in this book changes the type; a
+                      type in another book moves the document there with that
+                      type (a book's first type is what Post as alone did).
+                    */}
                     <Label
                       htmlFor="inbox-post-as"
                       className="whitespace-nowrap text-sm text-secondary-foreground"
@@ -2839,15 +3063,18 @@ export default function Workspace() {
                       Post as
                     </Label>
                     <Select
-                      value={item.route}
+                      value={`${item.route}|${item.form.voucherType}`}
                       disabled={switching}
-                      onValueChange={(v) => switchRoute(item.id, v as Route)}
+                      onValueChange={(v) => {
+                        const [r, ...rest] = v.split("|");
+                        setVoucherType(item.id, r as Route, rest.join("|"));
+                      }}
                     >
                       <SelectTrigger
                         id="inbox-post-as"
                         data-guide-id="inbox-route"
-                        aria-label="Post as"
-                        title="Change where this document posts"
+                        aria-label={`Post as ${ROUTE_LABELS[item.route]}, ${item.form.voucherType}`}
+                        title="Change the voucher this document posts as"
                         className={cn(
                           // rounded-md, which is 6px here: --radius is 0.5rem
                           // and md subtracts 2. Matches the back chevron.
@@ -2858,16 +3085,53 @@ export default function Workspace() {
                         )}
                       >
                         {switching && <Spinner />}
-                        <SelectValue />
+                        <SelectValue>
+                          <span className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="font-normal text-pi-body">
+                              {ROUTE_LABELS[item.route]}
+                            </span>
+                            {/* the top bar's breadcrumb slash: book / type
+                                reads as one thing inside the other, and the
+                                caret stays the only control mark */}
+                            <span aria-hidden className="text-pi-faint">
+                              /
+                            </span>
+                            <span>
+                              {item.form.voucherType || "Select type"}
+                            </span>
+                          </span>
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {routes
+                        {/* the books in a fixed order, so the list never
+                            reshuffles from one document to the next */}
+                        {(["AP", "AR", "JV"] as Route[])
                           .filter((r) => state.permissions.includes(r))
-                          .map((r) => (
-                            <SelectItem key={r} value={r}>
-                              {ROUTE_LABELS[r]}
-                            </SelectItem>
-                          ))}
+                          .map((r, index) => {
+                            const types = FORM_VOUCHER_TYPES[r];
+                            const list =
+                              r === item.route &&
+                              item.form.voucherType &&
+                              !types.includes(item.form.voucherType)
+                                ? [item.form.voucherType, ...types]
+                                : types;
+                            return (
+                              <SelectGroup key={r}>
+                                {index > 0 && <SelectSeparator />}
+                                <SelectLabel className="text-[11px] font-medium uppercase tracking-[0.06em] text-pi-faint">
+                                  {ROUTE_LABELS[r]}
+                                </SelectLabel>
+                                {list.map((t) => (
+                                  <SelectItem
+                                    key={`${r}|${t}`}
+                                    value={`${r}|${t}`}
+                                  >
+                                    {t}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            );
+                          })}
                       </SelectContent>
                     </Select>
                     {/*
@@ -2887,7 +3151,7 @@ export default function Workspace() {
                       <span
                         className={cn(
                           T.sub,
-                          "inline-flex items-center gap-2 text-primary"
+                          "inline-flex items-center gap-2 font-semibold text-primary"
                         )}
                       >
                         <Sparkles
@@ -2962,6 +3226,14 @@ export default function Workspace() {
                       {router.query.voucher ? "Voucher" : "Documents"}{" "}
                       {Math.max(0, state.queue.indexOf(item.id)) + 1} of{" "}
                       {state.queue.includes(item.id) ? state.queue.length : 1}
+                      {/* Which list this is, so two doors never read as two
+                          queues. */}
+                      <span className="font-normal text-pi-faint">
+                        {" · "}
+                        {movedTo
+                          ? `Moved to ${moduleNames[movedTo]}`
+                          : originName}
+                      </span>
                     </span>
                     <PageButton
                       label="Next document"
@@ -3230,7 +3502,10 @@ export default function Workspace() {
                           <span className="code text-[12px] font-medium text-pi-ink">
                             {matched.form.voucherNo}
                           </span>
-                          <span aria-hidden className="h-3.5 w-px bg-pi-line-2" />
+                          <span
+                            aria-hidden
+                            className="h-3.5 w-px bg-pi-line-2"
+                          />
                           <span className="tabular-nums">
                             {fmtDate(matched.form.date)}
                           </span>
@@ -3241,8 +3516,8 @@ export default function Workspace() {
                         </button>
                       }
                     >
-                      Same vendor and invoice number as a posted voucher.
-                      Change either one to approve.
+                      Same vendor and invoice number as a posted voucher. Change
+                      either one to approve.
                     </RecordBanner>
                   )}
                   {item.softRef && (
@@ -3422,6 +3697,11 @@ export default function Workspace() {
                 </>
               )}
             </>
+          ) : notificationsPage ? (
+            <Notifications
+              companyId={state.company}
+              companyIds={state.companies.map((c) => c.id)}
+            />
           ) : gstModule ? (
             <GstReconciliation
               key={state.company}
@@ -3509,8 +3789,11 @@ export default function Workspace() {
                 items={moduleItems}
                 selected={selected}
                 onSelectedChange={setSelected}
-                onOpen={(x) => {
-                  configure({ queue: moduleItems.map((row) => row.id) });
+                onOpen={(x, ids, regTab) => {
+                  configure({
+                    queue: ids,
+                    queueFrom: `${moduleRoute}:${regTab}`,
+                  });
                   void router.push(
                     detailHref(
                       x.id,
@@ -3552,7 +3835,7 @@ export default function Workspace() {
                   setFilters(defaultFilters);
                   setRegisterParty("");
                 }}
-                onUpload={openSingleUpload}
+                onUpload={() => openSingleUpload("purchases")}
                 onOpenShortcuts={() => setShortcutsOpen(true)}
                 searchRef={searchInput}
                 company={state.company}
@@ -3571,8 +3854,11 @@ export default function Workspace() {
                 syncState={registerSyncState}
                 selected={selected}
                 onSelectedChange={setSelected}
-                onOpen={(x) => {
-                  configure({ queue: moduleItems.map((row) => row.id) });
+                onOpen={(x, ids, regTab) => {
+                  configure({
+                    queue: ids,
+                    queueFrom: `${moduleRoute}:${regTab}`,
+                  });
                   void router.push(
                     detailHref(
                       x.id,
@@ -3593,6 +3879,7 @@ export default function Workspace() {
                   )
                 }
                 onCreate={() => createVoucher(moduleRoute)}
+                onOpenInbox={() => void router.push("/inbox")}
                 search={filters.search}
                 onSearchChange={(value) => setFilter("search", value)}
                 /*
@@ -3648,519 +3935,549 @@ export default function Workspace() {
                   `sticky left-0` so a widened table slides under them alone.
                   Not positioned, so the floating selection bar (absolute
                   against the wrapper above) neither scrolls nor clips. */}
-                <div
-                  ref={scrollerElement}
-                  className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none"
-                >
-                  <div className="sticky left-0 shrink-0 px-[var(--inset-page)] pt-6 [transform:translateZ(0)]">
-                    <PageTopBar
-                      className="shrink-0 flex-wrap gap-2 pb-4"
-                      title={
-                        moduleRoute
-                          ? `${routeNames[moduleRoute]} · Posted vouchers`
-                          : "Inbox"
-                      }
-                      eyebrow={moduleRoute ? "Posted vouchers" : "Workspace"}
-                      primaryText={moduleRoute ? undefined : "Upload Documents"}
-                      primaryIcon={Upload}
-                      overflowActions={
-                        moduleRoute
-                          ? undefined
-                          : [
-                              {
-                                label: "How Inbox works",
-                                icon: Info,
-                                onClick: () => setWelcomeOpen(true),
-                              },
-                            ]
-                      }
-                      onPrimaryButtonClick={openSingleUpload}
-                    />
-                    {!moduleRoute && (
-                      <Tabs
-                        value={tab}
-                        onValueChange={(t) => {
-                          setTab(t);
-                          setPage(0);
-                          setSelected([]);
-                        }}
-                        className="shrink-0 overflow-x-auto border-b border-pi-line"
-                      >
-                        <TabsList className="h-auto gap-6 rounded-none bg-transparent p-0">
-                          {tabs.map((t) => (
-                            <TabsTrigger
-                              key={t}
-                              value={t}
-                              data-guide-id={
-                                t === "Need review"
-                                  ? "inbox-tab-review"
-                                  : undefined
-                              }
-                              className="group h-[38px] gap-2 rounded-none border-b-2 border-transparent px-0 text-[14px] font-medium text-pi-body shadow-none hover:text-pi-ink data-[state=active]:border-pi-brand data-[state=active]:bg-transparent data-[state=active]:text-pi-ink data-[state=active]:shadow-none"
+                {/* The scroller's own box, so the overlay bars and the
+                  floating selection bar sit over the table and end above
+                  the pager. */}
+                <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+                  <div
+                    ref={scrollerElement}
+                    // Native bars reserve a strip under the last row; the
+                    // overlay bars below float over the rows instead.
+                    className="table-scroller scrollbar-hide flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none"
+                  >
+                    <div className="sticky left-0 shrink-0 px-[var(--inset-page)] pt-6 [transform:translateZ(0)]">
+                      <PageTopBar
+                        className={cn(
+                          "shrink-0 flex-wrap gap-x-4 gap-y-2",
+                          moduleRoute && "pb-4"
+                        )}
+                        // The view tabs share the actions' row: the trail
+                        // names the page, so no title sits above them.
+                        leading={
+                          moduleRoute ? undefined : (
+                            <Tabs
+                              value={tab}
+                              onValueChange={(t) => {
+                                setTab(t);
+                                setPage(0);
+                                setSelected([]);
+                              }}
+                              // The rule runs under the tabs only, not under the actions.
+                              className="shrink-0 overflow-x-auto border-b border-pi-line"
                             >
-                              {t}
-                              <CountPill>
-                                {all.filter((x) => matchesTab(x, t)).length}
-                              </CountPill>
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                      </Tabs>
-                    )}
-                    <div
-                      className={cn(band, "shrink-0 flex-wrap py-4")}
-                    >
-                      <div className="relative w-full sm:w-[198px]">
-                        <Input
-                          ref={searchInput}
-                          aria-label="Search Inbox"
-                          // 198px and "Search..." per Figma 716:15029. The long
-                          // placeholder the box used to carry named the fields it
-                          // covers; at this width it only truncates, so what it
-                          // searches is the aria-label's job now.
-                          placeholder="Search..."
-                          value={filters.search}
-                          onChange={(e) => setFilter("search", e.target.value)}
-                          className={cn("h-9 pr-9", T.cell, "text-foreground")}
-                        />
-                        {/* The key that gets you here, shown where you would look
+                              <TabsList className="h-auto gap-6 rounded-none bg-transparent p-0">
+                                {tabs.map((t) => (
+                                  <TabsTrigger
+                                    key={t}
+                                    value={t}
+                                    data-guide-id={
+                                      t === "Need review"
+                                        ? "inbox-tab-review"
+                                        : undefined
+                                    }
+                                    className="group h-[38px] gap-2 rounded-none border-b-2 border-transparent px-0 text-[14px] font-medium text-pi-body shadow-none hover:text-pi-ink data-[state=active]:border-pi-brand data-[state=active]:bg-transparent data-[state=active]:text-pi-ink data-[state=active]:shadow-none"
+                                  >
+                                    {t}
+                                    <CountPill>
+                                      {
+                                        all.filter((x) => matchesTab(x, t))
+                                          .length
+                                      }
+                                    </CountPill>
+                                  </TabsTrigger>
+                                ))}
+                              </TabsList>
+                            </Tabs>
+                          )
+                        }
+                        title={
+                          moduleRoute
+                            ? `${routeNames[moduleRoute]} · Posted vouchers`
+                            : "Inbox"
+                        }
+                        eyebrow={moduleRoute ? "Posted vouchers" : "Workspace"}
+                        primaryText={
+                          moduleRoute ? undefined : "Upload Documents"
+                        }
+                        primaryIcon={Upload}
+                        overflowActions={
+                          moduleRoute
+                            ? undefined
+                            : [
+                                {
+                                  label: "How Inbox works",
+                                  icon: Info,
+                                  onClick: () => setWelcomeOpen(true),
+                                },
+                              ]
+                        }
+                        onPrimaryButtonClick={() => openSingleUpload()}
+                      />
+                      <div className={cn(band, "shrink-0 flex-wrap py-4")}>
+                        <div className="relative w-full sm:w-[198px]">
+                          <Input
+                            ref={searchInput}
+                            aria-label="Search Inbox"
+                            // 198px and "Search..." per Figma 716:15029. The long
+                            // placeholder the box used to carry named the fields it
+                            // covers; at this width it only truncates, so what it
+                            // searches is the aria-label's job now.
+                            placeholder="Search..."
+                            value={filters.search}
+                            onChange={(e) =>
+                              setFilter("search", e.target.value)
+                            }
+                            className={cn(
+                              "h-9 pr-9",
+                              T.cell,
+                              "text-foreground"
+                            )}
+                          />
+                          {/* The key that gets you here, shown where you would look
                         for it (Figma 24142:49994). It hides once there is text
                         in the box, where it would read as part of the query. */}
-                        {!filters.search && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute right-2 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-xs border border-pi-line bg-background shadow-[inset_0_-1px_var(--pi-line)]"
-                          >
-                            <Slash className="h-3 w-3 text-secondary-foreground" />
-                          </span>
-                        )}
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          {/* Icon-only, 36x36 — the default icon button, level
+                          {!filters.search && (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute right-2 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-xs border border-pi-line bg-background shadow-[inset_0_-1px_var(--pi-line)]"
+                            >
+                              <Slash className="h-3 w-3 text-secondary-foreground" />
+                            </span>
+                          )}
+                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            {/* Icon-only, 36x36 — the default icon button, level
                           with the search field (Figma 716:15029 drew it at 32). The count rides on
                           it as a corner badge rather than inline: without the
                           "Filters" label there is nothing else on the bar that
                           says filters are applied, and a strip with two of them
                           set would otherwise look identical to a clean one. */}
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label={
-                              panelFilterCount
-                                ? `Filters, ${panelFilterCount} applied`
-                                : "Filters"
-                            }
-                            title="Filters"
-                            className="relative shrink-0"
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label={
+                                panelFilterCount
+                                  ? `Filters, ${panelFilterCount} applied`
+                                  : "Filters"
+                              }
+                              title="Filters"
+                              className="relative shrink-0"
+                            >
+                              <ListFilter className="h-4 w-4" />
+                              {panelFilterCount ? (
+                                <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-caption-1 font-semibold tabular-nums text-primary-foreground">
+                                  {panelFilterCount}
+                                </span>
+                              ) : null}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="start"
+                            className="w-auto overflow-hidden p-0"
                           >
-                            <ListFilter className="h-4 w-4" />
-                            {panelFilterCount ? (
-                              <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-caption-1 font-semibold tabular-nums text-primary-foreground">
-                                {panelFilterCount}
-                              </span>
-                            ) : null}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          align="start"
-                          className="w-auto overflow-hidden p-0"
-                        >
-                          <FilterPanel
-                            categories={[
-                              ...[...FILTERABLE].map((column) => ({
-                                id: column,
-                                label: column,
-                                options: optionsFor(column),
-                                selected: colFilter(column),
-                                onChange: (next: string[]) =>
-                                  setColFilter(column, next),
-                                activeCount: colFilter(column).length,
-                              })),
-                              // Amount stays a panel category. The date is not
-                              // here: it has its own chip in the bar (Received),
-                              // with presets, since "what came in this month"
-                              // is the filter people reach for most.
-                              ...(
-                                [
+                            <FilterPanel
+                              categories={[
+                                ...[...FILTERABLE].map((column) => ({
+                                  id: column,
+                                  label: column,
+                                  options: optionsFor(column),
+                                  selected: colFilter(column),
+                                  onChange: (next: string[]) =>
+                                    setColFilter(column, next),
+                                  activeCount: colFilter(column).length,
+                                })),
+                                // Amount stays a panel category. The date is not
+                                // here: it has its own chip in the bar (Received),
+                                // with presets, since "what came in this month"
+                                // is the filter people reach for most.
+                                ...(
                                   [
-                                    "Amount",
                                     [
-                                      ["min", "Minimum amount", "number"],
-                                      ["max", "Maximum amount", "number"],
+                                      "Amount",
+                                      [
+                                        ["min", "Minimum amount", "number"],
+                                        ["max", "Maximum amount", "number"],
+                                      ],
                                     ],
-                                  ],
-                                ] as const
-                              ).map(([label, fields]) => ({
-                                id: label,
-                                label,
-                                activeCount: fields.filter(
-                                  ([key]) => filters[key as keyof Filters]
-                                ).length,
-                                custom: (
-                                  <div className="flex flex-col gap-4">
-                                    {fields.map(([key, fieldLabel, type]) => (
-                                      <Field
-                                        key={key}
-                                        label={fieldLabel}
-                                        htmlFor={`filter-${key}`}
-                                      >
-                                        <Input
-                                          id={`filter-${key}`}
-                                          type={type}
-                                          value={filters[key]}
-                                          onChange={(e) =>
-                                            setFilter(key, e.target.value)
-                                          }
-                                        />
-                                      </Field>
-                                    ))}
-                                  </div>
-                                ),
-                              })),
-                            ]}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      {/* The rule separates the two things that open panels from
+                                  ] as const
+                                ).map(([label, fields]) => ({
+                                  id: label,
+                                  label,
+                                  activeCount: fields.filter(
+                                    ([key]) => filters[key as keyof Filters]
+                                  ).length,
+                                  custom: (
+                                    <div className="flex flex-col gap-4">
+                                      {fields.map(([key, fieldLabel, type]) => (
+                                        <Field
+                                          key={key}
+                                          label={fieldLabel}
+                                          htmlFor={`filter-${key}`}
+                                        >
+                                          <Input
+                                            id={`filter-${key}`}
+                                            type={type}
+                                            value={filters[key]}
+                                            onChange={(e) =>
+                                              setFilter(key, e.target.value)
+                                            }
+                                          />
+                                        </Field>
+                                      ))}
+                                    </div>
+                                  ),
+                                })),
+                              ]}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        {/* The rule separates the two things that open panels from
                       the two that answer a question in place (Figma
                       716:15029). */}
-                      <span className="h-6 w-px flex-none bg-neutral-gray" />
-                      {QUICK_FILTERS.map((column) => (
-                        <QuickFilter
-                          key={column}
-                          label={column}
-                          options={optionsFor(column)}
-                          selected={colFilter(column)}
-                          onChange={(next) => setColFilter(column, next)}
+                        <span className="h-6 w-px flex-none bg-neutral-gray" />
+                        {QUICK_FILTERS.map((column) => (
+                          <QuickFilter
+                            key={column}
+                            label={column}
+                            options={optionsFor(column)}
+                            selected={colFilter(column)}
+                            onChange={(next) => setColFilter(column, next)}
+                          />
+                        ))}
+                        <DateFilter
+                          label="Received"
+                          presetsLabel="Show documents received"
+                          maxDate={new Date()}
+                          value={{
+                            from: filters.from
+                              ? parseISO(filters.from)
+                              : undefined,
+                            to: filters.to ? parseISO(filters.to) : undefined,
+                          }}
+                          onChange={({ from, to }) => {
+                            setFilters((f) => ({
+                              ...f,
+                              from: from ? format(from, "yyyy-MM-dd") : "",
+                              to: to ? format(to, "yyyy-MM-dd") : "",
+                            }));
+                            setPage(0);
+                            setSelected([]);
+                          }}
                         />
-                      ))}
-                      <DateFilter
-                        label="Received"
-                        presetsLabel="Show documents received"
-                        maxDate={new Date()}
-                        value={{
-                          from: filters.from
-                            ? parseISO(filters.from)
-                            : undefined,
-                          to: filters.to ? parseISO(filters.to) : undefined,
-                        }}
-                        onChange={({ from, to }) => {
-                          setFilters((f) => ({
-                            ...f,
-                            from: from ? format(from, "yyyy-MM-dd") : "",
-                            to: to ? format(to, "yyyy-MM-dd") : "",
-                          }));
-                          setPage(0);
-                          setSelected([]);
-                        }}
-                      />
-                      {/* Set by "See what failed" on a partial or failed run, and
+                        {/* Set by "See what failed" on a partial or failed run, and
                       the only way out is to dismiss it — it is not one of the
                       filters, so Reset Filters must not silently take it off. */}
-                      {sync.reviewingFailures && (
-                        <Button
-                          variant="secondary"
-                          onClick={sync.clearFailureReview}
-                        >
-                          Didn&rsquo;t reach Tally
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <span className="flex-1" />
-                      {/*
+                        {sync.reviewingFailures && (
+                          <Button
+                            variant="secondary"
+                            onClick={sync.clearFailureReview}
+                          >
+                            Didn&rsquo;t reach Tally
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <span className="flex-1" />
+                        {/*
                     Reset sits with Columns at the end of the bar, not with the
                     filters it clears (Figma 24415:71283). Ghost, because it is
                     an undo: it only matters once something has been set, and a
                     bordered button competing with Columns would read as a third
                     filter rather than the way out of the first two.
                   */}
-                      {/* Only once there is something to undo — `resetFilters` is a
+                        {/* Only once there is something to undo — `resetFilters` is a
                       prop on the Figma component, not a fixture. The search box
                       counts: Reset clears it too, so a bar that showed nothing
                       to reset and then wiped the query would be lying. */}
-                      {(activeFilterCount > 0 || filters.search) && (
-                        <Button
-                          variant="ghost"
-                          // Plain ghost, not the red Figma 716:15029 drew:
-                          // clearing filters is an undo, not a removal, and
-                          // red is kept for the buttons that delete things.
-                          onClick={() => {
-                            setFilters(defaultFilters);
-                            setSelected([]);
-                            setPage(0);
+                        {(activeFilterCount > 0 || filters.search) && (
+                          <Button
+                            variant="ghost"
+                            // Plain ghost, not the red Figma 716:15029 drew:
+                            // clearing filters is an undo, not a removal, and
+                            // red is kept for the buttons that delete things.
+                            onClick={() => {
+                              setFilters(defaultFilters);
+                              setSelected([]);
+                              setPage(0);
+                            }}
+                          >
+                            <Undo2 className="h-3 w-3" />
+                            Reset Filters
+                          </Button>
+                        )}
+                        <Popover
+                          open={columnsOpen}
+                          onOpenChange={(next) => {
+                            setColumnsOpen(next);
+                            if (!next) setColumnSearch("");
                           }}
                         >
-                          <Undo2 className="h-3 w-3" />
-                          Reset Filters
-                        </Button>
-                      )}
-                      <Popover
-                        open={columnsOpen}
-                        onOpenChange={(next) => {
-                          setColumnsOpen(next);
-                          if (!next) setColumnSearch("");
-                        }}
-                      >
-                        <PopoverTrigger asChild>
-                          {/* The Bloocks ColumnCustomizer trigger: a 26px chip
+                          <PopoverTrigger asChild>
+                            {/* The Bloocks ColumnCustomizer trigger: a 26px chip
                               that turns blue while any column is hidden, so a
                               table missing columns says so from the toolbar. */}
-                          <button
-                            type="button"
-                            aria-label="Customize columns"
-                            className={cn(
-                              "inline-flex h-9 items-center gap-2 rounded-sm border bg-background px-3 text-[13px] font-medium shadow-contact transition-[border-color,background-color] duration-150 focus-visible:outline-none",
-                              order.some((c) => !visible.includes(c))
-                                ? "border-pi-brand-border bg-pi-brand-tint text-pi-brand"
-                                : "border-pi-line-2 text-pi-ink hover:border-pi-line-strong"
-                            )}
+                            <button
+                              type="button"
+                              aria-label="Customize columns"
+                              className={cn(
+                                "inline-flex h-9 items-center gap-2 rounded-sm border bg-background px-3 text-[13px] font-medium shadow-contact transition-[border-color,background-color] duration-150 focus-visible:outline-none",
+                                order.some((c) => !visible.includes(c))
+                                  ? "border-pi-brand-border bg-pi-brand-tint text-pi-brand"
+                                  : "border-pi-line-2 text-pi-ink hover:border-pi-line-strong"
+                              )}
+                            >
+                              <Columns3 className="size-3.5" aria-hidden />
+                              Columns
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="end"
+                            className="w-[300px] p-0"
+                            // The grid behind the popover is the preview, so a drag
+                            // that leaves the panel must not read as "dismiss".
+                            onPointerDownOutside={(e) =>
+                              dragging && e.preventDefault()
+                            }
                           >
-                            <Columns3 className="size-3.5" aria-hidden />
-                            Columns
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          align="end"
-                          className="w-[300px] p-0"
-                          // The grid behind the popover is the preview, so a drag
-                          // that leaves the panel must not read as "dismiss".
-                          onPointerDownOutside={(e) =>
-                            dragging && e.preventDefault()
-                          }
-                        >
-                          {/* Bloocks panel search, without the panel's
+                            {/* Bloocks panel search, without the panel's
                               "Columns" title: the trigger already names it. */}
-                          <div className="flex items-center gap-2 border-b border-neutral-gray px-4 py-2">
-                            <Search
-                              className="size-4 flex-none text-secondary-foreground"
-                              aria-hidden
-                            />
-                            <input
-                              ref={columnSearchRef}
-                              aria-label="Search columns"
-                              placeholder="Search…"
-                              className="w-full min-w-0 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-secondary-foreground"
-                              value={columnSearch}
-                              onChange={(e) => setColumnSearch(e.target.value)}
-                            />
-                            {columnSearch && (
-                              <button
-                                type="button"
-                                aria-label="Clear search"
-                                onClick={() => {
-                                  setColumnSearch("");
-                                  columnSearchRef.current?.focus();
-                                }}
-                                className="flex-none text-secondary-foreground hover:text-foreground"
-                              >
-                                <X className="size-4" aria-hidden />
-                              </button>
-                            )}
-                          </div>
-                          {/*
+                            <div className="flex items-center gap-2 border-b border-neutral-gray px-4 py-2">
+                              <Search
+                                className="size-4 flex-none text-secondary-foreground"
+                                aria-hidden
+                              />
+                              <input
+                                ref={columnSearchRef}
+                                aria-label="Search columns"
+                                placeholder="Search…"
+                                className="w-full min-w-0 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-secondary-foreground"
+                                value={columnSearch}
+                                onChange={(e) =>
+                                  setColumnSearch(e.target.value)
+                                }
+                              />
+                              {columnSearch && (
+                                <button
+                                  type="button"
+                                  aria-label="Clear search"
+                                  onClick={() => {
+                                    setColumnSearch("");
+                                    columnSearchRef.current?.focus();
+                                  }}
+                                  className="flex-none text-secondary-foreground hover:text-foreground"
+                                >
+                                  <X className="size-4" aria-hidden />
+                                </button>
+                              )}
+                            </div>
+                            {/*
                         The list holds every column, hidden ones included: the
                         order is a property of the column and not of the current
                         selection, so unchecking something and checking it again
                         has to put it back where you left it.
                       */}
-                          <div
-                            ref={columnList}
-                            className="max-h-[320px] overflow-y-auto px-3 py-1 [scrollbar-color:hsl(var(--popover-border))_transparent] [scrollbar-width:thin]"
-                          >
-                            {columnMatches.length === 0 ? (
-                              <p className={cn(T.sub, "px-3 py-8 text-center")}>
-                                No column matches “{columnSearch.trim()}”.
-                              </p>
-                            ) : (
-                              columnMatches.map((c, i) => {
-                                const locked = pinned.includes(c);
-                                // Pinned by the user, or pinned by the screen.
-                                const fixed = LOCKED_COLUMNS.has(c);
-                                const checked = visible.includes(c);
-                                const isDragged = drag?.key === c;
-                                return (
-                                  <div
-                                    key={c}
-                                    ref={(node) => {
-                                      if (node) rowNodes.current.set(c, node);
-                                      else rowNodes.current.delete(c);
-                                    }}
-                                    style={{
-                                      transform: `translateY(${rowShift(i, isDragged)}px)`,
-                                      // The dragged row is pinned to the pointer, so
-                                      // it must not ease — easing a value that is
-                                      // already being updated every frame just adds
-                                      // lag. Everything else eases, and so does the
-                                      // dragged row once it is settling into place.
-                                      transition:
-                                        isDragged && !drag?.settling
-                                          ? "none"
-                                          : `transform ${SETTLE_MS}ms ${EASE}`,
-                                      willChange: drag
-                                        ? "transform"
-                                        : undefined,
-                                    }}
-                                    className={cn(
-                                      // Bloocks: 32px rows, the pin revealed on hover.
-                                      "group/row relative flex h-8 items-center gap-2 rounded-md px-1",
-                                      isDragged &&
-                                        // Lifted off the list: opaque, so the rows
-                                        // sliding under it stay hidden, and above
-                                        // them in the stacking order.
-                                        "z-10 bg-background shadow-lg ring-1 ring-neutral-gray"
-                                    )}
-                                  >
-                                    {locked || filteringColumns ? (
-                                      // Holds the grip's place so every label starts
-                                      // on the same x, draggable row or not.
-                                      <span className="size-5 flex-none" />
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        aria-label={`Reorder ${c}`}
-                                        onPointerDown={(e) =>
-                                          startRowDrag(c, e)
-                                        }
-                                        // Arrow keys do the same job for anyone not
-                                        // using a pointer: a drag handle with no
-                                        // keyboard equivalent makes the order
-                                        // unreachable, not just awkward.
-                                        onKeyDown={(e) => {
-                                          if (
-                                            e.key !== "ArrowUp" &&
-                                            e.key !== "ArrowDown"
-                                          )
-                                            return;
-                                          e.preventDefault();
-                                          moveColumn(
-                                            c,
-                                            order.indexOf(c) +
-                                              (e.key === "ArrowDown" ? 1 : -1)
-                                          );
-                                        }}
-                                        className="inline-flex size-5 flex-none cursor-grab touch-none items-center justify-center rounded-md text-secondary-foreground hover:text-foreground active:cursor-grabbing"
-                                      >
-                                        <GripVertical className="size-3" />
-                                      </button>
-                                    )}
-                                    {fixed ? (
-                                      // A locked column is always shown, so
-                                      // there is no choice to offer: a padlock
-                                      // in the checkbox's place, not a checkbox
-                                      // that is ticked and cannot be unticked.
-                                      <span
-                                        className="flex size-3 flex-none items-center justify-center text-secondary-foreground"
-                                        title={`${c} is always shown`}
-                                      >
-                                        <Lock className="size-3" aria-hidden />
-                                        <span className="sr-only">
-                                          {c} is locked
-                                        </span>
-                                      </span>
-                                    ) : (
-                                      <Checkbox
-                                        id={`col-${c}`}
-                                        checked={checked}
-                                        disabled={
-                                          checked && visible.length === 1
-                                        }
-                                        onCheckedChange={(next) =>
-                                          toggleColumn(c, !!next)
-                                        }
-                                        // Bloocks sm checkbox: 12px, 4px corners.
-                                        className="size-3 rounded-xs [&_svg]:size-2.5"
-                                      />
-                                    )}
-                                    <Label
-                                      htmlFor={`col-${c}`}
+                            <div
+                              ref={columnList}
+                              className="max-h-[320px] overflow-y-auto px-3 py-1 [scrollbar-color:hsl(var(--popover-border))_transparent] [scrollbar-width:thin]"
+                            >
+                              {columnMatches.length === 0 ? (
+                                <p
+                                  className={cn(T.sub, "px-3 py-8 text-center")}
+                                >
+                                  No column matches “{columnSearch.trim()}”.
+                                </p>
+                              ) : (
+                                columnMatches.map((c, i) => {
+                                  const locked = pinned.includes(c);
+                                  // Pinned by the user, or pinned by the screen.
+                                  const fixed = LOCKED_COLUMNS.has(c);
+                                  const checked = visible.includes(c);
+                                  const isDragged = drag?.key === c;
+                                  return (
+                                    <div
+                                      key={c}
+                                      ref={(node) => {
+                                        if (node) rowNodes.current.set(c, node);
+                                        else rowNodes.current.delete(c);
+                                      }}
+                                      style={{
+                                        transform: `translateY(${rowShift(i, isDragged)}px)`,
+                                        // The dragged row is pinned to the pointer, so
+                                        // it must not ease — easing a value that is
+                                        // already being updated every frame just adds
+                                        // lag. Everything else eases, and so does the
+                                        // dragged row once it is settling into place.
+                                        transition:
+                                          isDragged && !drag?.settling
+                                            ? "none"
+                                            : `transform ${SETTLE_MS}ms ${EASE}`,
+                                        willChange: drag
+                                          ? "transform"
+                                          : undefined,
+                                      }}
                                       className={cn(
-                                        "flex-1 truncate text-label-2 font-normal text-foreground",
-                                        !locked && "cursor-pointer"
+                                        // Bloocks: 32px rows, the pin revealed on hover.
+                                        "group/row relative flex h-8 items-center gap-2 rounded-md px-1",
+                                        isDragged &&
+                                          // Lifted off the list: opaque, so the rows
+                                          // sliding under it stay hidden, and above
+                                          // them in the stacking order.
+                                          "z-10 bg-background shadow-lg ring-1 ring-neutral-gray"
                                       )}
                                     >
-                                      {c}
-                                    </Label>
-                                    {
-                                      <button
-                                        type="button"
-                                        onClick={() => togglePin(c)}
-                                        aria-label={
-                                          locked ? `Unpin ${c}` : `Pin ${c}`
-                                        }
-                                        aria-pressed={locked}
-                                        title={
-                                          locked
-                                            ? "Unpin — lets the column be reordered"
-                                            : "Pin — moves the column to the front"
-                                        }
+                                      {locked || filteringColumns ? (
+                                        // Holds the grip's place so every label starts
+                                        // on the same x, draggable row or not.
+                                        <span className="size-5 flex-none" />
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          aria-label={`Reorder ${c}`}
+                                          onPointerDown={(e) =>
+                                            startRowDrag(c, e)
+                                          }
+                                          // Arrow keys do the same job for anyone not
+                                          // using a pointer: a drag handle with no
+                                          // keyboard equivalent makes the order
+                                          // unreachable, not just awkward.
+                                          onKeyDown={(e) => {
+                                            if (
+                                              e.key !== "ArrowUp" &&
+                                              e.key !== "ArrowDown"
+                                            )
+                                              return;
+                                            e.preventDefault();
+                                            moveColumn(
+                                              c,
+                                              order.indexOf(c) +
+                                                (e.key === "ArrowDown" ? 1 : -1)
+                                            );
+                                          }}
+                                          className="inline-flex size-5 flex-none cursor-grab touch-none items-center justify-center rounded-md text-secondary-foreground hover:text-foreground active:cursor-grabbing"
+                                        >
+                                          <GripVertical className="size-3" />
+                                        </button>
+                                      )}
+                                      {fixed ? (
+                                        // A locked column is always shown, so
+                                        // there is no choice to offer: a padlock
+                                        // in the checkbox's place, not a checkbox
+                                        // that is ticked and cannot be unticked.
+                                        <span
+                                          className="flex size-3 flex-none items-center justify-center text-secondary-foreground"
+                                          title={`${c} is always shown`}
+                                        >
+                                          <Lock
+                                            className="size-3"
+                                            aria-hidden
+                                          />
+                                          <span className="sr-only">
+                                            {c} is locked
+                                          </span>
+                                        </span>
+                                      ) : (
+                                        <Checkbox
+                                          id={`col-${c}`}
+                                          checked={checked}
+                                          disabled={
+                                            checked && visible.length === 1
+                                          }
+                                          onCheckedChange={(next) =>
+                                            toggleColumn(c, !!next)
+                                          }
+                                          // Bloocks sm checkbox: 12px, 4px corners.
+                                          className="size-3 rounded-xs [&_svg]:size-2.5"
+                                        />
+                                      )}
+                                      <Label
+                                        htmlFor={`col-${c}`}
                                         className={cn(
-                                          "inline-flex size-5 flex-none items-center justify-center rounded-md transition-opacity duration-150 hover:bg-neutral-gray focus-visible:opacity-100",
-                                          locked
-                                            ? "text-primary"
-                                            : "text-secondary-foreground opacity-0 hover:text-foreground group-hover/row:opacity-100"
+                                          "flex-1 truncate text-label-2 font-normal text-foreground",
+                                          !locked && "cursor-pointer"
                                         )}
                                       >
-                                        {locked ? (
-                                          <PinOff className="size-3" />
-                                        ) : (
-                                          <Pin className="size-3" />
-                                        )}
-                                      </button>
-                                    }
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                          {/* Bloocks' footer, in neutral rather than its red:
+                                        {c}
+                                      </Label>
+                                      {
+                                        <button
+                                          type="button"
+                                          onClick={() => togglePin(c)}
+                                          aria-label={
+                                            locked ? `Unpin ${c}` : `Pin ${c}`
+                                          }
+                                          aria-pressed={locked}
+                                          title={
+                                            locked
+                                              ? "Unpin — lets the column be reordered"
+                                              : "Pin — moves the column to the front"
+                                          }
+                                          className={cn(
+                                            "inline-flex size-5 flex-none items-center justify-center rounded-md transition-opacity duration-150 hover:bg-neutral-gray focus-visible:opacity-100",
+                                            locked
+                                              ? "text-primary"
+                                              : "text-secondary-foreground opacity-0 hover:text-foreground group-hover/row:opacity-100"
+                                          )}
+                                        >
+                                          {locked ? (
+                                            <PinOff className="size-3" />
+                                          ) : (
+                                            <Pin className="size-3" />
+                                          )}
+                                        </button>
+                                      }
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                            {/* Bloocks' footer, in neutral rather than its red:
                               a reset is an undo, and red is kept for deletes. */}
-                          <div className="flex items-start gap-3 border-t border-neutral-gray px-4 pb-3 pt-2">
-                            {(
-                              [
-                                ["Reset Width", resetWidths],
-                                ["Reset Default", resetColumns],
-                              ] as const
-                            ).map(([label, onClick]) => (
-                              <button
-                                key={label}
-                                type="button"
-                                onClick={onClick}
-                                className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md p-1 text-label-2 font-medium text-secondary-foreground hover:bg-neutral-gray hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                <Undo2 className="size-3" aria-hidden />
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                      {/*
+                            <div className="flex items-start gap-3 border-t border-neutral-gray px-4 pb-3 pt-2">
+                              {(
+                                [
+                                  ["Reset Width", resetWidths],
+                                  ["Reset Default", resetColumns],
+                                ] as const
+                              ).map(([label, onClick]) => (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={onClick}
+                                  className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md p-1 text-label-2 font-medium text-secondary-foreground hover:bg-neutral-gray hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  <Undo2 className="size-3" aria-hidden />
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        {/*
                     The shortcuts drawer, opened from its own button at the end
                     of the toolbar (Figma 24156:151931). Controlled, because
                     Shift+/ opens it too and a panel that only its trigger could
                     open would make the shortcut a lie.
                   */}
-                      {/* Same chip as Columns beside it, square: 26px. */}
-                      <button
-                        type="button"
-                        aria-label="Keyboard shortcuts"
-                        title="Keyboard shortcuts"
-                        onClick={() => setShortcutsOpen(true)}
-                        className="inline-flex size-9 items-center justify-center rounded-sm border border-pi-line-2 bg-background text-pi-body shadow-contact transition-[border-color,color] duration-150 hover:border-pi-line-strong hover:text-pi-ink focus-visible:outline-none"
-                      >
-                        <Keyboard className="size-3.5" aria-hidden />
-                      </button>
+                        {/* Same chip as Columns beside it, square: 26px. */}
+                        <button
+                          type="button"
+                          aria-label="Keyboard shortcuts"
+                          title="Keyboard shortcuts"
+                          onClick={() => setShortcutsOpen(true)}
+                          className="inline-flex size-9 items-center justify-center rounded-sm border border-pi-line-2 bg-background text-pi-body shadow-contact transition-[border-color,color] duration-150 hover:border-pi-line-strong hover:text-pi-ink focus-visible:outline-none"
+                        >
+                          <Keyboard className="size-3.5" aria-hidden />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                {/* The table region. It no longer scrolls: the page scroller
+                    {/* The table region. It no longer scrolls: the page scroller
                   above owns both axes, so the sticky header resolves against
                   the content area rather than a card. */}
-                <div
-                  className={cn(
-                    // Edge to edge, no card: white from the hairline down.
-                    "flex min-w-0 flex-1 flex-col border-t border-pi-line bg-background",
-                    /*
+                    <div
+                      className={cn(
+                        // Edge to edge, no card: white from the hairline down.
+                        "table-region flex min-w-0 flex-1 flex-col bg-background",
+                        /*
                       Picks up where the dialog left off: the table rises into
                       place instead of being there the instant the modal is
                       gone. It starts while the overlay is still clearing —
@@ -4171,11 +4488,11 @@ export default function Workspace() {
                       little longer than the dialog's exit so the table is
                       still arriving as the last of the overlay goes.
                     */
-                    justUploaded &&
-                      "animate-in fade-in-0 slide-in-from-bottom-3 duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
-                  )}
-                >
-                  {/* Title, tabs and strip pinned against the horizontal scroll as ONE
+                        justUploaded &&
+                          "animate-in fade-in-0 slide-in-from-bottom-3 duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
+                      )}
+                    >
+                      {/* Title, tabs and strip pinned against the horizontal scroll as ONE
                   block. They have to live inside this scroller to scroll away
                   vertically, and the scroller owns both axes because a sticky
                   table header cannot survive an `overflow-x` ancestor of its
@@ -4186,246 +4503,257 @@ export default function Workspace() {
                   a sliver of unpainted background at the right before catching
                   up. Keep this block on its own compositor layer so it stays
                   painted in place during asynchronous horizontal scrolling. */}
-                  {/*
+                      {/*
                   table-fixed, not the default table-auto: under auto layout a
                   set width is only a hint, and a long filename would widen its
                   column back out the moment you let go of the handle.
                 */}
-                  <div
-                    ref={gridRef}
-                    role="grid"
-                    aria-label="Inbox documents"
-                    aria-rowcount={pageRows.length + 1}
-                    aria-colcount={shown.length}
-                    // One tab stop for the whole grid, with the cursor moved by
-                    // the arrow keys — the roving pattern. The cell itself never
-                    // takes DOM focus; activedescendant is what tells a screen
-                    // reader which one the cursor is on.
-                    tabIndex={0}
-                    aria-activedescendant={grid.activeDescendant}
-                    onKeyDown={grid.onGridKeyDown}
-                    // No scrolling of its own any more — the column above owns it.
-                    // Left as a focusable region because the grid's keyboard
-                    // navigation is bound here.
-                    // The active cell already draws the keyboard focus ring.
-                    // Ringing this horizontally scrollable wrapper produced a
-                    // full-height blue line at the viewport edge, which looked
-                    // like a broken column divider when keyboard mode started.
-                    className="min-w-0 focus-visible:outline-none"
-                  >
-                    <Table
-                      style={{ width: tableWidth }}
-                      // role="none" on the table, role="grid" on the div that
-                      // holds the focus and the cursor. Two nested grid-ish
-                      // roles would make the rows belong to the inner one, and
-                      // the inner one is not what aria-activedescendant is on.
-                      // The rows and cells below re-declare their roles because
-                      // role="none" here drops the implicit ones with it.
-                      role="none"
-                      className="table-fixed border-separate border-spacing-0 bg-background [&_td]:border-b [&_td]:border-pi-line"
-                    >
-                      <TableHeader
-                        role="rowgroup"
-                        className="sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none [&_th]:border-b [&_th]:border-pi-line"
+                      <div
+                        ref={gridRef}
+                        role="grid"
+                        aria-label="Inbox documents"
+                        {...pinEdges}
+                        aria-rowcount={pageRows.length + 1}
+                        aria-colcount={shown.length}
+                        // One tab stop for the whole grid, with the cursor moved by
+                        // the arrow keys — the roving pattern. The cell itself never
+                        // takes DOM focus; activedescendant is what tells a screen
+                        // reader which one the cursor is on.
+                        tabIndex={0}
+                        aria-activedescendant={grid.activeDescendant}
+                        onKeyDown={grid.onGridKeyDown}
+                        // No scrolling of its own any more — the column above owns it.
+                        // Left as a focusable region because the grid's keyboard
+                        // navigation is bound here.
+                        // The active cell already draws the keyboard focus ring.
+                        // Ringing this horizontally scrollable wrapper produced a
+                        // full-height blue line at the viewport edge, which looked
+                        // like a broken column divider when keyboard mode started.
+                        className="min-w-0 focus-visible:outline-none"
                       >
-                        <TableRow role="row" aria-rowindex={1}>
-                          <TableHead
-                            role="columnheader"
-                            style={{ width: SELECT_WIDTH }}
-                            // Pinned to the left edge, as Actions is to the
-                            // right.
-                            className="sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
+                        <Table
+                          style={{ width: tableWidth }}
+                          // role="none" on the table, role="grid" on the div that
+                          // holds the focus and the cursor. Two nested grid-ish
+                          // roles would make the rows belong to the inner one, and
+                          // the inner one is not what aria-activedescendant is on.
+                          // The rows and cells below re-declare their roles because
+                          // role="none" here drops the implicit ones with it.
+                          role="none"
+                          // Hairline column rules on every column but Actions. The
+                          // pinned edges shade instead while columns scroll under
+                          // them (.pin-edge-l/r in globals.css).
+                          className="table-fixed border-separate border-spacing-0 bg-background [&_:is(th,td):not(:last-child)]:border-r [&_td]:border-b [&_td]:border-pi-line"
+                        >
+                          <TableHeader
+                            role="rowgroup"
+                            className="sticky top-0 z-10 bg-pi-head-bg [&_tr]:shadow-none [&_th]:border-b [&_th]:border-pi-line"
                           >
-                            {/* This page, and only this page. Reaching across
+                            <TableRow role="row" aria-rowindex={1}>
+                              <TableHead
+                                role="columnheader"
+                                style={{ width: SELECT_WIDTH }}
+                                // Pinned to the left edge, as Actions is to the
+                                // right.
+                                className={cn(
+                                  "sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle",
+                                  !leftPinEdge && "pin-edge-l"
+                                )}
+                              >
+                                {/* This page, and only this page. Reaching across
                               pages is what the bar's "Select all" button is
                               for, because it is a different claim and has to
                               be made on purpose. */}
-                            <Checkbox
-                              aria-label="Select every document on this page"
-                              checked={
-                                !!pageRows.length &&
-                                pageRows.every((x) => selected.includes(x.id))
-                              }
-                              onCheckedChange={(checked) =>
-                                setSelected(
-                                  checked ? pageRows.map((x) => x.id) : []
-                                )
-                              }
-                            />
-                          </TableHead>
-                          {shown.map((c) => (
-                            <TableHead
-                              key={c}
-                              role="columnheader"
-                              id={gridCellId(-1, shown.indexOf(c))}
-                              aria-colindex={shown.indexOf(c) + 1}
-                              // Absent, not "none", when the column is not
-                              // sortable: aria-sort on a column that cannot be
-                              // sorted offers the user a control that is not
-                              // there.
-                              aria-sort={
-                                !SORTABLE.has(c)
-                                  ? undefined
-                                  : sort?.key !== c
-                                    ? "none"
-                                    : sort.dir === "asc"
-                                      ? "ascending"
-                                      : "descending"
-                              }
-                              style={{
-                                width: colWidth(c),
-                                left: stickyLeft[c],
-                              }}
-                              // Row -1 is the header in the grid's coordinate
-                              // space, so arrowing up out of the first value
-                              // lands on the column that names it.
-                              data-grid-row={-1}
-                              data-grid-col={shown.indexOf(c)}
-                              // 40px tall, pl-3 / pr-2 (Figma 24421:72539).
-                              //
-                              // py-0 and a fixed h-10 rather than the spec's
-                              // py-3: the row is the max of its cells, so any one
-                              // cell with a tall control in it grows all of them
-                              // past 40. Height-then-centre pins the box and puts
-                              // the same 12px above and below a 16px line.
-                              //
-                              // Dividers come from the rules on <Table>.
-                              className={cn(
-                                "relative h-11 whitespace-nowrap px-4 py-0 align-middle",
-                                c in stickyLeft && "sticky z-10 bg-pi-head-bg",
-                                T.head,
-                                grid.isCursor(-1, shown.indexOf(c)) &&
-                                  "ring-2 ring-inset ring-primary"
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  // h-4: the 40px header is 12 + 16 + 12, so the
-                                  // content row has to be exactly one 16px line.
-                                  // The icon buttons overflow it on purpose —
-                                  // they keep a 16px hit area without growing the
-                                  // cell (Figma 24421:72539).
-                                  "flex h-4 min-w-0 items-center gap-1",
-                                  c === "Amount" && "justify-end"
-                                )}
-                              >
-                                <span className="truncate" title={c}>
-                                  {c}
-                                </span>
-                                {SORTABLE.has(c) ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleSort(c)}
-                                    aria-label={`Sort by ${c}`}
-                                    className="grid h-5 w-5 flex-none place-items-center rounded-xs text-pi-faint hover:bg-pi-fill hover:text-pi-ink"
-                                  >
-                                    {sort?.key === c ? (
-                                      sort.dir === "asc" ? (
-                                        <ArrowUp className="h-3 w-3 text-primary" />
-                                      ) : (
-                                        <ArrowDown className="h-3 w-3 text-primary" />
-                                      )
-                                    ) : (
-                                      <ArrowUpDown className="h-3 w-3 text-secondary-foreground" />
-                                    )}
-                                  </button>
-                                ) : null}
-                                {FILTERABLE.has(c) ? (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <button
-                                        type="button"
-                                        // Space on the header cell finds the
-                                        // funnel through this.
-                                        data-filter-trigger={c}
-                                        aria-label={`Filter ${c}`}
-                                        className={cn(
-                                          "grid h-5 w-5 flex-none place-items-center rounded-md hover:bg-muted",
-                                          colFilter(c).length
-                                            ? "text-primary"
-                                            : "text-secondary-foreground"
-                                        )}
-                                      >
-                                        <ListFilter className="h-3 w-3" />
-                                      </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                      align="start"
-                                      className="w-auto p-0"
-                                    >
-                                      <ColumnFilter
-                                        label={c}
-                                        options={optionsFor(c)}
-                                        selected={colFilter(c)}
-                                        onChange={(v) => setColFilter(c, v)}
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                ) : null}
-                              </div>
-                              {RESIZABLE.has(c) ? (
-                                // Sits over the cell's right border. Double-click
-                                // puts the column back to its default width.
-                                <span
-                                  role="separator"
-                                  aria-orientation="vertical"
-                                  aria-label={`Resize ${c}`}
-                                  tabIndex={0}
-                                  aria-valuemin={COLUMN_SIZES[c].min}
-                                  aria-valuemax={COLUMN_SIZES[c].max}
-                                  aria-valuenow={colWidth(c)}
-                                  aria-valuetext={`${colWidth(c)} pixels`}
-                                  title={`${colWidth(c)} px · Drag or use arrow keys to resize. Double-click or Enter to reset.`}
-                                  onPointerDown={(e) => startResize(c, e)}
-                                  onDoubleClick={() => {
-                                    if (Object.keys(widths).length)
-                                      resizeColumn(c, DEFAULT_WIDTHS[c]);
+                                <Checkbox
+                                  aria-label="Select every document on this page"
+                                  checked={
+                                    !!pageRows.length &&
+                                    pageRows.every((x) =>
+                                      selected.includes(x.id)
+                                    )
+                                  }
+                                  onCheckedChange={(checked) =>
+                                    setSelected(
+                                      checked ? pageRows.map((x) => x.id) : []
+                                    )
+                                  }
+                                />
+                              </TableHead>
+                              {shown.map((c) => (
+                                <TableHead
+                                  key={c}
+                                  role="columnheader"
+                                  id={gridCellId(-1, shown.indexOf(c))}
+                                  aria-colindex={shown.indexOf(c) + 1}
+                                  // Absent, not "none", when the column is not
+                                  // sortable: aria-sort on a column that cannot be
+                                  // sorted offers the user a control that is not
+                                  // there.
+                                  aria-sort={
+                                    !SORTABLE.has(c)
+                                      ? undefined
+                                      : sort?.key !== c
+                                        ? "none"
+                                        : sort.dir === "asc"
+                                          ? "ascending"
+                                          : "descending"
+                                  }
+                                  style={{
+                                    width: colWidth(c),
+                                    left: stickyLeft[c],
                                   }}
-                                  onKeyDown={(e) => {
-                                    const step = e.shiftKey ? 40 : 10;
-                                    const next =
-                                      e.key === "ArrowRight"
-                                        ? colWidth(c) + step
-                                        : e.key === "ArrowLeft"
-                                          ? colWidth(c) - step
-                                          : e.key === "Home"
-                                            ? COLUMN_SIZES[c].min
-                                            : e.key === "End"
-                                              ? COLUMN_SIZES[c].max
-                                              : e.key === "Enter"
-                                                ? DEFAULT_WIDTHS[c]
-                                                : null;
-                                    if (next !== null) {
-                                      e.preventDefault();
-                                      resizeColumn(c, next);
-                                    }
-                                  }}
+                                  // Row -1 is the header in the grid's coordinate
+                                  // space, so arrowing up out of the first value
+                                  // lands on the column that names it.
+                                  data-grid-row={-1}
+                                  data-grid-col={shown.indexOf(c)}
+                                  // 40px tall, pl-3 / pr-2 (Figma 24421:72539).
+                                  //
+                                  // py-0 and a fixed h-10 rather than the spec's
+                                  // py-3: the row is the max of its cells, so any one
+                                  // cell with a tall control in it grows all of them
+                                  // past 40. Height-then-centre pins the box and puts
+                                  // the same 12px above and below a 16px line.
+                                  //
+                                  // Dividers come from the rules on <Table>.
                                   className={cn(
-                                    "group absolute top-0 z-20 flex h-full w-[10px] cursor-col-resize touch-none items-stretch justify-center focus-visible:outline-none",
-                                    c === shown[shown.length - 1]
-                                      ? "right-0"
-                                      : "-right-[5px]"
+                                    "relative h-11 whitespace-nowrap px-4 py-0 align-middle",
+                                    c in stickyLeft &&
+                                      "sticky z-10 bg-pi-head-bg",
+                                    c === leftPinEdge && "pin-edge-l",
+                                    T.head,
+                                    grid.isCursor(-1, shown.indexOf(c)) &&
+                                      "ring-2 ring-inset ring-primary"
                                   )}
                                 >
-                                  <span
+                                  <div
                                     className={cn(
-                                      "w-[2px] transition-colors group-hover:bg-primary group-focus-visible:bg-primary",
-                                      resizing === c
-                                        ? "bg-primary"
-                                        : "bg-transparent"
+                                      // h-4: the 40px header is 12 + 16 + 12, so the
+                                      // content row has to be exactly one 16px line.
+                                      // The icon buttons overflow it on purpose —
+                                      // they keep a 16px hit area without growing the
+                                      // cell (Figma 24421:72539).
+                                      "flex h-4 min-w-0 items-center gap-1",
+                                      c === "Amount" && "justify-end"
                                     )}
-                                  />
-                                </span>
-                              ) : null}
-                            </TableHead>
-                          ))}
-                          {/*
+                                  >
+                                    <span className="truncate" title={c}>
+                                      {c}
+                                    </span>
+                                    {SORTABLE.has(c) ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleSort(c)}
+                                        aria-label={`Sort by ${c}`}
+                                        className="grid h-5 w-5 flex-none place-items-center rounded-xs text-pi-faint hover:bg-pi-fill hover:text-pi-ink"
+                                      >
+                                        {sort?.key === c ? (
+                                          sort.dir === "asc" ? (
+                                            <ArrowUp className="h-3 w-3 text-primary" />
+                                          ) : (
+                                            <ArrowDown className="h-3 w-3 text-primary" />
+                                          )
+                                        ) : (
+                                          <ArrowUpDown className="h-3 w-3 text-secondary-foreground" />
+                                        )}
+                                      </button>
+                                    ) : null}
+                                    {FILTERABLE.has(c) ? (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            type="button"
+                                            // Space on the header cell finds the
+                                            // funnel through this.
+                                            data-filter-trigger={c}
+                                            aria-label={`Filter ${c}`}
+                                            className={cn(
+                                              "grid h-5 w-5 flex-none place-items-center rounded-md hover:bg-muted",
+                                              colFilter(c).length
+                                                ? "text-primary"
+                                                : "text-secondary-foreground"
+                                            )}
+                                          >
+                                            <ListFilter className="h-3 w-3" />
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                          align="start"
+                                          className="w-auto p-0"
+                                        >
+                                          <ColumnFilter
+                                            label={c}
+                                            options={optionsFor(c)}
+                                            selected={colFilter(c)}
+                                            onChange={(v) => setColFilter(c, v)}
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    ) : null}
+                                  </div>
+                                  {RESIZABLE.has(c) ? (
+                                    // Sits over the cell's right border. Double-click
+                                    // puts the column back to its default width.
+                                    <span
+                                      role="separator"
+                                      aria-orientation="vertical"
+                                      aria-label={`Resize ${c}`}
+                                      tabIndex={0}
+                                      aria-valuemin={COLUMN_SIZES[c].min}
+                                      aria-valuemax={COLUMN_SIZES[c].max}
+                                      aria-valuenow={colWidth(c)}
+                                      aria-valuetext={`${colWidth(c)} pixels`}
+                                      title={`${colWidth(c)} px · Drag or use arrow keys to resize. Double-click or Enter to reset.`}
+                                      onPointerDown={(e) => startResize(c, e)}
+                                      onDoubleClick={() => {
+                                        if (Object.keys(widths).length)
+                                          resizeColumn(c, DEFAULT_WIDTHS[c]);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        const step = e.shiftKey ? 40 : 10;
+                                        const next =
+                                          e.key === "ArrowRight"
+                                            ? colWidth(c) + step
+                                            : e.key === "ArrowLeft"
+                                              ? colWidth(c) - step
+                                              : e.key === "Home"
+                                                ? COLUMN_SIZES[c].min
+                                                : e.key === "End"
+                                                  ? COLUMN_SIZES[c].max
+                                                  : e.key === "Enter"
+                                                    ? DEFAULT_WIDTHS[c]
+                                                    : null;
+                                        if (next !== null) {
+                                          e.preventDefault();
+                                          resizeColumn(c, next);
+                                        }
+                                      }}
+                                      className={cn(
+                                        "group absolute top-0 z-20 flex h-full w-[10px] cursor-col-resize touch-none items-stretch justify-center focus-visible:outline-none",
+                                        c === shown[shown.length - 1]
+                                          ? "right-0"
+                                          : "-right-[5px]"
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "w-[2px] transition-colors group-hover:bg-primary group-focus-visible:bg-primary",
+                                          resizing === c
+                                            ? "bg-primary"
+                                            : "bg-transparent"
+                                        )}
+                                      />
+                                    </span>
+                                  ) : null}
+                                </TableHead>
+                              ))}
+                              {/*
                             Outside `shown`, like the checkbox at the other
                             end: Actions holds no value, so sorting, filtering,
                             hiding and resizing all have nothing to act on, and
                             a column in that list is offered every one of them.
                           */}
-                          {/*
+                              {/*
                             Pinned to the right edge of the scroller, the way
                             the toolbar above is pinned to the left. The kebab
                             is how a row is acted on, and a widened table put
@@ -4439,347 +4767,386 @@ export default function Workspace() {
                             the header's own ground rather than a transparent
                             one — rows must pass under it, not through it.
                           */}
-                          <TableHead
-                            role="columnheader"
-                            style={{ width: ACTIONS_WIDTH }}
-                            className="sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
-                          >
-                            <span className="flex h-4 items-center truncate">
-                              Actions
-                            </span>
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody role="rowgroup">
-                        {pageRows.map((x, rowIndex) => (
-                          <TableRow
-                            key={x.id}
-                            role="row"
-                            // The guide points at the first row it finds; the
-                            // step is about what a row is, not about this one.
-                            data-guide-id={
-                              rowIndex === 0 ? "inbox-row" : undefined
-                            }
-                            // +2, not +1: row 1 is the header.
-                            aria-rowindex={rowIndex + 2}
-                            aria-selected={selected.includes(x.id)}
-                            onClick={() => open(x)}
-                            // `group` so the pinned Actions cell can pick the
-                            // row's hover tint back up — it paints its own
-                            // ground and would otherwise stay pale.
-                            className={cn(
-                              "group cursor-pointer hover:bg-transparent",
-                              selected.includes(x.id) && "bg-pi-brand-tint"
-                            )}
-                          >
-                            <TableCell
-                              role="gridcell"
-                              onClick={(e) => e.stopPropagation()}
-                              className={cn(
-                                "left-0 h-14 px-3 py-0 align-middle",
-                                STICKY_CELL,
-                                cellGround(selected.includes(x.id), true),
-                                selected.includes(x.id) &&
-                                  "shadow-[inset_2px_0_0_var(--pi-brand)]"
-                              )}
-                            >
-                              <Checkbox
-                                aria-label={`Select ${x.file.name}`}
-                                checked={selected.includes(x.id)}
-                                onCheckedChange={(checked) =>
-                                  setSelected((ids) =>
-                                    checked
-                                      ? [...ids, x.id]
-                                      : ids.filter((id) => id !== x.id)
-                                  )
-                                }
-                              />
-                            </TableCell>
-                            {shown.map((c, colIndex) => (
-                              <TableCell
-                                key={c}
-                                role="gridcell"
+                              <TableHead
+                                role="columnheader"
+                                style={{ width: ACTIONS_WIDTH }}
+                                className="pin-edge-r sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
+                              >
+                                <span className="flex h-4 items-center justify-center truncate">
+                                  Actions
+                                </span>
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody role="rowgroup">
+                            {pageRows.map((x, rowIndex) => (
+                              <TableRow
+                                key={x.id}
+                                role="row"
+                                // The guide points at the first row it finds; the
+                                // step is about what a row is, not about this one.
                                 data-guide-id={
-                                  rowIndex === 0 && c === "Status"
-                                    ? "inbox-status"
-                                    : undefined
+                                  rowIndex === 0 ? "inbox-row" : undefined
                                 }
-                                id={gridCellId(rowIndex, colIndex)}
-                                aria-colindex={colIndex + 1}
-                                // The range, not the checkbox column: this is
-                                // "inside the copied block", which is a
-                                // different question from whether the row is
-                                // ticked for a bulk action.
-                                aria-selected={grid.isSelected(
-                                  rowIndex,
-                                  colIndex
-                                )}
-                                data-grid-row={rowIndex}
-                                data-grid-col={colIndex}
-                                style={{ left: stickyLeft[c] }}
-                                // Figma 603:1640 / 603:1658: both variants are 50px.
-                                // The fixed inner box caps intrinsic table height;
-                                // a height on <td> alone is only a minimum.
+                                // +2, not +1: row 1 is the header.
+                                aria-rowindex={rowIndex + 2}
+                                aria-selected={selected.includes(x.id)}
+                                onClick={() => open(x)}
+                                // `group` so the pinned Actions cell can pick the
+                                // row's hover tint back up — it paints its own
+                                // ground and would otherwise stay pale.
                                 className={cn(
-                                  "h-14 overflow-hidden px-4 py-0 align-middle",
-                                  c in stickyLeft && STICKY_CELL,
-                                  cellGround(
-                                    selected.includes(x.id),
-                                    c in stickyLeft
-                                  ),
-                                  T.cell,
-                                  // Range first, cursor second: the cursor sits
-                                  // inside its own selection and has to win.
-                                  grid.isSelected(rowIndex, colIndex) &&
-                                    "bg-accent",
-                                  grid.isCursor(rowIndex, colIndex) &&
-                                    "ring-2 ring-inset ring-primary"
+                                  "group cursor-pointer hover:bg-transparent",
+                                  selected.includes(x.id) && "bg-pi-brand-tint"
                                 )}
                               >
-                                <div className="flex h-[55px] min-w-0 flex-col justify-center overflow-hidden [&>.inline-flex]:self-start">
-                                  {c === "File" ? (
-                                    <div className="flex min-w-0 items-center gap-3">
-                                      <FileIcon ext="pdf" />
-                                      <div className="min-w-0">
-                                        <span className="flex min-w-0 items-center gap-2">
-                                          <strong
-                                            className="truncate font-medium text-pi-ink"
-                                            title={x.file.name}
-                                          >
-                                            {x.file.name}
-                                          </strong>
-                                          {/* Whether Tally has this one yet. */}
-                                          {sync.inFlightIds.has(x.id) ? (
-                                            <SyncCloud state="syncing" />
-                                          ) : sync.syncedIds.has(x.id) ? (
-                                            <SyncCloud state="synced" />
-                                          ) : null}
+                                <TableCell
+                                  role="gridcell"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={cn(
+                                    "left-0 h-14 px-3 py-0 align-middle",
+                                    STICKY_CELL,
+                                    !leftPinEdge && "pin-edge-l",
+                                    cellGround(selected.includes(x.id), true),
+                                    selected.includes(x.id) &&
+                                      "shadow-[inset_2px_0_0_var(--pi-brand)]"
+                                  )}
+                                >
+                                  <Checkbox
+                                    aria-label={`Select ${x.file.name}`}
+                                    checked={selected.includes(x.id)}
+                                    onCheckedChange={(checked) =>
+                                      setSelected((ids) =>
+                                        checked
+                                          ? [...ids, x.id]
+                                          : ids.filter((id) => id !== x.id)
+                                      )
+                                    }
+                                  />
+                                </TableCell>
+                                {shown.map((c, colIndex) => (
+                                  <TableCell
+                                    key={c}
+                                    role="gridcell"
+                                    data-guide-id={
+                                      rowIndex === 0 && c === "Status"
+                                        ? "inbox-status"
+                                        : undefined
+                                    }
+                                    id={gridCellId(rowIndex, colIndex)}
+                                    aria-colindex={colIndex + 1}
+                                    // The range, not the checkbox column: this is
+                                    // "inside the copied block", which is a
+                                    // different question from whether the row is
+                                    // ticked for a bulk action.
+                                    aria-selected={grid.isSelected(
+                                      rowIndex,
+                                      colIndex
+                                    )}
+                                    data-grid-row={rowIndex}
+                                    data-grid-col={colIndex}
+                                    // Lets the pickers inside show their caret
+                                    // under the keyboard cursor.
+                                    data-cursor={
+                                      grid.isCursor(rowIndex, colIndex) ||
+                                      undefined
+                                    }
+                                    style={{ left: stickyLeft[c] }}
+                                    // Figma 603:1640 / 603:1658: both variants are 50px.
+                                    // The fixed inner box caps intrinsic table height;
+                                    // a height on <td> alone is only a minimum.
+                                    className={cn(
+                                      "h-14 overflow-hidden px-4 py-0 align-middle",
+                                      c in stickyLeft && STICKY_CELL,
+                                      c === leftPinEdge && "pin-edge-l",
+                                      cellGround(
+                                        selected.includes(x.id),
+                                        c in stickyLeft
+                                      ),
+                                      T.cell,
+                                      COLUMN_INK[c],
+                                      // Range first, cursor second: the cursor sits
+                                      // inside its own selection and has to win.
+                                      grid.isSelected(rowIndex, colIndex) &&
+                                        "bg-accent",
+                                      grid.isCursor(rowIndex, colIndex) &&
+                                        "ring-2 ring-inset ring-primary"
+                                    )}
+                                  >
+                                    <div className="flex h-[55px] min-w-0 flex-col justify-center overflow-hidden [&>.inline-flex]:self-start">
+                                      {c === "File" ? (
+                                        <div className="flex min-w-0 items-center gap-3">
+                                          <FileIcon ext="pdf" />
+                                          <div className="min-w-0">
+                                            <span className="flex min-w-0 items-center gap-2">
+                                              <strong
+                                                className="truncate font-medium text-pi-ink"
+                                                title={x.file.name}
+                                              >
+                                                {x.file.name}
+                                              </strong>
+                                              {/* Whether Tally has this one yet. */}
+                                              {sync.inFlightIds.has(x.id) ? (
+                                                <SyncCloud state="syncing" />
+                                              ) : sync.syncedIds.has(x.id) ? (
+                                                <SyncCloud state="synced" />
+                                              ) : null}
+                                            </span>
+                                            <span className="mt-0.5 block truncate text-caption-1 text-pi-faint">
+                                              {x.file.size}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ) : c === "Source" ? (
+                                        // Only the channel. Which inbox address a
+                                        // mail was sent to is the company's own,
+                                        // so it said nothing, and who sent it is
+                                        // the User column's job.
+                                        <span className="truncate">
+                                          {sourceLabels[x.source]}
                                         </span>
-                                        <span className="mt-0.5 block truncate text-caption-1 text-secondary-foreground">
-                                          {x.file.size}
+                                      ) : c === "User" ? (
+                                        <span
+                                          className="block truncate"
+                                          title={x.sender}
+                                        >
+                                          {senderUser(x) || "—"}
                                         </span>
-                                      </div>
-                                    </div>
-                                  ) : c === "Source" ? (
-                                    // Only the channel. Which inbox address a
-                                    // mail was sent to is the company's own,
-                                    // so it said nothing, and who sent it is
-                                    // the User column's job.
-                                    <span className="truncate">
-                                      {sourceLabels[x.source]}
-                                    </span>
-                                  ) : c === "User" ? (
-                                    <span
-                                      className="block truncate"
-                                      title={x.sender}
-                                    >
-                                      {senderUser(x) || "—"}
-                                    </span>
-                                  ) : ["Received", "Extracting"].includes(
-                                      x.status
-                                    ) &&
-                                    [
-                                      "Vendor",
-                                      "Voucher type",
-                                      "GST Registration",
-                                      "Amount",
-                                    ].includes(c) ? (
-                                    <span className="text-secondary-foreground">
-                                      —
-                                    </span>
-                                  ) : c === "Vendor" ? (
-                                    <EditableCell
-                                      onClosed={grid.refocusGrid}
-                                      label={
-                                        x.route === "AR"
-                                          ? "Customer name"
-                                          : "Vendor name"
-                                      }
-                                      open={activeCell === `${x.id}:party`}
-                                      onOpenChange={(open) =>
-                                        setActiveCell(
-                                          open ? `${x.id}:party` : null
-                                        )
-                                      }
-                                      value={x.form.party}
-                                      options={[
-                                        ...(x.route === "AR"
-                                          ? []
-                                          : createdMasters.Vendor),
-                                        ...all
-                                          .filter(
-                                            (candidate) =>
-                                              candidate.route === x.route
-                                          )
-                                          .map(
-                                            (candidate) => candidate.form.party
-                                          ),
-                                      ]
-                                        .filter(Boolean)
-                                        .sort()}
-                                      editable={canEditTableItem(x)}
-                                      onChange={(value) =>
-                                        editTableField(x, "Vendor", value)
-                                      }
-                                      // Vendors only: there is no customer
-                                      // master to create from the Inbox.
-                                      createNoun="vendor"
-                                      onCreate={
-                                        x.route === "AR"
-                                          ? undefined
-                                          : (name) =>
-                                              setCreating({
-                                                field: "Vendor",
-                                                name,
-                                                description: `It is added to your books and set on ${x.file.name}.`,
-                                                // editTableField says what
-                                                // changed, so no second toast.
-                                                then: (created) => {
-                                                  editTableField(
-                                                    x,
-                                                    "Vendor",
-                                                    created
-                                                  );
-                                                },
-                                              })
-                                      }
-                                    />
-                                  ) : c === "Voucher type" ? (
-                                    <EditableCell
-                                      onClosed={grid.refocusGrid}
-                                      label="Voucher type"
-                                      open={
-                                        activeCell === `${x.id}:voucherType`
-                                      }
-                                      onOpenChange={(open) =>
-                                        setActiveCell(
-                                          open ? `${x.id}:voucherType` : null
-                                        )
-                                      }
-                                      value={x.form.voucherType}
-                                      options={BULK_VOUCHER_TYPES}
-                                      groups={voucherTypeGroups}
-                                      editable={canEditTableItem(x)}
-                                      onChange={(value) =>
-                                        editTableField(x, "Voucher Type", value)
-                                      }
-                                    />
-                                  ) : c === "GST Registration" ? (
-                                    <EditableCell
-                                      onClosed={grid.refocusGrid}
-                                      label="GST registration"
-                                      open={activeCell === `${x.id}:gst`}
-                                      onOpenChange={(open) =>
-                                        setActiveCell(
-                                          open ? `${x.id}:gst` : null
-                                        )
-                                      }
-                                      value={x.form.gst}
-                                      options={company.branches}
-                                      editable={canEditTableItem(x)}
-                                      onChange={(value) =>
-                                        editTableField(
-                                          x,
+                                      ) : ["Received", "Extracting"].includes(
+                                          x.status
+                                        ) &&
+                                        [
+                                          "Vendor",
+                                          "Voucher type",
                                           "GST Registration",
-                                          value
-                                        )
-                                      }
-                                    />
-                                  ) : c === "Amount" ? (
-                                    <div
-                                      className="truncate text-right tabular-nums"
-                                      title={money(x.amount)}
-                                    >
-                                      <AmountText value={x.amount} />
-                                    </div>
-                                  ) : c === "Received" ? (
-                                    <div
-                                      className="space-y-0.5"
-                                      title={stamp(x.received)}
-                                    >
-                                      <time
-                                        dateTime={x.received}
-                                        className="block truncate"
-                                      >
-                                        {stamp(x.received)}
-                                      </time>
-                                      <span className="block truncate text-caption-1 text-secondary-foreground">
-                                        {age(x.received)}
-                                      </span>
-                                    </div>
-                                  ) : isSwitching(x) ? (
-                                    <StatusPill
-                                      status="Extracting"
-                                      className={tablePillClass}
-                                    />
-                                  ) : x.status === "Needs Review" &&
-                                    canEditTableItem(x) ? (
-                                    // Needs Review → Approved is the one
-                                    // status change the table offers. Nothing
-                                    // goes back from Approved, and Duplicate
-                                    // is the system's finding, not a choice,
-                                    // so every other status stays a plain pill.
-                                    <div
-                                      onClick={(e) => e.stopPropagation()}
-                                      onKeyDown={(e) => e.stopPropagation()}
-                                    >
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <button
-                                            type="button"
-                                            aria-label={`Change status of ${x.file.name}`}
-                                            className="flex max-w-full items-center rounded-md hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                                          >
-                                            {/* The chevron is inside the pill:
-                                                beside it, the column's edge
-                                                clipped it off. */}
-                                            <StatusPill
-                                              status={x.status}
-                                              className={tablePillClass}
-                                              trailing={
-                                                <ChevronDown
-                                                  aria-hidden
-                                                  // Inline: Badge sets its label
-                                                  // in one truncating span, and an
-                                                  // svg is a block by default.
-                                                  className="ml-1 inline size-3 align-[-2px]"
-                                                />
+                                          "Amount",
+                                        ].includes(c) ? (
+                                        <span className="text-secondary-foreground">
+                                          —
+                                        </span>
+                                      ) : c === "Vendor" ? (
+                                        <EditableCell
+                                          onClosed={grid.refocusGrid}
+                                          className={CELL_TRIGGER}
+                                          label={
+                                            x.route === "AR"
+                                              ? "Customer name"
+                                              : "Vendor name"
+                                          }
+                                          open={activeCell === `${x.id}:party`}
+                                          onOpenChange={(open) =>
+                                            setActiveCell(
+                                              open ? `${x.id}:party` : null
+                                            )
+                                          }
+                                          value={x.form.party}
+                                          options={[
+                                            ...(x.route === "AR"
+                                              ? []
+                                              : createdMasters.Vendor),
+                                            ...all
+                                              .filter(
+                                                (candidate) =>
+                                                  candidate.route === x.route
+                                              )
+                                              .map(
+                                                (candidate) =>
+                                                  candidate.form.party
+                                              ),
+                                          ]
+                                            .filter(Boolean)
+                                            .sort()}
+                                          editable={canEditTableItem(x)}
+                                          onChange={(value) =>
+                                            editTableField(x, "Vendor", value)
+                                          }
+                                          // Vendors only: there is no customer
+                                          // master to create from the Inbox.
+                                          createNoun="vendor"
+                                          onCreate={
+                                            x.route === "AR"
+                                              ? undefined
+                                              : (name) =>
+                                                  setCreating({
+                                                    field: "Vendor",
+                                                    name,
+                                                    description: `It is added to your books and set on ${x.file.name}.`,
+                                                    // editTableField says what
+                                                    // changed, so no second toast.
+                                                    then: (created) => {
+                                                      editTableField(
+                                                        x,
+                                                        "Vendor",
+                                                        created
+                                                      );
+                                                    },
+                                                  })
+                                          }
+                                        />
+                                      ) : c === "Voucher type" ? (
+                                        /* The one column the AI decides rather
+                                       than reads: marked while it is still
+                                       the AI's pick (see AiMark). */
+                                        <span className="flex w-full min-w-0 items-center gap-2">
+                                          <span className="min-w-0 flex-1">
+                                            <EditableCell
+                                              onClosed={grid.refocusGrid}
+                                              className={CELL_TRIGGER}
+                                              label="Voucher type"
+                                              open={
+                                                activeCell ===
+                                                `${x.id}:voucherType`
+                                              }
+                                              onOpenChange={(open) =>
+                                                setActiveCell(
+                                                  open
+                                                    ? `${x.id}:voucherType`
+                                                    : null
+                                                )
+                                              }
+                                              value={x.form.voucherType}
+                                              options={BULK_VOUCHER_TYPES}
+                                              groups={voucherTypeGroups}
+                                              editable={canEditTableItem(x)}
+                                              onChange={(value) =>
+                                                editTableField(
+                                                  x,
+                                                  "Voucher Type",
+                                                  value
+                                                )
                                               }
                                             />
-                                          </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                          align="start"
-                                          className="min-w-[160px]"
-                                        >
-                                          <DropdownMenuItem
-                                            onSelect={() => approveRow(x)}
-                                          >
-                                            <StatusPill
-                                              status="Approved"
-                                              className={tablePillClass}
+                                          </span>
+                                          {aiPickedType(x) && (
+                                            <AiMark
+                                              reason={x.reason}
+                                              className="ml-auto"
                                             />
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
+                                          )}
+                                        </span>
+                                      ) : c === "GST Registration" ? (
+                                        <EditableCell
+                                          onClosed={grid.refocusGrid}
+                                          className={CELL_TRIGGER}
+                                          label="GST registration"
+                                          open={activeCell === `${x.id}:gst`}
+                                          onOpenChange={(open) =>
+                                            setActiveCell(
+                                              open ? `${x.id}:gst` : null
+                                            )
+                                          }
+                                          value={x.form.gst}
+                                          options={company.branches}
+                                          editable={canEditTableItem(x)}
+                                          onChange={(value) =>
+                                            editTableField(
+                                              x,
+                                              "GST Registration",
+                                              value
+                                            )
+                                          }
+                                        />
+                                      ) : c === "Amount" ? (
+                                        <div
+                                          className="truncate text-right tabular-nums"
+                                          title={money(x.amount)}
+                                        >
+                                          <AmountText value={x.amount} />
+                                        </div>
+                                      ) : c === "Received" ? (
+                                        <div
+                                          className="space-y-0.5"
+                                          title={stamp(x.received)}
+                                        >
+                                          <time
+                                            dateTime={x.received}
+                                            className="block truncate"
+                                          >
+                                            {stamp(x.received)}
+                                          </time>
+                                          <span className="block truncate text-caption-1 text-secondary-foreground">
+                                            {age(x.received)}
+                                          </span>
+                                        </div>
+                                      ) : isSwitching(x) ? (
+                                        <StatusPill
+                                          status="Extracting"
+                                          className={cn(
+                                            tablePillClass,
+                                            "-ml-2"
+                                          )}
+                                        />
+                                      ) : x.status === "Needs Review" &&
+                                        canEditTableItem(x) ? (
+                                        // Needs Review → Approved is the one
+                                        // status change the table offers. Nothing
+                                        // goes back from Approved, and Duplicate
+                                        // is the system's finding, not a choice,
+                                        // so every other status stays a plain pill.
+                                        <div
+                                          onClick={(e) => e.stopPropagation()}
+                                          onKeyDown={(e) => e.stopPropagation()}
+                                        >
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <button
+                                                type="button"
+                                                aria-label={`Change status of ${x.file.name}`}
+                                                className="group/status -ml-2 flex max-w-full items-center rounded-md hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                                              >
+                                                {/* The chevron is inside the pill:
+                                                beside it, the column's edge
+                                                clipped it off. */}
+                                                <StatusPill
+                                                  status={x.status}
+                                                  className={tablePillClass}
+                                                  trailing={
+                                                    <ChevronDown
+                                                      aria-hidden
+                                                      // Inline: Badge sets its label
+                                                      // in one truncating span, and an
+                                                      // svg is a block by default.
+                                                      className="ml-1 inline size-3 align-[-2px] opacity-60 transition-opacity group-hover:opacity-100 group-focus-visible/status:opacity-100 group-aria-expanded/status:opacity-100 [[data-cursor]_&]:opacity-100"
+                                                    />
+                                                  }
+                                                />
+                                              </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent
+                                              align="start"
+                                              className="min-w-[160px]"
+                                            >
+                                              <DropdownMenuItem
+                                                onSelect={() => approveRow(x)}
+                                              >
+                                                <StatusPill
+                                                  status="Approved"
+                                                  className={tablePillClass}
+                                                />
+                                              </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </div>
+                                      ) : (
+                                        <StatusPill
+                                          status={x.status}
+                                          className={cn(
+                                            tablePillClass,
+                                            "-ml-2"
+                                          )}
+                                        />
+                                      )}
                                     </div>
-                                  ) : (
-                                    <StatusPill
-                                      status={x.status}
-                                      className={tablePillClass}
-                                    />
-                                  )}
-                                </div>
-                              </TableCell>
-                            ))}
-                            <TableCell
-                              role="gridcell"
-                              // The row opens the document on click; the menu
-                              // and everything in it must not, or choosing
-                              // Delete would navigate into the record it just
-                              // removed.
-                              onClick={(e) => e.stopPropagation()}
-                              /*
+                                  </TableCell>
+                                ))}
+                                <TableCell
+                                  role="gridcell"
+                                  // The row opens the document on click; the menu
+                                  // and everything in it must not, or choosing
+                                  // Delete would navigate into the record it just
+                                  // removed.
+                                  onClick={(e) => e.stopPropagation()}
+                                  /*
                                 bg-background, not transparent: a sticky cell
                                 with no ground lets the columns it is holding
                                 still slide through it.
@@ -4794,23 +5161,23 @@ export default function Workspace() {
                                 flat colour is the tint with the ground still
                                 under it.
                               */
-                              className={cn(
-                                "sticky right-0 z-[1] h-14 px-4 py-0 align-middle",
-                                cellGround(selected.includes(x.id), true)
-                              )}
-                            >
-                              <RowActions
-                                item={x}
-                                onView={() => open(x)}
-                                onDelete={() => deleteRow(x)}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    {!filtered.length &&
-                      /*
+                                  className={cn(
+                                    "pin-edge-r sticky right-0 z-[1] h-14 px-4 py-0 text-center align-middle",
+                                    cellGround(selected.includes(x.id), true)
+                                  )}
+                                >
+                                  <RowActions
+                                    item={x}
+                                    onView={() => open(x)}
+                                    onDelete={() => deleteRow(x)}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        {!filtered.length &&
+                          /*
                     Three different nothings, and they used to be one.
 
                     A narrowed queue is the only one of them the user can undo,
@@ -4826,70 +5193,166 @@ export default function Workspace() {
                     Everything else is a tab that is legitimately empty, which
                     is a fact and not a prompt.
                   */
-                      (() => {
-                        const narrowed =
-                          activeFilterCount > 0 || !!filters.search;
-                        if (narrowed)
-                          return (
-                            <EmptyState title="No documents match these filters">
-                              <p className={T.value}>
-                                {tab === "All"
-                                  ? "Nothing in the Inbox matches."
-                                  : `Nothing in ${tab} matches. Another tab may hold what you’re looking for.`}
-                              </p>
-                              <Button
-                                variant="secondary"
-                                onClick={() => {
-                                  setFilters(defaultFilters);
-                                  setSelected([]);
-                                  setPage(0);
-                                }}
-                              >
-                                Reset all
-                              </Button>
-                            </EmptyState>
-                          );
-                        if (moduleRoute)
-                          return (
-                            <EmptyState
-                              title={`No posted ${routeNames[moduleRoute]} vouchers`}
-                            >
-                              <p className={T.value}>
-                                Approving a document in the Inbox with this
-                                route posts the voucher and lists it here.
-                              </p>
-                            </EmptyState>
-                          );
-                        if (!all.length)
-                          return (
-                            <EmptyState title="Nothing received yet">
-                              <p className={T.value}>
-                                Forward a document to this company’s address,
-                                send one from a registered WhatsApp number, or
-                                upload a file. Every document lands in the Inbox
-                                first.
-                              </p>
-                              <Button
-                                variant="secondary"
-                                onClick={() => setDialog("intake")}
-                              >
-                                Receive documents
-                              </Button>
-                            </EmptyState>
-                          );
-                        // `tab` is restored from sessionStorage unchecked, so a
-                        // session stored under a tab name that no longer exists
-                        // would index this to undefined and take the screen down.
-                        const empty = EMPTY_STATES[tab] ?? EMPTY_STATES.All;
-                        return (
-                          <EmptyState title={empty.title}>
-                            <p className={T.value}>{empty.body}</p>
-                          </EmptyState>
-                        );
-                      })()}
-                  </div>
-                </div>
-                {/*
+                          (() => {
+                            const narrowed =
+                              activeFilterCount > 0 || !!filters.search;
+                            // The stages, counted, for the empty states below
+                            // (8 Oct 2026): where the documents are.
+                            const inTab = (t: string) =>
+                              all.filter((x) => matchesTab(x, t)).length;
+                            const waiting = inTab("Need review");
+                            const approved = inTab("Approved");
+                            const docs = (n: number) =>
+                              `${n} document${n === 1 ? "" : "s"}`;
+                            const flow = (current: string) => [
+                              {
+                                label: "Received",
+                                count: all.length,
+                                icon: InboxIcon,
+                              },
+                              {
+                                label: "Needs review",
+                                count: waiting,
+                                icon: Clock,
+                                current: current === "Need review",
+                              },
+                              {
+                                label: "Approved",
+                                count: approved,
+                                icon: CircleCheck,
+                                current: current === "Approved",
+                              },
+                            ];
+                            if (narrowed) {
+                              const shown = (values: string[]) =>
+                                values.length > 2
+                                  ? `${values.length} selected`
+                                  : values.join(", ");
+                              const chips = [
+                                ...(filters.search.trim()
+                                  ? [{ label: `Search: “${filters.search.trim()}”` }]
+                                  : []),
+                                ...Object.entries(filters.cols)
+                                  .filter(([, v]) => v?.length)
+                                  .map(([column, v]) => ({
+                                    label: `${column}: ${shown(v)}`,
+                                  })),
+                                ...(filters.from || filters.to
+                                  ? [{ label: "Received date range" }]
+                                  : []),
+                                ...(filters.min || filters.max
+                                  ? [{ label: "Amount range" }]
+                                  : []),
+                              ];
+                              const here = tab === "All" ? all.length : inTab(tab);
+                              return (
+                                <FlowEmptyState
+                                  title="No documents match these filters"
+                                  body={
+                                    tab === "All"
+                                      ? `None of the ${docs(here)} in the Inbox match.`
+                                      : `None of the ${docs(here)} in ${tab} match. Clear the filters, or look in another tab.`
+                                  }
+                                  filters={chips}
+                                  onClear={() => {
+                                    setFilters(defaultFilters);
+                                    setSelected([]);
+                                    setPage(0);
+                                  }}
+                                />
+                              );
+                            }
+                            if (moduleRoute)
+                              return (
+                                <EmptyState
+                                  title={`No posted ${routeNames[moduleRoute]} vouchers`}
+                                >
+                                  <p className={T.value}>
+                                    Approving a document in the Inbox with this
+                                    route posts the voucher and lists it here.
+                                  </p>
+                                </EmptyState>
+                              );
+                            if (!all.length)
+                              return (
+                                <FlowEmptyState
+                                  flow={flow("")}
+                                  title="Nothing received yet"
+                                  body="Forward a document to this company’s address, send one from a registered WhatsApp number, or upload a file. Every document lands in the Inbox first."
+                                  actions={
+                                    <>
+                                      <Button onClick={() => openSingleUpload()}>
+                                        <Upload className="h-4 w-4" />
+                                        Upload Documents
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => setDialog("intake")}
+                                      >
+                                        Other ways to send documents
+                                      </Button>
+                                    </>
+                                  }
+                                />
+                              );
+                            // `tab` is restored from sessionStorage unchecked, so a
+                            // session stored under a tab name that no longer exists
+                            // would index this to undefined and take the screen down.
+                            if (tab === "Need review")
+                              return (
+                                <FlowEmptyState
+                                  flow={flow(tab)}
+                                  title="Nothing waiting for your review"
+                                  body={`You’ve reviewed all ${docs(all.length)} received${approved ? `, and ${approved} ${approved === 1 ? "is" : "are"} approved` : ""}. New documents appear here once AI Accountant has read them.`}
+                                  actions={
+                                    <>
+                                      {approved ? (
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => setTab("Approved")}
+                                        >
+                                          View approved
+                                        </Button>
+                                      ) : null}
+                                      <Button onClick={() => openSingleUpload()}>
+                                        <Upload className="h-4 w-4" />
+                                        Upload Documents
+                                      </Button>
+                                    </>
+                                  }
+                                />
+                              );
+                            if (tab === "Approved")
+                              return (
+                                <FlowEmptyState
+                                  flow={flow(tab)}
+                                  title="No approved documents yet"
+                                  body={
+                                    waiting
+                                      ? `${docs(waiting)} ${waiting === 1 ? "is" : "are"} waiting for your review. Approve one and its record appears here, with the voucher it created.`
+                                      : "Approve a document and its record appears here, with the voucher it created and the file it came from."
+                                  }
+                                  actions={
+                                    waiting ? (
+                                      <Button onClick={() => setTab("Need review")}>
+                                        Review {docs(waiting)}
+                                      </Button>
+                                    ) : undefined
+                                  }
+                                />
+                              );
+                            const empty = EMPTY_STATES[tab] ?? EMPTY_STATES.All;
+                            return (
+                              <FlowEmptyState
+                                icon={tab === "Duplicate" ? Copy : InboxIcon}
+                                title={empty.title}
+                                body={empty.body}
+                              />
+                            );
+                          })()}
+                      </div>
+                    </div>
+                    {/*
                 Over the table, not under it.
 
                 The bar used to be `sticky bottom-0` inside this column, which
@@ -4899,170 +5362,178 @@ export default function Workspace() {
                 the wrapper takes no pointer events so the rows behind it stay
                 reachable everywhere the bar is not.
               */}
-                {selected.length > 0 && (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
-                    {/* The Bloocks BulkActionBar. Its fields stage a value for
+                    {selected.length > 0 && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
+                        {/* The Bloocks BulkActionBar. Its fields stage a value for
                         the selection; Save writes the staged values and
                         Save & approve writes them and approves. */}
-                    <BulkActionBar
-                      className="pointer-events-auto"
-                      selectedCount={selected.length}
-                      // The header checkbox speaks for the page; this speaks
-                      // for the filter, and goes once all of it is selected.
-                      totalCount={filtered.length}
-                      onSelectAll={
-                        allFilteredSelected
-                          ? undefined
-                          : () => setSelected(filtered.map((x) => x.id))
-                      }
-                      fields={BULK_FIELDS.map((field) => ({
-                        key: field,
-                        label: BULK_SHORT[field] || field,
-                        value: bulkStaged[field],
-                        options: bulkOptions(field).map((value) => ({
-                          label: value,
-                          value,
-                        })),
-                        optionGroups:
-                          field === "Voucher Type"
-                            ? voucherTypeGroups.map((group) => ({
-                                label: group.heading,
-                                options: group.options.map((value) => ({
-                                  label: value,
-                                  value,
-                                })),
-                              }))
-                            : undefined,
-                        createNoun: field === "Vendor" ? "vendor" : "ledger",
-                        onCreate:
-                          field === "Ledger" || field === "Vendor"
-                            ? (name: string) =>
-                                setCreating({
-                                  field,
-                                  name,
-                                  then: (created) => {
-                                    notify(
-                                      `${field === "Vendor" ? "Vendor" : "Ledger"} “${created}” created\nSave to set it on the selected documents.`
-                                    );
-                                    setBulkStaged((staged) => ({
-                                      ...staged,
-                                      [field]: created,
-                                    }));
-                                  },
-                                })
-                            : undefined,
-                      }))}
-                      onFieldChange={(key, value) =>
-                        stageBulk(key as BulkField, value)
-                      }
-                      actions={[
-                        // Only once something is staged: with nothing to
-                        // write, Save would be a button that does nothing.
-                        ...(Object.keys(bulkStaged).length
-                          ? [{ label: "Save", onClick: bulkSave }]
-                          : []),
-                        {
-                          // Says when it will also write the staged edits, so
-                          // the bar never changes rows the user did not expect.
-                          label: Object.keys(bulkStaged).length
-                            ? "Save & approve"
-                            : "Approve",
-                          onClick: bulkApprove,
-                          variant: "primary" as const,
-                        },
-                      ]}
-                      deleteLabel={`Delete ${selected.length} selected`}
-                      onDelete={() =>
-                        askDelete(
-                          `${selected.length} document${selected.length === 1 ? "" : "s"}`,
-                          () =>
-                            reportBulk(
-                              "Deleted",
-                              applyBulkAction(selected, "Delete")
-                            ),
-                          selected.length !== 1
-                        )
-                      }
-                      onClearSelection={() => setSelected([])}
-                    />
+                        <BulkActionBar
+                          className="pointer-events-auto"
+                          selectedCount={selected.length}
+                          // The header checkbox speaks for the page; this speaks
+                          // for the filter, and goes once all of it is selected.
+                          totalCount={filtered.length}
+                          onSelectAll={
+                            allFilteredSelected
+                              ? undefined
+                              : () => setSelected(filtered.map((x) => x.id))
+                          }
+                          fields={BULK_FIELDS.map((field) => ({
+                            key: field,
+                            label: BULK_SHORT[field] || field,
+                            value: bulkStaged[field],
+                            options: bulkOptions(field).map((value) => ({
+                              label: value,
+                              value,
+                            })),
+                            optionGroups:
+                              field === "Voucher Type"
+                                ? voucherTypeGroups.map((group) => ({
+                                    label: group.heading,
+                                    options: group.options.map((value) => ({
+                                      label: value,
+                                      value,
+                                    })),
+                                  }))
+                                : undefined,
+                            createNoun:
+                              field === "Vendor" ? "vendor" : "ledger",
+                            onCreate:
+                              field === "Ledger" || field === "Vendor"
+                                ? (name: string) =>
+                                    setCreating({
+                                      field,
+                                      name,
+                                      then: (created) => {
+                                        notify(
+                                          `${field === "Vendor" ? "Vendor" : "Ledger"} “${created}” created\nSave to set it on the selected documents.`
+                                        );
+                                        setBulkStaged((staged) => ({
+                                          ...staged,
+                                          [field]: created,
+                                        }));
+                                      },
+                                    })
+                                : undefined,
+                          }))}
+                          onFieldChange={(key, value) =>
+                            stageBulk(key as BulkField, value)
+                          }
+                          actions={[
+                            // Only once something is staged: with nothing to
+                            // write, Save would be a button that does nothing.
+                            ...(Object.keys(bulkStaged).length
+                              ? [{ label: "Save", onClick: bulkSave }]
+                              : []),
+                            {
+                              // Says when it will also write the staged edits, so
+                              // the bar never changes rows the user did not expect.
+                              label: Object.keys(bulkStaged).length
+                                ? "Save & approve"
+                                : "Approve",
+                              onClick: bulkApprove,
+                              variant: "primary" as const,
+                            },
+                          ]}
+                          deleteLabel={`Delete ${selected.length} selected`}
+                          onDelete={() =>
+                            askDelete(
+                              `${selected.length} document${selected.length === 1 ? "" : "s"}`,
+                              () =>
+                                reportBulk(
+                                  "Deleted",
+                                  applyBulkAction(selected, "Delete")
+                                ),
+                              selected.length !== 1
+                            )
+                          }
+                          onClearSelection={() => setSelected([])}
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
-              <div className="sticky left-0 shrink-0">
-              <Footer>
-                <div className="flex items-center gap-2">
-                  <span className={cn(T.cell, "text-foreground")}>
-                    Rows per page:
-                  </span>
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={(v) => {
-                      setPageSize(Number(v));
-                      setPage(0);
-                    }}
-                  >
-                    <SelectTrigger
-                      aria-label="Rows per page"
+                  <OverlayScrollbars scroller={scrollerElement} />
+                </div>
+                {/* Below the page scroller, not inside it: the pager stays at the
+                  bottom of the viewport however long the page is, and the
+                  scroller's horizontal bar ends above it, under the table,
+                  instead of running beneath the pager. */}
+                <Footer>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(T.cell, "text-foreground")}>
+                      Rows per page:
+                    </span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(v) => {
+                        setPageSize(Number(v));
+                        setPage(0);
+                      }}
+                    >
+                      <SelectTrigger
+                        aria-label="Rows per page"
+                        className={cn(
+                          "h-auto w-[72px] rounded-md border-border px-2 py-1",
+                          T.cell,
+                          "text-foreground"
+                        )}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZES.map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-0 sm:gap-1">
+                    <PageButton
+                      label="First page"
+                      disabled={page === 0}
+                      onClick={() => setPage(0)}
+                    >
+                      <ChevronsLeft />
+                    </PageButton>
+                    <PageButton
+                      label="Previous page"
+                      disabled={page === 0}
+                      onClick={() => setPage((p) => p - 1)}
+                    >
+                      <ChevronLeft />
+                    </PageButton>
+                    <span
                       className={cn(
-                        "h-auto w-[72px] rounded-md border-border px-2 py-1",
                         T.cell,
-                        "text-foreground"
+                        "px-2 tabular-nums text-foreground"
                       )}
                     >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAGE_SIZES.map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-0 sm:gap-1">
-                  <PageButton
-                    label="First page"
-                    disabled={page === 0}
-                    onClick={() => setPage(0)}
-                  >
-                    <ChevronsLeft />
-                  </PageButton>
-                  <PageButton
-                    label="Previous page"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    <ChevronLeft />
-                  </PageButton>
-                  <span
-                    className={cn(T.cell, "px-2 tabular-nums text-foreground")}
-                  >
-                    {filtered.length
-                      ? `${page * pageSize + 1} - ${Math.min((page + 1) * pageSize, filtered.length)} of ${filtered.length}`
-                      : "0 of 0"}
-                  </span>
-                  <PageButton
-                    label="Next page"
-                    disabled={(page + 1) * pageSize >= filtered.length}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <ChevronRight />
-                  </PageButton>
-                  <PageButton
-                    label="Last page"
-                    disabled={(page + 1) * pageSize >= filtered.length}
-                    onClick={() =>
-                      setPage(
-                        Math.max(0, Math.ceil(filtered.length / pageSize) - 1)
-                      )
-                    }
-                  >
-                    <ChevronsRight />
-                  </PageButton>
-                </div>
-              </Footer>
-              </div>
-              </div>
+                      {filtered.length
+                        ? `${page * pageSize + 1} - ${Math.min((page + 1) * pageSize, filtered.length)} of ${filtered.length}`
+                        : "0 of 0"}
+                    </span>
+                    <PageButton
+                      label="Next page"
+                      disabled={(page + 1) * pageSize >= filtered.length}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      <ChevronRight />
+                    </PageButton>
+                    <PageButton
+                      label="Last page"
+                      disabled={(page + 1) * pageSize >= filtered.length}
+                      onClick={() =>
+                        setPage(
+                          Math.max(0, Math.ceil(filtered.length / pageSize) - 1)
+                        )
+                      }
+                    >
+                      <ChevronsRight />
+                    </PageButton>
+                  </div>
+                </Footer>
               </div>
             </>
           )}
@@ -5127,18 +5598,22 @@ export default function Workspace() {
           {dialog !== "whatsapp" && (
             <h2 className={T.section}>Send via WhatsApp</h2>
           )}
-          <Select value={environment} onValueChange={setEnvironment}>
-            <SelectTrigger
-              aria-label="WhatsApp environment"
-              className="h-9 w-[180px]"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Production">Production</SelectItem>
-              <SelectItem value="UAT">UAT</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* A labelled form field, like every other picker in a dialog */}
+          <Field
+            label="Environment"
+            htmlFor="wa-environment"
+            className="w-[220px]"
+          >
+            <Select value={environment} onValueChange={setEnvironment}>
+              <SelectTrigger id="wa-environment">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Production">Production</SelectItem>
+                <SelectItem value="UAT">UAT</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <p className={cn(T.value, "text-foreground")}>
             {environment === "Production"
               ? "+91 63665 75567"
@@ -5183,6 +5658,36 @@ export default function Workspace() {
         </section>
       </PageDialog>
       <PageDialog
+        /* A run that stopped short is the only one that ends on buttons, in
+           the footer band; a clean one has already left. */
+        footer={
+          !!files.length && !busy && !!failedCount ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFiles([]);
+                  setUploadStatus([]);
+                  setUploadErrors([]);
+                }}
+              >
+                Upload more
+              </Button>
+              <Button
+                onClick={() => {
+                  setDialog("");
+                  window.setTimeout(() => {
+                    setFiles([]);
+                    setUploadStatus([]);
+                    setUploadErrors([]);
+                  }, DIALOG_EXIT_MS);
+                }}
+              >
+                Done
+              </Button>
+            </>
+          ) : undefined
+        }
         open={dialog === "upload"}
         // Short screens get a tighter inset, so the whole panel — tips open
         // included — stays on screen without scrolling. See upload-dialog.module.css.
@@ -5196,11 +5701,13 @@ export default function Workspace() {
           source !== "upload"
             ? `Demo ${source} intake`
             : !files.length
-              ? "Upload documents"
+              ? uploadScope === "purchases"
+                ? "Upload purchase bills"
+                : "Upload documents"
               : retrying.length && busy
                 ? `Retrying ${retrying.length} upload${retrying.length === 1 ? "" : "s"}`
                 : settledCount < files.length
-                  ? `Uploading ${files.length} document${files.length === 1 ? "" : "s"}`
+                  ? `Uploading ${files.length} ${uploadScope === "purchases" ? "bill" : "document"}${files.length === 1 ? "" : "s"}`
                   : // What landed, counted, whether or not anything was lost.
                     // "Uploaded 34 of 36" made the reader do the subtraction to
                     // find the good news; the failures are named directly below,
@@ -5224,6 +5731,7 @@ export default function Workspace() {
             setUploadStatus([]);
             setUploadErrors([]);
             setHandoff(false);
+            setUploadScope("inbox");
           }, DIALOG_EXIT_MS);
         }}
       >
@@ -5312,11 +5820,13 @@ export default function Workspace() {
                   </span>
                 </span>
                 <span className={uploadStyles.dropTitle}>
-                  {dragOver ? (
-                    "Release to add your documents"
-                  ) : (
-                    <>Drop bills, invoices or expenses here</>
-                  )}
+                  {uploadScope === "purchases"
+                    ? dragOver
+                      ? "Release to add your bills"
+                      : "Drop purchase bills or expense receipts here"
+                    : dragOver
+                      ? "Release to add your documents"
+                      : "Drop bills, invoices or expenses here"}
                 </span>
                 <span className={uploadStyles.browse}>
                   or{" "}
@@ -5364,7 +5874,10 @@ export default function Workspace() {
                   />
                 </summary>
                 <ul className={uploadStyles.tips}>
-                  {UPLOAD_GUIDELINES.map((line) => (
+                  {(uploadScope === "purchases"
+                    ? PURCHASE_UPLOAD_GUIDELINES
+                    : UPLOAD_GUIDELINES
+                  ).map((line) => (
                     <li key={line} className={uploadStyles.tip}>
                       <span aria-hidden className={uploadStyles.tipDot} />
                       <span>{line}</span>
@@ -5800,34 +6313,6 @@ export default function Workspace() {
               */}
             </section>
           )}
-          {/* A run that stopped short is the only one that ends on buttons. A
-              clean one has already left. */}
-          {!!files.length && !busy && !!failedCount && (
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setFiles([]);
-                  setUploadStatus([]);
-                  setUploadErrors([]);
-                }}
-              >
-                Upload more
-              </Button>
-              <Button
-                onClick={() => {
-                  setDialog("");
-                  window.setTimeout(() => {
-                    setFiles([]);
-                    setUploadStatus([]);
-                    setUploadErrors([]);
-                  }, DIALOG_EXIT_MS);
-                }}
-              >
-                Done
-              </Button>
-            </div>
-          )}
         </div>
       </PageDialog>
       <InboxWelcomeDialog
@@ -6095,30 +6580,32 @@ export default function Workspace() {
         title={`Delete ${confirmDelete?.target ?? "this document"}?`}
         onClose={() => setConfirmDelete(null)}
         className="max-w-[460px]"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>
+              Cancel
+            </Button>
+            {/* Filled red: the confirmation is the one place the removal
+                carries full weight. The Delete that opened this dialog is a
+                red ghost, so the colour carries through without shouting. */}
+            <Button
+              isDestructive
+              onClick={() => {
+                confirmDelete?.run();
+                setConfirmDelete(null);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </>
+        }
       >
         <p className={T.value}>
           {confirmDelete?.many
             ? "They are removed from the Inbox. This can’t be undone."
             : "It is removed from the Inbox. This can’t be undone."}
         </p>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setConfirmDelete(null)}>
-            Cancel
-          </Button>
-          {/* Filled red: the confirmation is the one place the removal
-              carries full weight. The Delete that opened this dialog is a
-              red ghost, so the colour carries through without shouting. */}
-          <Button
-            isDestructive
-            onClick={() => {
-              confirmDelete?.run();
-              setConfirmDelete(null);
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
-        </div>
       </PageDialog>
       <PageDialog
         open={dialog === "dashboard"}
@@ -6272,6 +6759,7 @@ export default function Workspace() {
     );
   return (
     <SidebarLayout
+      crumbs={pageCrumbs}
       inboxCount={
         books.filter((x) => !x.created && x.status === "Needs Review").length
       }
@@ -6505,7 +6993,9 @@ const EmptyState = ({
         <InboxIcon className="size-5" aria-hidden />
       </span>
     )}
-    <h1 className="text-[16px] font-medium tracking-[-0.01em] text-pi-ink">{title}</h1>
+    <h1 className="text-[16px] font-medium tracking-[-0.01em] text-pi-ink">
+      {title}
+    </h1>
     {children}
   </div>
 );
@@ -6524,281 +7014,3 @@ const Stat = ({
     </dd>
   </div>
 );
-
-/* -------------------------------------------------------------- review form */
-
-function ReviewForm({
-  item,
-  onEdit,
-  readOnly = false,
-}: {
-  item: Item;
-  onEdit: (p: Partial<Form>) => void;
-  readOnly?: boolean;
-}) {
-  const [mode, setMode] = useState("Item Mode");
-  const f = readOnly ? item.snapshot || item.form : item.form;
-  /**
-   * Every field on this form is a string. `costClassEnabled` is the one member
-   * of `Form` that is not, and it belongs to the journal, which has its own
-   * form now — so it is excluded here rather than special-cased at each cell.
-   */
-  type TextField = Exclude<keyof Omit<Form, "lines">, "costClassEnabled">;
-  const fields: [TextField, string, string][] = [
-    ["gst", "GST Registration", "text"],
-    ["voucherType", "Voucher Type", "text"],
-    ["voucherNo", "Voucher No", "text"],
-    [
-      "invoiceNo",
-      item.route === "AR" ? "Invoice No" : "Supplier Invoice No",
-      "text",
-    ],
-    ["date", item.route === "AR" ? "Invoice Date" : "Bill Date", "date"],
-    ["due", "Due Date", "date"],
-    ["party", item.route === "AR" ? "Customer Name" : "Vendor Name", "text"],
-    ["costClass", "Cost Centre Class", "text"],
-    ["costCentre", "Cost Centre", "text"],
-  ];
-  const editLine = (index: number, patch: Partial<Form["lines"][number]>) =>
-    onEdit({
-      lines: f.lines.map((l, i) => (i === index ? { ...l, ...patch } : l)),
-    });
-  return (
-    <div>
-      {!readOnly && (
-        <div className={cn(band, "px-5 pt-5")}>
-          <Tabs value={mode} onValueChange={setMode}>
-            <TabsList>
-              {["Item Mode", "Accounting Mode"].map((m) => (
-                <TabsTrigger key={m} value={m}>
-                  {m}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
-      )}
-      {/*
-        Panelled and laid out like the sheet's own field cards, so the approved
-        record reads as the same product as the sheet the bill was approved on.
-
-        This form no longer serves the journal. A JV opens
-        components/inbox/journal, which is a port of the Journals prototype's
-        own screen — so everything here is a bill, and the Dr/Cr branches this
-        component used to carry are gone with them.
-      */}
-      <div className="p-5">
-        <FieldCard title="Bill Details">
-          {fields.map(([key, label, type]) => (
-            <Field
-              key={key}
-              htmlFor={`f-${key}`}
-              label={
-                REQUIRED_FIELDS.has(key) ? (
-                  <>
-                    <Req />
-                    {label}
-                  </>
-                ) : (
-                  label
-                )
-              }
-              hint={item.edited.includes(key) ? <EditedMark /> : undefined}
-            >
-              {key === "gst" ? (
-                <Select
-                  value={f[key]}
-                  disabled={readOnly}
-                  onValueChange={(v) => onEdit({ [key]: v })}
-                >
-                  <SelectTrigger id={`f-${key}`} className="h-9">
-                    <SelectValue placeholder="Select registration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      ...new Set(
-                        [f.gst, ...companyOf(item.company)!.branches].filter(
-                          Boolean
-                        )
-                      ),
-                    ].map((v) => (
-                      <SelectItem key={v} value={v}>
-                        {v}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : key === "voucherType" ? (
-                <Select
-                  value={f[key]}
-                  disabled={readOnly}
-                  onValueChange={(v) => onEdit({ [key]: v })}
-                >
-                  <SelectTrigger id={`f-${key}`} className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      ...new Set(
-                        [...voucherTypes, "Sales", f.voucherType].filter(
-                          Boolean
-                        )
-                      ),
-                    ].map((v) => (
-                      <SelectItem key={v} value={v}>
-                        {v}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : type === "date" ? (
-                <DateField
-                  id={`f-${key}`}
-                  value={f[key]}
-                  disabled={readOnly}
-                  onChange={(iso) => onEdit({ [key]: iso })}
-                />
-              ) : (
-                <Input
-                  id={`f-${key}`}
-                  type={type}
-                  readOnly={readOnly}
-                  value={f[key]}
-                  onChange={(e) => onEdit({ [key]: e.target.value })}
-                />
-              )}
-            </Field>
-          ))}
-        </FieldCard>
-      </div>
-      {/* On the sheet's ground too, so the lines read as a section of the same
-          form rather than a table dropped below it. */}
-      <div className="px-5 pb-5">
-        <section className="space-y-4 rounded-md bg-section p-5">
-          <h2 className={T.section}>
-            {mode === "Accounting Mode" ? "Accounting entries" : "Line items"}
-          </h2>
-          <div className="overflow-x-auto rounded-md border border-neutral-gray bg-background">
-            <Table>
-              <TableHeader className="bg-section">
-                <TableRow>
-                  <TableHead className="text-xs font-medium">Ledger</TableHead>
-                  <TableHead className="text-xs font-medium">
-                    Description
-                  </TableHead>
-                  <TableHead className="text-xs font-medium">Amount</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {f.lines.map((l, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <Input
-                        aria-label={`Ledger ${i + 1}`}
-                        list="ledgers"
-                        value={l.ledger}
-                        readOnly={readOnly}
-                        onChange={(e) =>
-                          editLine(i, { ledger: e.target.value })
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        aria-label={`Description ${i + 1}`}
-                        value={l.description}
-                        readOnly={readOnly}
-                        onChange={(e) =>
-                          editLine(i, { description: e.target.value })
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="w-[110px]">
-                        <Input
-                          aria-label={`Amount ${i + 1}`}
-                          type="number"
-                          min="0"
-                          step=".01"
-                          className="truncate text-right tabular-nums"
-                          value={l.amount}
-                          readOnly={readOnly}
-                          onChange={(e) =>
-                            editLine(i, { amount: Number(e.target.value) })
-                          }
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {!readOnly && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Remove line ${i + 1}`}
-                          // Grey until hovered: a red icon on every row would
-                          // be the loudest thing in the table.
-                          className="text-secondary-foreground hover:bg-destructive hover:text-destructive-foreground"
-                          onClick={() =>
-                            onEdit({ lines: f.lines.filter((_, n) => n !== i) })
-                          }
-                        >
-                          ×
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <datalist id="ledgers">
-            {ledgerOptions.map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </datalist>
-          {!readOnly && (
-            <Button
-              variant="secondary"
-              onClick={() =>
-                onEdit({
-                  lines: [
-                    ...f.lines,
-                    {
-                      description: "",
-                      ledger: "",
-                      amount: 0,
-                      dr: 0,
-                      cr: 0,
-                      costCentre: "",
-                    },
-                  ],
-                })
-              }
-            >
-              Add line
-            </Button>
-          )}
-          <p className="text-right text-sm font-semibold tabular-nums text-foreground">
-            Total {money(f.lines.reduce((s, l) => s + l.amount, 0))}
-          </p>
-          <Field
-            label="Narration"
-            htmlFor="f-narration"
-            hint={
-              item.edited.includes("narration") ? <EditedMark /> : undefined
-            }
-          >
-            <Textarea
-              id="f-narration"
-              rows={3}
-              readOnly={readOnly}
-              value={f.narration}
-              onChange={(e) => onEdit({ narration: e.target.value })}
-            />
-          </Field>
-        </section>
-      </div>
-    </div>
-  );
-}

@@ -151,6 +151,7 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .card.cr-form {
   outline: 2px solid var(--pi-brand);
   outline-offset: 2px;
   border-radius: 4px;
+  box-shadow: none;
 }
 
 /* ── voucher details ────────────────────────────────────────────────────── */
@@ -352,6 +353,7 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-pending {
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-host:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: 2px;
+  box-shadow: none;
 }
 
 /* ── items ──────────────────────────────────────────────────────────────── */
@@ -461,7 +463,10 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-ledger {
   width: 168px;
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-centre {
-  width: 152px;
+  width: 184px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-godown {
+  width: 168px;
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table col.c-act {
   width: 40px;
@@ -525,10 +530,18 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table th.cr-act {
   background: var(--pi-head-bg);
 }
 /* an edge shadow says columns are scrolled under the frozen ones */
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid[data-l="true"] .cr-table .cr-idx {
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-grid[data-l="true"]
+  .cr-table
+  .cr-idx {
   box-shadow: 6px 0 6px -6px rgb(15 23 42 / 0.18);
 }
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-grid[data-r="true"] .cr-table .cr-amt {
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-grid[data-r="true"]
+  .cr-table
+  .cr-amt {
   box-shadow: -6px 0 6px -6px rgb(15 23 42 / 0.18);
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-more {
@@ -549,8 +562,13 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-more:hover {
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-more:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: 1px;
+  box-shadow: none;
 }
-html :is(.ap-sheet, .ar-sheet) .cr-table tr:not(:hover):not(:focus-within) .cr-more {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  tr:not(:hover):not(:focus-within)
+  .cr-more {
   opacity: 0;
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-book {
@@ -673,6 +691,7 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-item:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: 2px;
   border-radius: 4px;
+  box-shadow: none;
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-desc:has(small) .cr-item {
   min-height: 0;
@@ -739,13 +758,19 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-cc {
   background: transparent;
   box-shadow: none;
 }
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-cc .cell__select:has(option[value=""]:checked) {
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-table
+  .cell.cr-cc
+  .cell__select:has(option[value=""]:checked) {
   color: var(--pi-faint);
 }
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cr-pick .fieldplus {
-  margin-left: auto;
-}
-html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-pick [data-cr-item]::placeholder {
+
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell.cr-pick
+  [data-cr-item]::placeholder {
   color: var(--pi-faint);
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cr-pick:focus-within,
@@ -769,7 +794,12 @@ html
   :is(.cell__input, .cell__select) {
   color: var(--pi-warning);
 }
-html :is(.ap-sheet, .ar-sheet) .cr-table td[data-unresolved="true"] .cr-pick .cell__input::placeholder {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  td[data-unresolved="true"]
+  .cr-pick
+  .cell__input::placeholder {
   color: var(--pi-warning);
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-table .cell.cell--new {
@@ -820,7 +850,7 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-items-total strong {
 }
 /* Expand: the table in its own dialog (#cr-sheet-items) */
 html :is(.ap-sheet, .ar-sheet, .jv-form) dialog.cr-sheet.cr-sheet--wide {
-  width: min(1160px, calc(100vw - 48px));
+  width: min(1320px, calc(100vw - 48px));
   max-width: none;
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-sheet--wide .cr-table {
@@ -856,17 +886,28 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals:hover {
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: 2px;
+  box-shadow: none;
 }
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span {
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-totals
+  > :is(span, .cr-totals-cell) {
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding: 16px 20px;
 }
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span + span {
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-totals
+  > :is(span, .cr-totals-cell)
+  + :is(span, .cr-totals-cell) {
   border-left: 1px solid var(--pi-line);
 }
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span:last-child {
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-totals
+  > :is(span, .cr-totals-cell):last-child {
   align-items: flex-end;
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals small {
@@ -880,7 +921,11 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals b {
   color: var(--pi-ink);
   font-variant-numeric: tabular-nums;
 }
-html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span:last-child b {
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-totals
+  > :is(span, .cr-totals-cell):last-child
+  b {
   font-size: 22px;
   font-weight: 600;
 }
@@ -1317,11 +1362,18 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) :is(.predbtn, .fieldplus):hover {
   html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals {
     grid-template-columns: 1fr;
   }
-  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span + span {
+  html
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-totals
+    > :is(span, .cr-totals-cell)
+    + :is(span, .cr-totals-cell) {
     border-left: 0;
     border-top: 1px solid var(--pi-line);
   }
-  html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-totals > span:last-child {
+  html
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-totals
+    > :is(span, .cr-totals-cell):last-child {
     align-items: flex-start;
   }
 }
@@ -1527,7 +1579,7 @@ html .jv-sheet.cr-sheet {
   transform: translate(-50%, -50%);
 }
 html .jv-sheet.cr-sheet.cr-sheet--wide {
-  width: min(1160px, calc(100vw - 48px));
+  width: min(1320px, calc(100vw - 48px));
 }
 html .jv-sheet .jv-lines .cr-items-head {
   display: none;
@@ -1610,6 +1662,7 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link:hover {
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-foot-link:focus-visible {
   outline: 2px solid var(--pi-brand);
   outline-offset: -2px;
+  box-shadow: none;
 }
 html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-card {
   overflow: hidden;
@@ -1634,7 +1687,8 @@ html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-card {
   margin-right: 8px;
 }
 /* a select's caret is its background image */
-html :is(.ap-sheet, .ar-sheet, .jv-form)
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
   .cr-row:not(:hover):not(:focus-within)
   .cr-row-value
   select {
@@ -1649,14 +1703,34 @@ html :is(.ap-sheet, .ar-sheet) .cr-table .cr-item:focus-visible > svg {
 }
 /* tables: a row's controls (carets, the bin, the allocation pill) appear
    with the row — at rest a table is its values */
-html :is(.ap-sheet, .ar-sheet) .cr-table tr:not(:hover):not(:focus-within) select {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  tr:not(:hover):not(:focus-within)
+  select {
   background-image: none;
 }
-html :is(.ap-sheet, .ar-sheet) .cr-table tr:not(:hover):not(:focus-within) .cellcaret {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  tr:not(:hover):not(:focus-within)
+  .cellcaret {
   opacity: 0;
 }
-html .jv-form .jv-lines tbody tr:not(:hover):not(:focus-within) .jv-cell-trigger svg,
-html .jv-form .jv-lines tbody tr:not(:hover):not(:focus-within) td:last-child button {
+html
+  .jv-form
+  .jv-lines
+  tbody
+  tr:not(:hover):not(:focus-within)
+  .jv-cell-trigger
+  svg,
+html
+  .jv-form
+  .jv-lines
+  tbody
+  tr:not(:hover):not(:focus-within)
+  td:last-child
+  button {
   opacity: 0;
 }
 html .jv-form .jv-lines td:nth-child(5) button {
@@ -1673,7 +1747,14 @@ html .jv-form .jv-lines td:nth-child(5) button:hover {
   border-color: var(--pi-line-2);
   color: var(--pi-ink);
 }
-html .jv-form .jv-lines tbody tr:not(:hover):not(:focus-within) td:nth-child(5) button svg {
+html
+  .jv-form
+  .jv-lines
+  tbody
+  tr:not(:hover):not(:focus-within)
+  td:nth-child(5)
+  button
+  svg {
   opacity: 0;
 }
 html .jv-form .jv-lines td:nth-child(5) button {
@@ -1720,7 +1801,11 @@ html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn .cell__input {
   color: var(--pi-body);
   font-variant-numeric: tabular-nums;
 }
-html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn .cell__input::placeholder {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell.cr-hsn
+  .cell__input::placeholder {
   color: var(--pi-faint);
 }
 html :is(.ap-sheet, .ar-sheet) .cr-table .cell.cr-hsn .cell__input.is-pred {
@@ -1754,36 +1839,63 @@ html :is(.ap-sheet, .ar-sheet) .cselp__opt.cselp__create.is-off {
   color: var(--pi-faint);
 }
 /* the cell draws the focus ring; the input inside it does not draw a second */
-html :is(.ap-sheet, .ar-sheet) .cr-table .cell :is(.cell__input, .cell__select, .cellcaret):focus,
-html :is(.ap-sheet, .ar-sheet) .cr-table .cell :is(.cell__input, .cell__select, .cellcaret):focus-visible {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell
+  :is(.cell__input, .cell__select, .cellcaret):focus,
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell
+  :is(.cell__input, .cell__select, .cellcaret):focus-visible {
   outline: none;
   box-shadow: none;
   border-color: transparent;
 }
 html :is(.ap-sheet, .ar-sheet) .cr-table .cell.is-open,
-html :is(.ap-sheet, .ar-sheet) .cr-table .cell :is(.cell__input, .cellcaret).is-open {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell
+  :is(.cell__input, .cellcaret).is-open {
   outline: none;
   box-shadow: none;
 }
 /* every editable cell in a pointed-at row shows its edge, the same way */
-html :is(.ap-sheet, .ar-sheet) .cr-tr:hover .cell:is(.cr-pick, .cr-cc):not(:focus-within):not(.is-disabled) {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tr:hover
+  .cell:is(.cr-pick, .cr-cc):not(:focus-within):not(.is-disabled) {
   box-shadow: inset 0 0 0 1px var(--pi-line-2);
 }
 /* On a tinted row (hovered or ticked) the fields sit on the surface colour,
    so they read as fields rather than outlines over the tint. */
-html :is(.ap-sheet, .ar-sheet) .cr-tr:is(:hover, .is-selected, :focus-within) .cell:is(.cr-pick, .cr-cc, .cr-hsn):not(.is-disabled),
-html :is(.ap-sheet, .ar-sheet) .cr-tr:is(:hover, .is-selected, :focus-within) .cr-in {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tr:is(:hover, .is-selected, :focus-within)
+  .cell:is(.cr-pick, .cr-cc, .cr-hsn):not(.is-disabled),
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tr:is(:hover, .is-selected, :focus-within)
+  .cr-in {
   background: var(--pi-surface-panel);
   box-shadow: inset 0 0 0 1px var(--pi-line-2);
 }
-html :is(.ap-sheet, .ar-sheet) .cr-tr .cell:is(.cr-pick, .cr-cc, .cr-hsn):focus-within,
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tr
+  .cell:is(.cr-pick, .cr-cc, .cr-hsn):focus-within,
 html :is(.ap-sheet, .ar-sheet) .cr-tr .cr-in:focus {
   background: var(--pi-surface-panel);
   box-shadow: inset 0 0 0 1.5px var(--pi-brand);
 }
 /* `html .ap-sheet input` sets every input transparent !important (sheet-bridge),
    so the table's own fields have to answer in kind */
-html :is(.ap-sheet, .ar-sheet) .cr-tr:is(:hover, .is-selected, :focus-within) .cr-in {
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tr:is(:hover, .is-selected, :focus-within)
+  .cr-in {
   background: var(--pi-surface-panel) !important;
 }
 
@@ -1830,6 +1942,12 @@ html body .ap-sheet .workspace {
 html body .ap-sheet .form {
   margin: -20px -20px -20px 0;
 }
+/* No document (a hand-raised voucher): the form's left edge is the page's,
+   so it bleeds over the workspace's left padding too. Without this the 20px
+   kept for the preview side showed as a grey strip down the left. */
+html body .ap-sheet.ap-sheet--no-doc .form {
+  margin-left: -20px;
+}
 html body .ap-sheet .splitter {
   flex: 0 0 12px;
   z-index: 2;
@@ -1842,7 +1960,9 @@ html body .ap-sheet .splitter::before {
   width: 1px;
   border-radius: 0;
   background: var(--pi-line);
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 html body .ap-sheet .splitter::after {
   width: 4px;
@@ -1850,7 +1970,9 @@ html body .ap-sheet .splitter::after {
   border-radius: 99px;
   background-color: var(--pi-line-strong);
   background-image: none;
-  transition: height 0.15s ease, background-color 0.15s ease;
+  transition:
+    height 0.15s ease,
+    background-color 0.15s ease;
 }
 html body .ap-sheet .splitter:hover::before,
 html body .ap-sheet .splitter:focus-visible::before,
@@ -1873,4 +1995,3226 @@ html body .ar-sheet .workspace {
 }
 html body .ar-sheet .form {
   flex: 1 1 auto;
+}
+
+/* ── section cards (Oct 2026) ───────────────────────────────────────────────
+   The bill and the invoice read as stacked cards — Voucher, Vendor/Customer,
+   Accounting, Shipping & delivery — each a head that folds it to a one-line
+   summary, and a body of the usual label rows. Optional fields from Customise
+   fields are drawn by the engine into each card's .xf-slot, and are laid out
+   here as rows of the same grid. */
+html :is(.ap-sheet, .ar-sheet) .cr-section-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-customise {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-customise:hover {
+  border-color: var(--pi-line-strong);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-customise .ico {
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card[hidden] {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 20px 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+  text-align: left;
+  cursor: pointer;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-head:hover {
+  background: var(--pi-row-hover);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-head:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-title {
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pi-ink);
+}
+/* the summary only reads while the card is folded; open, the rows say it */
+html :is(.ap-sheet, .ar-sheet) .cr-card-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--pi-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  visibility: hidden;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card[data-collapsed] .cr-card-summary {
+  visibility: visible;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-head > svg {
+  flex: none;
+  color: var(--pi-faint);
+  transform: rotate(90deg);
+  transition: transform 150ms ease;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card[data-collapsed] .cr-card-head > svg {
+  transform: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card[data-collapsed] .cr-card-head {
+  border-bottom: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card[data-collapsed] .cr-card-body {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-body > .cr-row:last-child,
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-card-body
+  > .xf-slot:last-child
+  > .field:last-child {
+  border-bottom: 0;
+}
+/* the cost centre row holds a switch and a picker side by side */
+html :is(.ap-sheet, .ar-sheet) .cr-row--cc .cr-row-value > .card__group {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-row--cc .card__group > .t-label {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-row--cc .switch-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-row--cc .switch-row .t-label {
+  display: block;
+  margin: 0;
+  font-size: 13px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-row--cc .card__group > .control {
+  flex: 1;
+  min-width: 180px;
+}
+/* optional fields, as rows of the card */
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot {
+  display: contents;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field {
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr) 7px;
+  align-items: center;
+  gap: 4px 16px;
+  min-height: 48px;
+  margin: 0;
+  padding: 4px 20px 4px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--pi-line);
+  border-radius: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field > .t-label {
+  grid-column: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field > .control {
+  grid-column: 2;
+  width: calc(100% + 12px);
+  height: auto;
+  min-height: 32px;
+  margin-left: -12px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field > .control:hover {
+  border-color: var(--pi-line-2);
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-card
+  .xf-slot
+  > .field
+  > .control:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field .t-value {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field textarea {
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  resize: vertical;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field > .field__error {
+  grid-column: 2;
+  margin: 0;
+  font-size: 12px;
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-card
+  .xf-slot
+  > .field
+  > .field__error:empty {
+  display: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-card
+  .xf-slot
+  > .field.is-invalid
+  > .control {
+  border-color: var(--pi-danger);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .cr-row-value > .narration {
+  align-items: stretch;
+  padding: 6px 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .cr-row-value > .narration textarea {
+  width: 100%;
+  max-width: none;
+  min-height: 56px;
+}
+/* a group of fields behind one row: its values, and Edit to open them */
+html :is(.ap-sheet, .ar-sheet) .cr-summary,
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field > .xf-summary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% + 12px);
+  min-width: 0;
+  height: 32px;
+  margin-left: -12px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-summary:hover,
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-slot > .field > .xf-summary:hover {
+  border-color: var(--pi-line-2);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-summary:focus-visible,
+html :is(.ap-sheet, .ar-sheet) .xf-summary:focus-visible {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+  outline: none;
+}
+html :is(.ap-sheet, .ar-sheet) :is(.cr-summary-text, .xf-summary__text) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  color: var(--pi-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  :is(.cr-summary-text, .xf-summary__text).is-empty {
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet) :is(.cr-summary-act, .xf-summary__act) {
+  flex: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-brand);
+}
+/* the card head is a row: the fold toggle, then any tools (Customise fields
+   on Additional details) — a button cannot hold another button */
+html :is(.ap-sheet, .ar-sheet) .cr-card-headrow {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-headrow > .cr-card-head {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+  background: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-headrow:hover {
+  background: var(--pi-row-hover);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card[data-collapsed] .cr-card-headrow {
+  border-bottom: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card-headrow > .cr-customise {
+  flex: none;
+  height: 28px;
+  margin-right: 12px;
+  padding: 0 10px;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-card .xf-empty {
+  margin: 0;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-row-value .xf-tax-note {
+  color: var(--pi-warning);
+}
+
+/* ── compact grid (Oct 2026) ────────────────────────────────────────────────
+   One bordered block of sections (Voucher, Vendor/Customer, Accounting,
+   Additional details); each an overline and a three-column grid, label
+   above a real field. Scoped to .cr-cards so the journal is untouched.
+
+   The rules it follows, after the user's "this looks pathetic" review:
+   - every editable value is a field box — one affordance, not three
+     (bare text, a dashed vendor box, a bordered narration)
+   - label to its own field (4px) is tighter than field to field (16px), so
+     each pair reads as one thing
+   - required is the norm, so it is not marked; the few optional fields say
+     "Optional" (the * stays in the DOM: BillReview reads it)
+   - a status dot sits beside its label, not at the far edge of the cell
+   - identifiers (voucher no., invoice no., GSTIN) are set in Plex Mono, the
+     ledger's own register for codes */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-surface-panel);
+  box-shadow: var(--shadow-contact);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards > .cr-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards > .cr-card + .cr-card {
+  border-top: 1px solid var(--pi-line);
+}
+/* section head: overline, its open count, any tool on the right */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-headrow {
+  border: 0;
+  background: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-headrow:hover {
+  background: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-head {
+  gap: 8px;
+  min-height: 0;
+  padding: 16px 20px 0;
+  cursor: default;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-head:hover {
+  background: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-head .cr-pending {
+  min-width: 0;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 16px;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card-head
+  .cr-pending:not(:empty)::after {
+  content: " open";
+}
+/* Customise fields: a quiet tool, not a second primary */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card-headrow
+  > .cr-customise {
+  height: 28px;
+  margin: 12px 12px 0 0;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card-headrow
+  > .cr-customise:hover {
+  background: var(--pi-fill);
+  color: var(--pi-ink);
+}
+/* the grid */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-card-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 16px;
+  padding: 12px 20px 20px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row {
+  position: static;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-areas: "label status" "value value";
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-label {
+  grid-area: label;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--pi-body);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-label i {
+  display: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-label:not(:has(i))::after {
+  content: "Optional";
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row .cr-status {
+  position: static;
+  grid-area: status;
+  justify-self: start;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value {
+  grid-area: value;
+  min-height: 0;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row:is([data-check="branch"], [data-check="billingAddress"]) {
+  grid-column: 1 / -1;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row:is([data-check="vendor"], [data-check="customer"]) {
+  grid-column: span 2;
+}
+/* cost centre takes one column and narration the other two, side by side */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row[data-check="narration"] {
+  grid-column: span 2;
+}
+/* every value is a field box */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .picker__state {
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  margin-left: 0;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value .control:hover,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .picker__state:hover {
+  border-color: var(--pi-line-strong);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .control:focus-within,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .picker__state:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+/* read off the master: shown as a field, but a quieter one */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .control:has(input[readonly]) {
+  background: var(--pi-head-bg);
+}
+/* a party the book does not hold yet keeps its proposal styling */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .control.control--offer {
+  border-style: dashed;
+  border-color: var(--pi-teal-strong, var(--pi-line-strong));
+  background: var(--pi-teal-tint, var(--pi-surface-panel));
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .field.is-invalid
+  .control {
+  border-color: var(--pi-danger);
+}
+/* a box always shows what it opens */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row:not(:hover):not(:focus-within)
+  .cr-row-value
+  .control
+  > :is(.ico, .pencil),
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row:not(:hover):not(:focus-within)
+  .cr-row-value
+  .picker
+  svg {
+  opacity: 0.6;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  .control
+  .t-value {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+/* identifiers in the ledger's code face */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row:is(
+    [data-check="voucherNo"],
+    [data-check="supplierInvoiceNo"],
+    [data-check="customerPoNo"],
+    [data-check="gstin"]
+  )
+  .t-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+/* cost centre: the switch on its own line, the picker a full field below */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row--cc
+  .cr-row-value
+  > .card__group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row--cc .switch-row {
+  gap: 8px;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row--cc
+  .switch-row
+  .t-label {
+  font-size: 12px;
+  line-height: 16px;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row--cc
+  .card__group
+  > .control {
+  min-width: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row-value > .narration {
+  padding: 0;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration
+  textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--pi-ink);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration
+  textarea:focus {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+/* additional details: each group a cell of the same grid — its name above a
+   field showing what it holds, Edit on the right; an empty one is a dashed
+   field offering "+ Add" */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-slot > .field.xf-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group[data-xgroup-row="consignee"] {
+  grid-column: span 2;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group
+  > .t-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--pi-body);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group
+  > .xf-summary {
+  width: 100%;
+  max-width: none;
+  height: 36px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group
+  > .xf-summary:hover {
+  border-color: var(--pi-line-strong);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-group .xf-summary__text {
+  font-size: 14px;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-group .xf-summary__act {
+  font-size: 13px;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-group:has(.xf-summary__text.is-empty)
+  > .xf-summary {
+  justify-content: flex-start;
+  border-style: dashed;
+  background: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-group:has(.xf-summary__text.is-empty)
+  .xf-summary__text {
+  display: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-group.is-invalid
+  > .xf-summary {
+  border-color: var(--pi-danger);
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .xf-group > .field__error {
+  margin: 0;
+  font-size: 12px;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-group
+  > .field__error:empty {
+  display: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="additional"]
+  .xf-empty {
+  grid-column: 1 / -1;
+  padding: 0;
+}
+/* a dropdown always shows its caret — the form is boxes now, and a box that
+   opens a list has to say so at rest, not only on hover */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  select.control__select,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row:not(:hover):not(:focus-within)
+  .cr-row-value
+  select.control__select {
+  background-image: var(--chevron);
+  background-repeat: no-repeat;
+  background-position: right center;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group
+  > .xf-summary {
+  min-height: 36px;
+}
+/* narration sits beside the cost centre: the same height as its picker row */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .narration
+  textarea {
+  min-height: 64px;
+}
+/* the code face is for the code, not the prompt in front of an empty one */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row:is(
+    [data-check="voucherNo"],
+    [data-check="supplierInvoiceNo"],
+    [data-check="customerPoNo"],
+    [data-check="gstin"]
+  )
+  .t-value::placeholder {
+  font-family: var(--font);
+  font-size: 14px;
+}
+
+/* ── symmetry pass (Oct 2026) ───────────────────────────────────────────────
+   Every row of the grid is filled edge to edge, and every field in a row
+   starts and ends on the same lines:
+   - cost centre's switch moves up onto its label line, so its picker is a
+     36px box level with the narration beside it, and narration is one line
+     that grows as it is typed into
+   - with a stock line on the bill, the ledger, cost centre and narration are
+     three equal columns; without one, cost centre takes one and narration two
+   - additional details lay out by how many groups are on: four make a 2×2,
+     two make two halves, one or three make equal thirds — never a lone cell
+     beside two empty ones */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row--cc {
+  position: relative;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-cards .cr-row--cc .switch-row {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 16px;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row--cc
+  .switch-row
+  .switch {
+  transform: scale(0.8);
+  transform-origin: center;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row--cc
+  .cr-row-value
+  > .card__group {
+  gap: 0;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .narration
+  textarea,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration
+  textarea {
+  height: 36px;
+  min-height: 36px;
+  padding: 7px 12px;
+  field-sizing: content;
+  max-height: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration
+  textarea:focus {
+  white-space: normal;
+  overflow: auto;
+}
+/* a stock line brings the ledger: three equal columns */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="accounting"]:has(
+    .cr-row:is([data-check="purchaseLedger"], [data-check="salesLedger"]):not(
+        [hidden]
+      )
+  )
+  .cr-row[data-check="narration"] {
+  grid-column: span 1;
+}
+/* additional details: the grid follows the count */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="additional"]
+  .cr-card-body {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group[data-xgroup-row="consignee"] {
+  grid-column: auto;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="additional"]:has(.xf-group:nth-child(4))
+  .cr-card-body,
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="additional"]:has(.xf-group:nth-child(2)):not(
+    :has(.xf-group:nth-child(3))
+  )
+  .cr-card-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* the switch shares the cost centre's label line, so that line carries no
+   "Optional" tag — an empty picker already says nothing is allocated */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row--cc
+  .cr-row-label::after {
+  content: none;
+}
+
+/* ── priority form (6 Oct 2026) ─────────────────────────────────────────────
+   One card, one grid. The five fields read off the bill come first; the rest
+   sit under More details, which expands in place. `order` lays it out so no
+   engine node moves:
+     0   the five (party, document no., document date, voucher date, due date)
+     1   a hidden field that turned open or wrong ([data-surfaced], set by
+         BillReview), and an optional group with an error
+     10  the More details toggle
+     20+ each group's head (n0) and its fields (n1) */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="main"]
+  > .cr-card-headrow {
+  display: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="main"]
+  > .cr-card-body {
+  padding-top: 0;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-card[data-card="main"] .xf-slot {
+  display: contents;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-toggle {
+  order: 10;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  [data-group="voucher"] {
+  order: 21;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  [data-group="party"] {
+  order: 31;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  [data-group="accounting"] {
+  order: 41;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .xf-slot
+  > * {
+  order: 51;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-subhead[data-group="voucher"] {
+  order: 20;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-subhead[data-group="party"] {
+  order: 30;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-subhead[data-group="accounting"] {
+  order: 40;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-subhead[data-group="additional"] {
+  order: 50;
+}
+/* Lifted above the toggle only while More details is shut — that is the
+   whole point of surfacing, so a hidden field never hides a problem. Once it
+   is open every field is back in its own section (7 Oct 2026, user: invalid
+   Order references and Receipt & dispatch were sitting under Vendor with
+   their Additional details heading further down). */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]:not([data-more-open])
+  .cr-more-row[data-surfaced],
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]:not([data-more-open])
+  .xf-slot
+  > .is-invalid {
+  order: 1;
+}
+/* collapsed: only the five, whatever surfaced, and the toggle */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]:not([data-more-open])
+  :is(
+    .cr-subhead:not(.cr-subhead--main),
+    .cr-more-row:not([data-surfaced]),
+    .xf-slot > :not(.is-invalid)
+  ) {
+  display: none;
+}
+
+/* the first section's head opens the card: no rule above it */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-subhead--main:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+/* the toggle: a full-width row, quiet, with what it holds on its face */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 40px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line);
+  border-radius: 6px;
+  background: var(--pi-head-bg);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--pi-body);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-toggle:hover {
+  border-color: var(--pi-line-2);
+  background: var(--pi-fill);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-toggle:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-toggle
+  > svg {
+  flex: none;
+  color: var(--pi-faint);
+  transition: transform 160ms ease;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"][data-more-open]
+  .cr-more-toggle
+  > svg {
+  transform: rotate(90deg);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-label {
+  flex: none;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--pi-faint);
+}
+/* open, the summary repeats what is now on screen */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"][data-more-open]
+  .cr-more-summary {
+  display: none;
+}
+
+/* group heads inside More details: the old section titles, with their rule */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-subhead {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pi-line);
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-toggle
+  + .cr-subhead {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 0;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-subhead
+  > .cr-customise {
+  margin: 0;
+}
+
+/* spans inside More details, so each group fills its rows:
+   voucher type · voucher no. · GST registration
+   GST treatment · GSTIN · source / destination · billing address (two) */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-row[data-check="branch"] {
+  grid-column: auto;
+}
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]
+  .cr-more-row[data-check="billingAddress"] {
+  grid-column: span 2;
+}
+/* a stock line brings the ledger: ledger, cost centre and narration in thirds */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]:has(
+    .cr-row:is([data-check="purchaseLedger"], [data-check="salesLedger"]):not(
+        [hidden]
+      )
+  )
+  .cr-row[data-check="narration"] {
+  grid-column: span 1;
+}
+/* a surfaced field sits in one column beside the five */
+html
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-card[data-card="main"]:not([data-more-open])
+  .cr-more-row[data-surfaced] {
+  grid-column: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-card[data-card="main"]
+    .cr-more-toggle,
+  html
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-card[data-card="main"]
+    .cr-more-toggle
+    > svg {
+    transition: none;
+  }
+}
+
+/* ── journal on the bill's grid (6 Oct 2026) ────────────────────────────────
+   The user asked for the AP form's changes on every form. The journal's
+   voucher card now carries the bill's markup (main card, cr-row with
+   data-check, cr-more-toggle, cr-subhead), so the grid, More details and the
+   review palette above apply as they are. What differs is the controls: the
+   journal's are shadcn's, not the engine's .control, so they get the bill's
+   38px box here — bordered at rest, caret showing, brand on focus. */
+html .jv-form .cr-cards .jv-row-control > :is(button, input, textarea),
+html .jv-form .cr-cards .jv-cc > button {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  margin-left: 0;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+  font-size: 13px;
+  color: var(--pi-ink);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+/* the Input sits inside its own wrapper, so it is not a direct child */
+html .jv-form .cr-cards .jv-row-control input[data-slot="input"] {
+  width: 100%;
+  height: 38px;
+  margin-left: 0;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  font-size: 13px;
+}
+html
+  .jv-form
+  .cr-cards
+  .jv-row-control
+  input[data-slot="input"]:hover:not([readonly]) {
+  border-color: var(--pi-brand-border, var(--pi-line-strong));
+}
+html .jv-form .cr-cards .jv-row-control input[data-slot="input"]:focus-visible {
+  border-color: var(--pi-brand-vivid, var(--pi-brand));
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html
+  .jv-form
+  .cr-cards
+  .jv-row-control
+  > :is(button, input, textarea):hover:not(:disabled):not([readonly]),
+html .jv-form .cr-cards .jv-cc > button:hover:not(:disabled) {
+  border-color: var(--pi-brand-border, var(--pi-line-strong));
+}
+html
+  .jv-form
+  .cr-cards
+  .jv-row-control
+  > :is(button, input, textarea):focus-visible,
+html .jv-form .cr-cards .jv-row-control > button[data-state="open"],
+html
+  .jv-form
+  .cr-cards
+  .jv-cc
+  > button:is(:focus-visible, [data-state="open"]) {
+  border-color: var(--pi-brand-vivid, var(--pi-brand));
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+  outline: none;
+}
+/* a box that opens a list or a calendar says so at rest */
+html
+  .jv-form
+  .cr-cards
+  .jv-row-control
+  > button:not(:hover):not(:focus-visible):not([data-state="open"])
+  svg,
+html .jv-form .cr-cards .jv-cc > button svg {
+  opacity: 0.6;
+}
+/* the last totals cell is the difference here: brand while it balances,
+   the error colour while it does not */
+html .jv-form .cr-totals > span[data-tone="err"]:last-child b {
+  color: var(--pi-danger);
+}
+/* narration: one line at rest, growing as it is typed */
+html .jv-form .cr-cards .jv-row-control > textarea {
+  display: block;
+  padding: 8px 12px;
+  line-height: 20px;
+  resize: none;
+  field-sizing: content;
+  max-height: 160px;
+}
+html .jv-form .cr-cards .cr-row[data-check="narration"] {
+  grid-column: 1 / -1;
+}
+/* header cost centre: one picker across the card */
+html .jv-form .cr-cards .cr-row.jv-row--cc {
+  position: relative;
+  grid-column: 1 / -1;
+}
+html .jv-form .cr-cards .jv-row-control > .jv-cc {
+  display: block;
+}
+/* the edited note sits under its box */
+html .jv-form .cr-cards .jv-row-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html .jv-form .cr-cards .jv-row-control > :is(button, input, textarea),
+  html .jv-form .cr-cards .jv-cc > button {
+    transition: none;
+  }
+}
+
+/* ── voucher type as the header (6 Oct 2026) ────────────────────────────────
+   The user: voucher type is a header-level choice, so it replaces "Bill
+   details" and must not look like the fields below it. */
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label {
+  align-items: flex-end;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-type {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: 60%;
+}
+html :is(.ap-sheet, .ar-sheet, .jv-form) .cr-type-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pi-faint);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-section-label .cr-type .field {
+  display: block;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-type .field > :is(.t-label, .field__error) {
+  display: none;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-section-label .cr-type .control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  width: auto;
+  height: 40px;
+  min-height: 0;
+  margin: 0 0 0 -8px;
+  padding: 0 36px 0 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent var(--chevron) no-repeat right 10px center;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+html :is(.ap-sheet, .ar-sheet) .cr-section-label .cr-type .control:hover {
+  background-color: var(--pi-fill);
+}
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-section-label
+  .cr-type
+  .control:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-type-value {
+  flex: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 38px;
+  letter-spacing: -0.02em;
+  color: var(--pi-ink);
+}
+/* the real select: over the title, invisible, still clicked and focused */
+html
+  :is(.ap-sheet, .ar-sheet)
+  .cr-section-label
+  .cr-type
+  select.control__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* the journal's voucher type: shadcn's trigger, set as the bill's title */
+html .jv-form .cr-type .cr-type-trigger {
+  width: auto;
+  height: 40px;
+  margin-left: -8px;
+  padding: 0 10px 0 8px;
+  gap: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+  color: var(--pi-ink);
+}
+html .jv-form .cr-type .cr-type-trigger:hover:not(:disabled) {
+  background: var(--pi-fill);
+}
+html
+  .jv-form
+  .cr-type
+  .cr-type-trigger:is(:focus-visible, [data-state="open"]) {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+  outline: none;
+}
+html .jv-form .cr-type .cr-type-trigger svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.6;
+}
+/* narration shares the second row: one line at rest, the rest on focus */
+html .jv-form .cr-cards .cr-row[data-check="narration"] {
+  grid-column: auto;
+}
+html .jv-form .cr-cards .cr-row[data-check="narration"] textarea:not(:focus) {
+  height: 38px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ── review form refinements (6 Oct 2026, evening) ─────────────────────────
+   From the user's review of the priority form:
+   - the voucher type header took too much room: its label now sits beside
+     the picker on one line, at the h3 rung (18/28), still drawn as a title
+     (no box until hovered) so it never reads as one more field
+   - the header sits closer to the first section
+   - Vendor/Customer lacked symmetry with the party over two thirds and the
+     address cut short, then took three rows: the main card is a twelve-track
+     grid. Voucher stays in thirds; the party section is two rows — party and
+     billing address 5:7 (the name and the address both read in full), then
+     GST treatment, source and destination in thirds
+   - a value off the master (voucher no., billing address) no longer gets a
+     grey fill; the pencil says it is locked
+   - the cost centre's Class/Centre switch is gone: one picker (see
+     review-layout.ts), so its label carries "Optional" like any other
+   `html body` outranks bill-refinement.css, which loads after this file. */
+html body :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label {
+  align-items: center;
+  margin-bottom: 16px;
+}
+html body :is(.ap-sheet, .ar-sheet, .jv-form) .cr-type {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+  max-width: none;
+}
+html body :is(.ap-sheet, .ar-sheet, .jv-form) .cr-type-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-section-label .cr-type .control {
+  height: 36px;
+  margin-left: 0;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-type-value {
+  font-size: 18px;
+  line-height: 34px;
+  letter-spacing: -0.01em;
+}
+html body .jv-form .cr-type .cr-type-trigger {
+  height: 36px;
+  margin-left: 0;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+/* the twelve-track grid: thirds are 4, halves 6, and the party row can split
+   5:7 so the party keeps its name and the address reads in full */
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="main"]
+  > .cr-card-body {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-row,
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-card[data-card="main"]
+  .xf-slot
+  > .field.xf-group {
+  grid-column: span 4;
+}
+/* 7 Oct: the party and its GSTIN in halves — the GSTIN box also carries the
+   treatment · route summary — then the address on a full line */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-row:is(
+    [data-check="vendor"],
+    [data-check="customer"],
+    [data-check="gstin"]
+  ) {
+  grid-column: span 6;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-row[data-check="billingAddress"]:not(.cr-more-row) {
+  grid-column: 1 / -1;
+}
+/* accounting: cost centre a third, narration the rest — thirds when a stock
+   line brings the ledger */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-row[data-check="narration"] {
+  grid-column: span 8;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-card[data-card="main"]:has(
+    .cr-row:is([data-check="purchaseLedger"], [data-check="salesLedger"]):not(
+        [hidden]
+      )
+  )
+  .cr-card-body
+  > .cr-row[data-check="narration"] {
+  grid-column: span 4;
+}
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-row.jv-row--cc {
+  grid-column: 1 / -1;
+}
+/* additional details by count: four make a 2×2, two make halves */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-card[data-card="main"]:has(.xf-slot > .xf-group:nth-child(4))
+  .xf-slot
+  > .field.xf-group,
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-card[data-card="main"]:has(.xf-slot > .xf-group:nth-child(2)):not(
+    :has(.xf-slot > .xf-group:nth-child(3))
+  )
+  .xf-slot
+  > .field.xf-group {
+  grid-column: span 6;
+}
+@container bill-review (max-width: 660px) {
+  html
+    body
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-cards
+    .cr-card[data-card="main"]
+    .cr-card-body
+    > .cr-row,
+  html
+    body
+    :is(.ap-sheet, .ar-sheet)
+    .cr-cards
+    .cr-card[data-card="main"]
+    .xf-slot
+    > .field.xf-group {
+    grid-column: span 6;
+  }
+  html
+    body
+    :is(.ap-sheet, .ar-sheet)
+    .cr-cards
+    .cr-card[data-card="main"]
+    .cr-card-body
+    > .cr-row:is(
+      [data-check="vendor"],
+      [data-check="customer"],
+      [data-check="gstin"],
+      [data-check="billingAddress"],
+      [data-check="narration"]
+    ) {
+    grid-column: 1 / -1;
+  }
+}
+@container bill-review (max-width: 420px) {
+  html
+    body
+    :is(.ap-sheet, .ar-sheet, .jv-form)
+    .cr-cards
+    .cr-card[data-card="main"]
+    .cr-card-body
+    > .cr-row,
+  html
+    body
+    :is(.ap-sheet, .ar-sheet)
+    .cr-cards
+    .cr-card[data-card="main"]
+    .xf-slot
+    > .field.xf-group {
+    grid-column: 1 / -1;
+  }
+}
+
+/* values off the master: the same white field, the pencil marks the lock */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-row-value
+  .control:has(input[readonly]) {
+  background: var(--pi-surface-panel);
+}
+
+/* the cost centre: one picker; the engine's switch and select stay behind */
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-cc-engine {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-row--cc .cr-row-label::after {
+  content: "Optional";
+}
+
+/* ── party details nested under the party (6 Oct 2026) ─────────────────────
+   The user: keep only the party and its billing address in the section and
+   nest the rest inside the party field. A segment inside the GSTIN box
+   (7 Oct: moved off the label line, where it read as a stray value) sums
+   up treatment · route (GSTIN is its own field beside the party) and opens
+   a panel tucked under it — tinted, notched to it, the four fields in quarters.
+   It opens on its own while any of them is open or wrong. */
+/* the summary is a segment of the party box: a hairline, then GSTIN · route */
+html body :is(.ap-sheet, .ar-sheet) .cr-party-toggle {
+  position: relative;
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 62%;
+  height: 26px;
+  margin: 0 -6px 0 16px;
+  padding: 0 6px 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  line-height: 26px;
+  color: var(--pi-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-party-toggle::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: -8px;
+  width: 1px;
+  background: var(--pi-line-2);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-party-toggle:hover {
+  background: var(--pi-fill);
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-party-toggle:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-party-summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-party-toggle > svg {
+  flex: none;
+  color: var(--pi-faint);
+  transition: transform 160ms ease;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-party-toggle[aria-expanded="true"]
+  > svg {
+  transform: rotate(180deg);
+}
+
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-party-details {
+  position: relative;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin-top: 2px;
+  padding: 12px 16px 16px;
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-head-bg);
+}
+/* the notch, under the party box */
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-party-details::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: var(--cr-notch, 24px);
+  width: 10px;
+  height: 10px;
+  border-top: 1px solid var(--pi-line);
+  border-left: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+  transform: rotate(45deg);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-party-details:not([data-open]):not(
+    :has(.cr-row:is([data-tone="warn"], [data-tone="err"]))
+  ) {
+  display: none;
+}
+/* three details left once GSTIN moved out: thirds */
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-party-details > .cr-row {
+  grid-column: span 4;
+}
+@container bill-review (max-width: 660px) {
+  html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-party-details > .cr-row {
+    grid-column: span 6;
+  }
+}
+@container bill-review (max-width: 420px) {
+  html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-party-details > .cr-row {
+    grid-column: 1 / -1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body :is(.ap-sheet, .ar-sheet) .cr-party-toggle > svg {
+    transition: none;
+  }
+}
+
+/* ── additional groups open in place (7 Oct 2026) ──────────────────────────
+   Order references, Ship to, Receipt & dispatch and Import used to open a
+   dialog. Edit now opens the group under its line of rows, dressed as the
+   party's details panel: tinted, notched to the row that opened it, every
+   field the same quarter and one line tall, so the columns line up. The engine draws it (#xf-inline) and writes straight to the
+   bill; Customise fields keeps its dialog. */
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-slot > .xf-inline {
+  position: relative;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px 20px;
+  align-items: start;
+  margin-top: 2px;
+  padding: 12px 16px 16px;
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-slot > .xf-inline::before {
+  border-color: var(--pi-line);
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline > .field {
+  grid-column: span 3;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline > .field > .t-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline > .field > .control,
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline > .field > textarea {
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline > .field > textarea {
+  height: auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--pi-ink);
+  resize: vertical;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-inline
+  > .field
+  > :is(.control, textarea):hover {
+  border-color: var(--pi-line-strong);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-inline
+  > .field
+  > :is(.control:focus-within, textarea:focus) {
+  border-color: var(--pi-brand);
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline .t-value {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-inline
+  > .field
+  > .field__note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-inline
+  > .field
+  > .field__error {
+  margin: 0;
+  font-size: 12px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-inline
+  > .field.is-invalid
+  > :is(.control, textarea) {
+  border-color: var(--pi-danger);
+}
+/* the row that is open says so */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group.is-open
+  > .xf-summary {
+  border-color: var(--pi-brand);
+}
+@container bill-review (max-width: 660px) {
+  html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline > .field {
+    grid-column: span 6;
+  }
+}
+@container bill-review (max-width: 420px) {
+  html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline > .field {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── cost centre picker: a button, two tabs, one list (7 Oct 2026) ───────── */
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-cc-wrap {
+  width: 100%;
+  min-width: 0;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-row-value .cr-ccx-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-trigger:focus-visible {
+  outline: 0;
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-ccx-value.is-empty {
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-trigger > svg {
+  flex: none;
+  color: var(--pi-faint);
+  transition: transform 160ms ease;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-ccx-trigger[aria-expanded="true"]
+  > svg {
+  transform: rotate(180deg);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: max(100%, 360px);
+  max-width: min(480px, 90vw);
+  border: 1px solid var(--pi-line);
+  border-radius: 8px;
+  background: var(--pi-surface-panel);
+  box-shadow: 0 12px 32px rgb(17 27 52 / 0.14);
+  overflow: hidden;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-pop[hidden] {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-tabs {
+  display: flex;
+  gap: 16px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--pi-line);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-tab {
+  height: 40px;
+  margin-bottom: -1px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-body);
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-tab:hover {
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-tab[aria-selected="true"] {
+  border-bottom-color: var(--pi-brand);
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-tab:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-list {
+  max-height: 320px;
+  padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--pi-ink);
+  text-align: left;
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-opt:is(:hover, :focus-visible) {
+  outline: 0;
+  background: var(--pi-fill);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-opt[aria-selected="true"] {
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-opt--d1 {
+  padding-left: 28px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-opt--d2 {
+  padding-left: 44px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-opt--d3 {
+  padding-left: 60px;
+}
+/* × clears the header back to a cost centre per line */
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-clear {
+  position: absolute;
+  top: 50%;
+  right: 34px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--pi-faint);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-clear[hidden] {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-clear:hover {
+  background: var(--pi-fill);
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-clear:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-ccx:has(.cr-ccx-clear:not([hidden]))
+  .cr-ccx-value {
+  padding-right: 28px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-ccx-value.is-empty {
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-detail {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-ccx-head {
+  margin: 0;
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+@media (prefers-reduced-motion: reduce) {
+  html body :is(.ap-sheet, .ar-sheet) .cr-ccx-trigger > svg {
+    transition: none;
+  }
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline .xf-req {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-inline .xf-req[hidden] {
+  display: none;
+}
+
+/* the bill and invoice tables carry Warehouse/Godown too (7 Oct 2026) */
+html :is(.ap-sheet, .ar-sheet) .cr-table {
+  min-width: 1260px;
+}
+
+/* ── Tax & deductions, by context, above the totals (7 Oct 2026) ────────────
+   GST opens the GST lines and reverse charge; Bill total opens what is
+   withheld and the adjustments, ending on the total. The panel sits above
+   the strip, notched down to the figure that opened it. Inside, the
+   engine's breakdown is redrawn in the form's own field language: white
+   36px boxes for ledger and amount, a segmented switch for TDS/TCS/Others,
+   icon buttons for delete and add. Only the dress changes — every control
+   is still the engine's. */
+html body :is(.ap-sheet, .ar-sheet) .cr-totals {
+  overflow: hidden;
+  cursor: default;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-totals:hover {
+  border-color: var(--pi-line);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-totals > .cr-totals-cell {
+  margin: 0;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  font: inherit;
+  text-align: left;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-totals
+  > .cr-totals-cell:not(:last-child) {
+  background: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-totals > button.cr-totals-cell {
+  position: relative;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-totals
+  > button.cr-totals-cell:not(:last-child):hover {
+  background: var(--pi-row-hover, var(--pi-fill));
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-totals
+  > button.cr-totals-cell:last-child:hover {
+  background: var(--pi-brand-tint);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-totals
+  > button.cr-totals-cell:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+/* the open figure: a brand rule along its top edge, under the notch */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-totals
+  > button.cr-totals-cell[aria-expanded="true"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-totals small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-totals-caret {
+  color: var(--pi-faint);
+  transition: transform 160ms ease;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-totals-cell[aria-expanded="true"]
+  .cr-totals-caret {
+  transform: rotate(180deg);
+}
+
+/* the panel */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel {
+  position: relative;
+  margin-bottom: 10px;
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-head-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel:not([data-open]) {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: var(--cr-notch, 50%);
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid var(--pi-line);
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-head-bg);
+  transform: rotate(45deg);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel > .cr-sheet-body {
+  overflow: visible;
+  padding: 16px 20px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+/* which parts of the breakdown each figure opens */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .breakdown > .bd-rule,
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel[data-ctx="gst"]
+  .breakdown
+  > :not([data-bd="gst"], [data-bd="note"]),
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel[data-ctx="total"]
+  .breakdown
+  > :not([data-bd="ded"], [data-bd="adj"], [data-bd="grand"]) {
+  display: none;
+}
+/* the parts of the Bill total panel, each set off by a hairline */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel
+  .breakdown
+  > :is([data-bd="adj"], [data-bd="grand"]) {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pi-line);
+}
+
+/* section heads: the name (and its control) left, the figure right */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-sec {
+  gap: 12px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-row {
+  min-height: 32px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-row__lead {
+  gap: 12px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-lbl {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-row__amt {
+  gap: 8px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fig {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pi-ink);
+  font-variant-numeric: tabular-nums;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fig.is-zero {
+  font-weight: 500;
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel [data-bd="grand"] .bd-lbl {
+  font-size: 15px;
+  font-weight: 600;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fig--grand {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--pi-brand);
+}
+/* every line is shown in its panel: the fold chevrons go, the bodies stay */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-tog[data-sec] {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-sec__body,
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-sec__body[hidden] {
+  display: flex;
+  gap: 8px;
+}
+
+/* reverse charge: a small field box */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-rc {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-rc:hover {
+  border-color: var(--pi-line-strong);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-rc__label {
+  font-size: 12px;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-rc select {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-rc .bd-chev-sm {
+  color: var(--pi-faint);
+}
+
+/* TDS · TCS · Others: a segmented switch */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-modes {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--pi-fill);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-mode {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pi-body);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-mode:hover {
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-mode.is-on {
+  background: var(--pi-surface-panel);
+  color: var(--pi-ink);
+  box-shadow:
+    0 1px 2px rgb(17 27 52 / 0.08),
+    0 0 0 1px var(--pi-line);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-mode__dot {
+  display: none;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel
+  .bd-mode:has(input:focus-visible) {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 1px;
+}
+
+/* a line: ledger box · ITC mark · rate · amount box · delete · add */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-line__row {
+  gap: 12px;
+  min-height: 36px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-line__lead {
+  gap: 8px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fld,
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel
+  .bd-fld:is(:hover, :focus-within, .is-invalid) {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fld:hover {
+  border-color: var(--pi-line-strong);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fld:focus-within {
+  border-color: var(--pi-brand);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fld.is-invalid {
+  border-color: var(--pi-danger);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel
+  :is(.bd-fld__input, .bd-fld__select, .bd-fld select) {
+  font-size: 14px;
+  color: var(--pi-ink);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-chev {
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fld--num {
+  width: 148px;
+  justify-content: flex-end;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fld--num .bd-fld__input {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-line__rate {
+  width: 44px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-line__money {
+  width: auto;
+  gap: 4px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-line__amt {
+  gap: 4px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel
+  :is(.bd-del, .bd-tog--add, .bd-slot) {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel :is(.bd-del, .bd-tog--add) {
+  color: var(--pi-faint);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-tax-panel
+  :is(.bd-del, .bd-tog--add)
+  svg {
+  width: 14px;
+  height: 14px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-tog--add:hover {
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-del:hover {
+  background: var(--pi-danger-bg, var(--pi-fill));
+  color: var(--pi-danger);
+}
+/* the ITC mark: a small tag, not a lone green letter */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-itc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-itc:hover {
+  background: var(--pi-fill);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-itc-slot {
+  width: auto;
+  min-width: 28px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html body :is(.ap-sheet, .ar-sheet) .cr-totals-caret,
+  html body :is(.ap-sheet, .ar-sheet) .cr-totals > button.cr-totals-cell,
+  html
+    body
+    :is(.ap-sheet, .ar-sheet)
+    .cr-tax-panel
+    :is(.bd-mode, .bd-del, .bd-tog--add) {
+    transition: none;
+  }
+}
+
+/* section figures line up with the amount boxes; the add button keeps the
+   delete-and-add slot at the end of the row */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-row {
+  position: relative;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-row__amt {
+  padding-right: 64px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-row__amt > .bd-slot {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-row__amt > .bd-tog--add {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+/* values sit centred in their boxes */
+html body :is(.ap-sheet, .ar-sheet) .cr-tax-panel .bd-fld :is(select, input) {
+  height: 100%;
+  line-height: 20px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* ── JV: a line's cost centre split, in place under it (7 Oct 2026) ────────
+   The split row is a panel, not a cell: the table's cell rules (47px
+   borderless controls, controls shown only on row hover) do not apply to
+   it. Its fields are the form's 32px boxes. */
+html .jv-form .jv-lines tbody tr.jv-split-row > td {
+  height: auto;
+  padding: 0 12px 12px;
+  border-right: 0;
+}
+html .jv-form .jv-lines tr.jv-split-row td :is(button, [role="combobox"]) {
+  opacity: 1 !important; /* outranks the hover-only rule for a row's last cell */
+}
+html .jv-form .jv-lines tr.jv-split-row td :is(input, [role="combobox"]) {
+  height: 32px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  font-size: 13px;
+}
+html .jv-form .jv-lines tr.jv-split-row td :is(input, [role="combobox"]):hover {
+  border-color: var(--pi-line-strong);
+}
+html .jv-form .jv-lines tr.jv-split-row td :is(input, [role="combobox"]):focus,
+html
+  .jv-form
+  .jv-lines
+  tr.jv-split-row
+  td
+  [role="combobox"][aria-expanded="true"] {
+  border-color: var(--pi-brand);
+  background: var(--pi-surface-panel);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+
+/* ── error states (7 Oct 2026, user: "the error states UI … is full of
+   misalignments and bugs") ─────────────────────────────────────────────────
+   One field, one error: a red edge and one line of instruction under the box,
+   starting on the box's own left edge. What this replaces:
+   - the message was centred under the field (the field is a flex box with
+     align-items:center, so the line shrank to its own width and sat in the
+     middle);
+   - a row with a message grew, and the grid centred every cell in the taller
+     row, so its neighbours' labels and boxes dropped out of line;
+   - the box was also washed pink on top of the red edge, the red dot and the
+     message — four signals for one fact;
+   - "Edited by you" sat centred under the box, under the error when both
+     applied. It moves to the label line, right-aligned and quiet, and steps
+     aside while the field is wrong. */
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-row {
+  position: relative;
+  align-items: start;
+  align-content: start;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-row-value {
+  align-items: stretch;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-row-value > .field {
+  flex-direction: column;
+  align-items: stretch;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-row-value .field__error {
+  align-self: stretch;
+  margin: 4px 0 0;
+  padding: 0;
+  text-align: left;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-danger);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .field.is-invalid .control,
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .field.is-invalid .control:hover {
+  background-color: var(--pi-surface-panel);
+  border-color: var(--pi-danger);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .field.is-invalid
+  .control:focus-within {
+  border-color: var(--pi-danger);
+  box-shadow: 0 0 0 3px var(--pi-danger-bg);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .cr-row .inbox-edited {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-faint);
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .field.is-invalid .inbox-edited {
+  display: none;
+}
+/* The Additional details groups follow the same error rule as every other
+   field: red edge on the box, the line under it on the box's left edge. Their
+   own rules lost to later ones, so the box stayed grey (or brand, when the
+   group was open) while the line under it said it was wrong. */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group.is-invalid
+  > .xf-summary,
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group.is-invalid.is-open
+  > .xf-summary {
+  border-color: var(--pi-danger);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .xf-slot
+  > .field.xf-group
+  > .field__error {
+  margin: 4px 0 0;
+  padding: 0;
+  text-align: left;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pi-danger);
+}
+/* A group with no message keeps its box height when a neighbour in the same
+   row grows by an error line — it sits at the top of the row rather than
+   stretching to fill it. */
+html body :is(.ap-sheet, .ar-sheet) .cr-cards .xf-slot > .field {
+  align-self: start;
+}
+/* Create from the cell (7 Oct 2026, user: a "New" item or ledger had no way
+   to be added from the field itself, as the vendor has). The engine's create
+   button was hidden in the table because a 196px cell clipped it; it now
+   stays, fixed-size after the name, and the name gives way first. BillReview
+   dresses it with the item or ledger icon and a tooltip naming the record. */
+html body :is(.ap-sheet, .ar-sheet) .cr-table .cell.cell--new .predbtn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--pi-brand);
+  cursor: pointer;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-table .cell.cell--new .predbtn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+/* No background box: the button sits 4px from the picker beside it, too
+   close for a hover/focus tint to read as its own control rather than a
+   highlight spilling onto the field. Only the icon darkens. */
+html body :is(.ap-sheet, .ar-sheet) .cr-table .cell.cell--new .predbtn:hover {
+  background: none;
+  color: var(--pi-brand-hover);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell.cell--new
+  .predbtn[data-barred]:hover {
+  background: none;
+  color: var(--pi-brand);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell.cell--new
+  .predbtn:focus-visible {
+  outline: none;
+  box-shadow: none;
+  background: none;
+  color: var(--pi-brand-hover);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  .cell.cell--new
+  > :is(input, select) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+/* A proposed master's cell holds three things — the New pill, the name and
+   the create button — so the Item and Ledger columns get the room the wide
+   sheet gives them; the table already scrolls sideways. The select keeps no
+   caret padding at rest, since the caret only shows on hover. */
+html body :is(.ap-sheet, .ar-sheet) .cr-table :is(col.c-stock, col.c-ledger) {
+  width: 216px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-table .cell.cell--new > select {
+  padding-right: 4px;
+  text-overflow: ellipsis;
+}
+
+/* ── the AI mark (7 Oct 2026) ───────────────────────────────────────────────
+   One glyph, one colour, everywhere a value is still the AI's decision: the
+   brand-indigo sparkle (user's choice of glyph and colour). It supersedes the
+   teal-vs-indigo split above and in bill-refinement.css.
+   - A matched master: the sparkle alone, in place of the word "Suggested".
+   - A proposed master: the sparkle in front of "New", which still asks for
+     the press that creates it.
+   - A field the AI filled (purchase/sales ledger, a predicted HSN): `.ai-mark`
+     at the end of the field, its reason on hover/focus.
+   React surfaces draw the same thing with components/inbox/v2/ai-mark.tsx. */
+html body :is(.ap-sheet, .ar-sheet) .ai-glyph {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+/* in a chip ("New") the glyph sits at the text's size */
+html body :is(.ap-sheet, .ar-sheet) .predtag--new .ai-glyph {
+  width: 13px;
+  height: 13px;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(.predtag, .predtag--new) {
+  gap: 4px;
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) .predtag--why:hover {
+  box-shadow: inset 0 0 0 1px var(--pi-brand-border);
+}
+/* the mark sits on a soft brand tile (7 Oct 2026: a bare outline glyph
+   "looks very simple"); hover draws its edge */
+html body :is(.ap-sheet, .ar-sheet) :is(.ai-mark, .predtag--ai) {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 5px;
+  background: var(--pi-brand-tint);
+  color: var(--pi-brand);
+  cursor: help;
+}
+html body :is(.ap-sheet, .ar-sheet) :is(.ai-mark, .predtag--ai):hover {
+  background: var(--pi-brand-tint);
+  box-shadow: inset 0 0 0 1px var(--pi-brand-border);
+}
+html body :is(.ap-sheet, .ar-sheet) .ai-mark:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .ai-slot:empty {
+  display: none;
+}
+html body :is(.ap-sheet, .ar-sheet) .ai-slot {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-hsn .ai-mark--in {
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+}
+
+/* The voucher type moved to the review header, beside Post as (7 Oct 2026).
+   While that header is on the page the form's own type title is hidden; its
+   select stays in the DOM, because the header drives it (workspace.tsx).
+   Hand-raised vouchers and posted records have no Post as, so they keep it. */
+body:has(#inbox-post-as) :is(.ap-sheet, .ar-sheet, .jv-form) .cr-type {
+  display: none;
+}
+/* With the type title gone, the "All fields required…" note would sit alone
+   on a line above Voucher. It joins the Voucher heading's line instead, in
+   the right corner (7 Oct 2026, user): its row takes no height, the heading
+   moves up into it, and the note drops 4px onto the heading's text line. */
+body:has(#inbox-post-as) :is(.ap-sheet, .ar-sheet, .jv-form) .cr-section-label {
+  position: relative;
+  z-index: 1;
+  height: 0;
+  margin-bottom: 0;
+  align-items: flex-start;
+  justify-content: flex-end;
+  overflow: visible;
+}
+body:has(#inbox-post-as)
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-section-label
+  .cr-section-tools {
+  margin-top: 4px;
+  margin-left: auto;
+}
+
+/* ── dropdowns say so at rest (7 Oct 2026) ──────────────────────────────────
+   User: "Don't show the dropdowns on just hover, fields with dropdown should
+   be obvious otherwise the user won't know it." This lifts the hover-only
+   rule for carets everywhere a field opens a list: the line table's pickers
+   (ledger, cost centre, godown, the item picker's caret), the purchase/sales
+   ledger picker and the journal's ledger cells. The caret stays the muted
+   colour at rest and goes ink on hover/focus, so the table reads as values
+   first. Calendars, pencils, the bin and the line's open arrow are not
+   dropdowns and keep their hover-only rule. */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  tr:not(:hover):not(:focus-within)
+  select.cell__select {
+  background-image: var(--chevron);
+  background-repeat: no-repeat;
+  background-position: right center;
+}
+html body :is(.ap-sheet, .ar-sheet) .cr-table .cell.cell--new > select {
+  padding-right: 18px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-table
+  tr:not(:hover):not(:focus-within)
+  .cellcaret {
+  opacity: 1;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-row:not(:hover):not(:focus-within)
+  .cr-row-value
+  .picker
+  svg {
+  opacity: 1;
+}
+html
+  body
+  .jv-form
+  .jv-lines
+  tbody
+  tr:not(:hover):not(:focus-within)
+  .jv-cell-trigger
+  svg {
+  opacity: 1;
+}
+
+/* ── the line sheet reads as the bill form (7 Oct 2026) ─────────────────────
+   User: "Implement all the changes made on these forms to all the forms in
+   the prototype." The line's sheet (#cr-line, renderLineSheet) takes the
+   form's metrics: 12px/500 labels, 38px boxes, 16px rows and 20px columns,
+   section heads 14px/600 brand with a hairline above rather than a rule
+   under, and a white footer band. The reasoning line under Stock item /
+   Ledger is gone; the field's own AI mark carries the reason on hover. */
+html body :is(.ap-sheet, .ar-sheet) #cr-line .cr-line {
+  gap: 16px;
+}
+html body :is(.ap-sheet, .ar-sheet) #cr-line .cr-field {
+  gap: 6px;
+}
+html body :is(.ap-sheet, .ar-sheet) #cr-line .cr-field > span {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--pi-body);
+}
+html body :is(.ap-sheet, .ar-sheet) #cr-line .cr-line .cr-fgrid {
+  gap: 16px 20px;
+  align-items: start;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  #cr-line
+  :is(.cell.cr-box, .cr-kind, .cr-field .hsn) {
+  height: 38px;
+  min-height: 38px;
+}
+html body :is(.ap-sheet, .ar-sheet) #cr-line .cr-sub {
+  margin: 8px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--pi-line);
+  border-bottom: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--pi-brand);
+}
+html body :is(.ap-sheet, .ar-sheet) #cr-line .cr-line > .cr-sub:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+html body :is(.ap-sheet, .ar-sheet) #cr-line .cr-sheet-foot {
+  padding: 14px 24px;
+  border-top: 1px solid var(--pi-line);
+  background: var(--pi-surface-panel);
+}
+
+/* ── Accounting row: purchase/sales ledger and narration (7 Oct 2026) ──────
+   The purchase ledger is a dropdown and showed no caret (an older "carets
+   only on hover" rule still caught its bare select), and the select did not
+   shrink, so the AI mark was pushed out over the box's padding and border.
+   The select now fills the box, ellipses, and always shows its caret; the
+   mark leads the value, as it does on a line's item or ledger. */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-row-value
+  .picker__state
+  > select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  padding-right: 20px;
+  text-overflow: ellipsis;
+  background-image: var(--chevron) !important;
+  background-repeat: no-repeat;
+  background-position: right center;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-row-value
+  .picker__state
+  > .ai-slot {
+  order: -1;
+  margin: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-row-value
+  .picker__state:has(> .ai-slot:not(:empty)) {
+  gap: 8px;
+}
+/* Narration is a one-line textarea at rest, and a scrolling textarea clips
+   its text at its own border, not inside its padding, so the words ran into
+   the right edge. The box is drawn by the wrapper instead; the textarea is
+   bare inside it and stops 12px short of each edge. */
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration
+  textarea,
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration
+  textarea:is(:hover, :focus) {
+  min-height: 36px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  line-height: 20px;
+}
+/* one line at rest; while typing it grows with its text, as before */
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration
+  textarea:not(:focus) {
+  field-sizing: fixed;
+  height: 36px;
+  min-height: 36px;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration:hover {
+  border-color: var(--pi-brand-border);
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row-value
+  > .narration:focus-within {
+  border-color: var(--pi-brand-vivid);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+/* the value follows the mark at the field's own 8px gap, not the select's
+   12px inset on top of it; and narration's text starts at the box's 12px,
+   not 12px twice (an older rule pads the textarea itself) */
+html
+  body
+  :is(.ap-sheet, .ar-sheet)
+  .cr-cards
+  .cr-row-value
+  .picker__state:has(> .ai-slot:not(:empty))
+  > select {
+  padding-left: 0;
+}
+html
+  body
+  :is(.ap-sheet, .ar-sheet, .jv-form)
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .cr-row-value
+  > .narration
+  textarea {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ── journal: the same fixes as the bill (7 Oct 2026, user: "I can still see
+   these issues in journals") ───────────────────────────────────────────────
+   - A line's cost-centre picker hid its caret at rest (the hover-only rule
+     for that column); a dropdown says so at rest.
+   - Narration is the bill's one-line textarea, and a scrolling textarea clips
+     its text at its border, not inside its padding, so the words ran into
+     the right edge. The wrapper draws the box; the textarea is bare inside
+     and stops 12px short of each edge. It still grows while typing. */
+html
+  body
+  .jv-form
+  .jv-lines
+  tbody
+  tr:not(:hover):not(:focus-within)
+  td:nth-child(5)
+  button
+  svg {
+  opacity: 1;
+}
+html body .jv-form .cr-cards .cr-row[data-check="narration"] .jv-row-control {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--pi-line-2);
+  border-radius: 6px;
+  background: var(--pi-surface-panel);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .jv-row-control:hover {
+  border-color: var(--pi-brand-border);
+}
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .jv-row-control:focus-within {
+  border-color: var(--pi-brand-vivid);
+  box-shadow: 0 0 0 3px var(--pi-brand-tint);
+}
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .jv-row-control
+  > textarea,
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .jv-row-control
+  > textarea:is(:hover, :focus, :focus-visible) {
+  min-height: 36px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-row[data-check="narration"]
+  .jv-row-control
+  > textarea:not(:focus) {
+  height: 36px;
+  min-height: 36px;
+}
+/* journal: cost centre joins the Voucher section as a third, beside the two
+   reference fields, and narration takes the last row across the card */
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-row.jv-row--cc {
+  grid-column: span 4;
+}
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-card[data-card="main"]
+  .cr-card-body
+  > .cr-row[data-check="narration"] {
+  grid-column: 1 / -1;
+}
+/* the header cost-centre picker sits in a row of the form's boxes now, so
+   it takes their 38px and 13px text rather than its own 36px/14px */
+html body .jv-form .cr-cards .cr-row.jv-row--cc .jv-cc > button,
+html body .jv-form .cr-cards .cr-row.jv-row--cc .jv-cc button[aria-haspopup] {
+  height: 38px;
+  min-height: 38px;
+  font-size: 13px;
+}
+html
+  body
+  .jv-form
+  .cr-cards
+  .cr-row.jv-row--cc
+  .jv-cc
+  button[aria-haspopup]
+  :is(span, p, small, div) {
+  font-size: inherit;
+}
+
+/* A godown split that no longer comes to its line's quantity (7 Oct 2026):
+   the amber of an open answer, with the shortfall in the cell's title. */
+html :is(.ap-sheet, .ar-sheet) .cr-table .cr-godown.is-mismatch {
+  box-shadow: inset 0 0 0 1px var(--pi-warning);
+}
+html :is(.ap-sheet, .ar-sheet) .cr-table .cr-godown.is-mismatch .cell__select {
+  color: var(--pi-warning);
 }

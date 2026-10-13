@@ -1,4 +1,5 @@
 import type { InboxItem } from "@/types/pages/inbox";
+import { itemFigures, routeOfLine } from "./line-route";
 import { gstinFor, partyNamed } from "./mock-parties";
 
 /**
@@ -140,6 +141,16 @@ export const printedSupplier = (item: InboxItem) => {
   };
 };
 
+/** The AP form's voucher type ids, by the name the inbox carries. */
+const AP_VOUCHER_TYPE_ID: Record<string, string> = {
+  Purchase: "purchase",
+  "Purchase — Import": "purchase-imp",
+  "Purchase — SEZ": "purchase-sez",
+  "Purchase — Reverse Charge": "purchase-rcm",
+  "Purchase Return": "purchase-ret",
+  "Debit Note": "debit-note",
+};
+
 export const apDocumentFor = (item: InboxItem): ApDocument | null => {
   const bill = item.bill;
   if (!bill) return null;
@@ -150,9 +161,11 @@ export const apDocumentFor = (item: InboxItem): ApDocument | null => {
   return {
     fileName: item.file.name,
     branch: "br-ka",
-    voucherType: item.voucherType?.toLowerCase().includes("debit")
-      ? "debit-note"
-      : "purchase",
+    voucherType:
+      AP_VOUCHER_TYPE_ID[item.voucherType ?? ""] ??
+      (item.voucherType?.toLowerCase().includes("debit")
+        ? "debit-note"
+        : "purchase"),
 
     /*
       The supplier as the document printed them — the same header the facsimile
@@ -176,24 +189,31 @@ export const apDocumentFor = (item: InboxItem): ApDocument | null => {
     narration: item.source.subject ? `From email — ${item.source.subject}` : "",
 
     /*
-      Every extracted line goes over as a ledger line: it carries a description
-      and an amount and no quantity or rate, which is what a ledger line is.
-      Putting them in the item table would state a quantity the document never
-      printed.
+      Goods go over as item lines, services as ledger lines (7 Oct 2026, user:
+      "if the invoice has things which has a physical value … it should be
+      predicted as an item"). See `routeOfLine`. They used to all go over as
+      ledger lines, which left the Item column empty on a bill for desktops.
 
-      The ledger is deliberately left empty. The inbox's own ledger names are
-      not the AP book's, and handing over a name the book does not hold would
-      pre-empt the prediction — leaving it blank is what lets the sheet read the
-      description, propose a ledger, and say why.
+      The item and the ledger are deliberately left empty. The inbox's names
+      are not the AP book's, and handing over a name the book does not hold
+      would pre-empt the prediction — leaving them blank is what lets the sheet
+      read the code and the description, propose the item or ledger, and say
+      why. The printed code goes over as printed: it is the sheet's strongest
+      evidence.
     */
-    lines: bill.items.map((line) => ({
-      text: line.desc,
-      hsn: "",
-      amount: line.amount,
-      gst,
-      cc: "",
-      route: "ledger" as const,
-      ledger: "",
-    })),
+    lines: bill.items.map((line) => {
+      const route = routeOfLine(line.desc, line);
+      return {
+        text: line.desc,
+        hsn: line.hsn || "",
+        amount: line.amount,
+        gst,
+        cc: "",
+        route,
+        ...(route === "item"
+          ? { item: "", ...itemFigures(line.amount, line) }
+          : { ledger: "" }),
+      };
+    }),
   };
 };

@@ -76,6 +76,19 @@ const pillBase = "max-w-full";
 export const tablePillClass =
   "gap-2 rounded-full border-0 px-2 py-1 text-[13px] font-normal leading-4 [&_svg]:size-2.5";
 
+/**
+ * The inline pickers' trigger, set on the column's text line: it bleeds 8px
+ * into the cell's 16px padding on each side, so the value starts where the
+ * header label does and the hover wash still has room.
+ *
+ * The caret is always there (7 Oct 2026, user: "Don't show the dropdowns on
+ * just hover, fields with dropdown should be obvious"). It rests in faint ink
+ * so the column still reads as values, and goes body ink on row hover, focus,
+ * while open, or under the grid cursor.
+ */
+export const CELL_TRIGGER =
+  "-mx-2 w-[calc(100%+16px)] px-2 text-[13px] leading-5 [&>svg]:text-pi-faint [&>svg]:opacity-100 [&>svg]:transition-colors group-hover:[&>svg]:text-pi-body focus-visible:[&>svg]:text-pi-body aria-expanded:[&>svg]:text-pi-body [[data-cursor]_&>svg]:text-pi-body";
+
 export type PillTone = "info" | "ok" | "warn" | "error" | "neutral";
 
 /* Precision Indigo semantic tints: colour is for state only, an ~9% tint
@@ -223,60 +236,123 @@ export const Spinner = ({ className }: { className?: string }) => (
 /* --------------------------------------------------------------------- field
    AP pairs a .t-label with its control and keeps the label slot one height
    whether it holds text or a toggle, so rows stay aligned. */
+/**
+ * One form field, the bill form's anatomy (7 Oct 2026: every form in the
+ * prototype matches the AP/AR/JV review forms).
+ *
+ * - A 12px/500 label above the control, 6px between them. `optional` adds the
+ *   faint "Optional" after it; required is the norm and unmarked (no `*`).
+ * - The control inside is the form box (38px, 6px radius, 14px text, brand
+ *   edge and soft halo on focus): `.modern-field` in form-workspace.css sizes
+ *   whatever sits in here, so toolbars keep their own 36px controls.
+ * - `error` is one 12px line under the box, on its left edge, and turns the
+ *   box's edge red. No fill.
+ */
 export const Field = ({
   label,
   htmlFor,
   hint,
+  optional,
+  error,
   className,
   children,
 }: {
   label: React.ReactNode;
   htmlFor?: string;
   hint?: React.ReactNode;
+  /** Shows "Optional" after the label. */
+  optional?: boolean;
+  /** One line under the box; marks the field invalid. */
+  error?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
 }) => (
-  <div className={cn("modern-field flex min-w-0 flex-col gap-2", className)}>
-    <Label htmlFor={htmlFor} className={cn(T.label, "min-h-5")}>
-      {label}
-    </Label>
+  <div
+    className={cn("modern-field flex min-w-0 flex-col", className)}
+    data-invalid={error ? "true" : undefined}
+  >
+    <span className="flex min-h-4 items-baseline gap-2">
+      <Label htmlFor={htmlFor} className={T.label}>
+        {label}
+      </Label>
+      {optional ? <OptionalTag /> : null}
+    </span>
     {children}
+    {error ? <FieldError>{error}</FieldError> : null}
     {hint}
   </div>
 );
 
-/** The red asterisk the sheet puts ahead of a required label. */
-export const Req = () => (
-  <span className="mr-0.5 text-destructive-foreground" aria-hidden>
-    *
+/** The faint "Optional" a field's label carries, as on the bill form. */
+export const OptionalTag = () => (
+  <span className="text-[11px] font-normal leading-4 text-pi-faint">
+    Optional
   </span>
 );
 
+/** A field's error: one 12px line, left-aligned under the box. */
+export const FieldError = ({ children }: { children: React.ReactNode }) => (
+  <p role="alert" className="text-left text-[12px] leading-4 text-pi-danger">
+    {children}
+  </p>
+);
+
+/** The form's header note, right-aligned on its first section's line. */
+export const RequiredNote = ({ className }: { className?: string }) => (
+  <p
+    className={cn(
+      "whitespace-nowrap text-[12px] leading-4 text-pi-faint",
+      className
+    )}
+  >
+    All fields required unless marked optional
+  </p>
+);
+
 /**
- * A field panel, matching the sheet's own.
- *
- * The bills sheet groups fields into cards — 20px of padding on the section
- * ground, two columns, generous gutters — and the JV form was a flat grid on
- * white beside it. Same shape here, from the token that holds the same value:
- * --section is #FBFBFE, which is the sheet's --bg-primary.
+ * Retired (7 Oct 2026): required fields are no longer starred — required is
+ * the norm, and an optional field says "Optional" (`<Field optional>`). Kept
+ * as a no-op so a call site that still renders it draws nothing.
+ */
+export const Req = () => null;
+
+/**
+ * A form section, the bill form's (7 Oct 2026): no card, a 14px/600 brand
+ * heading with a hairline above it (none on the first section), and the
+ * fields in a two-column grid at 16px rows / 20px columns. `aside` sits on
+ * the heading's line, right-aligned (the first section carries
+ * `<RequiredNote />` there). The name is kept so call sites need no change.
  */
 export const FieldCard = ({
   title,
+  aside,
   children,
   className,
 }: {
   title?: string;
+  aside?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) => (
   <section
     className={cn(
-      "modern-field-card rounded-lg border border-pi-line bg-background p-5 shadow-contact",
+      "form-section border-t border-pi-line pt-5 first:border-t-0 first:pt-0",
       className
     )}
   >
-    {title ? <h2 className={cn(T.section, "mb-4")}>{title}</h2> : null}
-    <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+    {title || aside ? (
+      <div className="mb-4 flex min-h-5 items-center justify-between gap-4">
+        {title ? (
+          <h2 className="text-[14px] font-semibold leading-5 text-pi-brand">
+            {title}
+          </h2>
+        ) : (
+          <span />
+        )}
+        {aside}
+      </div>
+    ) : null}
+    <div className="grid grid-cols-1 items-start gap-x-5 gap-y-4 sm:grid-cols-2">
       {children}
     </div>
   </section>
@@ -315,9 +391,9 @@ export const DateField = ({
           type="button"
           disabled={disabled}
           className={cn(
-            "flex h-9 w-full items-center justify-between gap-2 rounded-sm border border-pi-line-2 bg-background px-3",
-            "text-left text-[13px] hover:border-pi-line-strong disabled:cursor-not-allowed disabled:opacity-50",
-            "focus:outline-none focus-visible:border-pi-brand",
+            "flex h-[38px] w-full items-center justify-between gap-2 rounded-sm border border-pi-line-2 bg-background px-3",
+            "text-left text-[14px] hover:border-pi-line-strong disabled:cursor-not-allowed disabled:opacity-50",
+            "focus:outline-none focus-visible:border-pi-brand focus-visible:shadow-[0_0_0_3px_var(--pi-brand-tint)]",
             className
           )}
         >
@@ -358,6 +434,7 @@ export const PageDialog = ({
   open,
   onClose,
   className,
+  footer,
   children,
 }: {
   title: string;
@@ -366,6 +443,12 @@ export const PageDialog = ({
   /** Omit to make the dialog non-dismissible (the launch guide). */
   onClose?: () => void;
   className?: string;
+  /**
+   * The actions, in the form's footer band (7 Oct 2026): white, a hairline
+   * above, right-aligned — Cancel then the specific action ("Save template",
+   * not "Save"). Pass the buttons; the band is drawn here.
+   */
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }) => (
   <Dialog open={open} onOpenChange={(next) => !next && onClose?.()}>
@@ -373,7 +456,10 @@ export const PageDialog = ({
       className={cn(
         // Reference dialog anatomy: a head-bg header band with a 20px/500
         // title, then a padded body. The close X sits on the band.
-        "refined-dialog max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[650px] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-2xl border-pi-line p-0",
+        "refined-dialog max-h-[calc(100dvh-48px)] w-[calc(100vw-32px)] max-w-[650px] gap-0 overflow-hidden rounded-2xl border-pi-line p-0",
+        footer
+          ? "grid-rows-[auto_minmax(0,1fr)_auto]"
+          : "grid-rows-[auto_minmax(0,1fr)]",
         !onClose && "[&>button]:hidden",
         className
       )}
@@ -392,6 +478,11 @@ export const PageDialog = ({
         ) : null}
       </DialogHeader>
       <div className="refined-dialog-body min-h-0 overflow-y-auto overscroll-contain px-7 py-6">{children}</div>
+      {footer ? (
+        <div className="flex items-center justify-end gap-3 border-t border-pi-line bg-background px-7 py-4">
+          {footer}
+        </div>
+      ) : null}
     </DialogContent>
   </Dialog>
 );

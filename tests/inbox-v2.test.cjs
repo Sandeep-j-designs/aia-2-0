@@ -52,8 +52,8 @@ const {store:j}=freshStore();
 let journal=j.getState().items.find(x=>x.company==='shakun'&&x.status==='Needs Review'&&x.route==='JV'&&!x.hardRef);
 assert(journal, 'a reviewable journal is seeded');
 const journalId=journal.id;
-const form={...journal.form, gst:'Bangalore', voucherNo:'JV-INTEGRATION-TEST', voucherType:'Contra', date:'2026-09-16', invoiceNo:'', due:'', party:'', costClassEnabled:true, costClass:'Department', narration:'Reviewed journal', lines:[
-  {description:'Expense',ledger:'Rent',amount:0.3,dr:0.3,cr:0,costCentre:'Finance'},
+const form={...journal.form, gst:'Bangalore', voucherNo:'JV-INTEGRATION-TEST', voucherType:'Contra', date:'2026-09-16', invoiceNo:'', due:'', party:'', costMode:'class', costClass:'Shared overheads', narration:'Reviewed journal', lines:[
+  {description:'Expense',ledger:'Rent',amount:0.3,dr:0.3,cr:0,costCentre:''},
   {description:'Payment',ledger:'Bank',amount:0.3,dr:0,cr:0.3,costCentre:''}
 ]};
 j.update(journalId,{form});

@@ -88,7 +88,7 @@ export const DropZone = ({
         take(e.dataTransfer.files);
       }}
       className={cn(
-        "flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-pi-line-strong bg-pi-page px-6 text-center transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pi-brand motion-reduce:transition-none",
+        "flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-pi-line-strong bg-pi-page px-6 text-center transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pi-brand motion-reduce:transition-none",
         stacked ? "py-4" : "py-6",
         disabled
           ? "cursor-not-allowed opacity-60"
@@ -99,7 +99,10 @@ export const DropZone = ({
       <div
         className={cn("flex items-center gap-2", stacked && "flex-col gap-2")}
       >
-        <Upload className="h-3.5 w-3.5 text-pi-brand" aria-hidden />
+        <Upload
+          className={cn("text-pi-brand", stacked ? "h-4 w-4" : "h-3.5 w-3.5")}
+          aria-hidden
+        />
         <span className="flex items-center gap-2">
           <span className="text-[13px] font-medium text-pi-ink">{title}</span>
           <span onClick={(e) => e.stopPropagation()}>
@@ -211,11 +214,13 @@ export const StatusItem = ({
       ) : null}
       {onDelete ? (
         <Tooltip message="Delete">
+          {/* Faint at rest, red only under the pointer: a row of red bins
+              read as a list of errors. */}
           <Button
             variant="ghost"
             size="icon-xs"
-            isDestructive
             aria-label={`Delete ${title}`}
+            className="text-pi-faint hover:bg-pi-danger-bg hover:text-pi-danger"
             onClick={onDelete}
           >
             <Trash2 />

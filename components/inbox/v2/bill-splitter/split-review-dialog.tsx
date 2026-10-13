@@ -33,6 +33,8 @@ import {
   type SplitGroup,
 } from "@/utils/pages/inbox/bill-splitter";
 import { splitPackets } from "@/hooks/pages/inbox/use-split-packets";
+import { Sparkle } from "@/components/icons";
+import { AiMark } from "../ai-mark";
 import { PdfGlyph } from "./glyphs";
 import s from "./split-dialogs.module.css";
 
@@ -315,7 +317,16 @@ const SplitReviewDialog = ({ packet, onOpenChange, onCreate }: Props) => {
               <Plus className="h-3.5 w-3.5" />
             )}
             <b>{on ? "New bill starts here" : "Split here"}</b>
-            {note && <span className={cx("sbar__n")}>· {note}</span>}
+            {/* the AI's boundary wears the AI mark; one you added says so */}
+            {on && ai ? (
+              <AiMark
+                className="ml-1"
+                size={14}
+                reason="a new bill starts on this page: its header and invoice number change here"
+              />
+            ) : note ? (
+              <span className={cx("sbar__n")}>· {note}</span>
+            ) : null}
           </span>
           {on && (
             <span className={cx("sbar__a")} aria-hidden>
@@ -769,6 +780,11 @@ const SplitReviewDialog = ({ packet, onOpenChange, onCreate }: Props) => {
         <div className={cx("rail2__h")}>
           <span className={cx("rail2__k")}>Current split</span>
           <span className={cx("rail2__pill")}>
+            <Sparkle
+              size={12}
+              aria-hidden
+              className="flex-none text-pi-brand"
+            />
             AI proposed{mineCount ? ` · ${mineCount} by you` : ""}
           </span>
         </div>

@@ -45,7 +45,9 @@ html .ar-sheet {
   /* the page canvas the white cards sit on */
   background: var(--pi-page);
   color: var(--pi-ink);
-  font-feature-settings: "tnum" 1, "lnum" 1;
+  font-feature-settings:
+    "tnum" 1,
+    "lnum" 1;
 }
 html.dark .ap-sheet,
 html.dark .ar-sheet {
@@ -546,9 +548,71 @@ html .ar-sheet .breakdown {
 /* One ring per field. A wrapper that draws focus itself (.control, .cell,
    the picker's search row, the bulk bar's fields, the HSN cell) is the field;
    the input/select inside it does not draw a second box. */
-html :is(.ap-sheet, .ar-sheet)
-  :is(.control, .cell, .cselp__find, .bulkbar__fld, .hsn, .split__value, .nmd__ctl)
+html
+  :is(.ap-sheet, .ar-sheet)
+  :is(
+    .control,
+    .cell,
+    .cselp__find,
+    .bulkbar__fld,
+    .hsn,
+    .split__value,
+    .nmd__ctl
+  )
   :is(input, select, textarea):is(:focus, :focus-visible) {
   outline: none !important;
   box-shadow: none !important;
+}
+
+/*
+  The engines were built for a page that scrolls under their own 51px top
+  bar: the document pane is sized from the window (100dvh minus that bar)
+  and sticks 51px down. Here the sheet scrolls inside the app shell, below
+  the app's top bar, so the pane ran past the bottom of the screen. Size it
+  from the sheet's own scroll area (--sheet-h, set by useSheetHeight) and
+  stick it one gutter from that area's top. The engines' caps are kept.
+*/
+html body :is(.ap-sheet, .ar-sheet) {
+  --pane-h: clamp(
+    420px,
+    calc(var(--sheet-h, 100dvh) - var(--gutter) * 2),
+    806px
+  );
+}
+@media (min-height: 1000px) {
+  html body :is(.ap-sheet, .ar-sheet) {
+    --pane-h: clamp(
+      420px,
+      calc(var(--sheet-h, 100dvh) - var(--gutter) * 2),
+      920px
+    );
+  }
+}
+html body :is(.ap-sheet, .ar-sheet) .doc-pane,
+html body .ar-sheet .splitter {
+  top: var(--gutter);
+}
+
+/* One caret everywhere (7 Oct 2026). The engines draw a select's caret as a
+   background image, `--chevron`: #707070 at a 1.5px stroke, heavier and
+   darker than the Lucide chevron every React picker and the custom pickers
+   draw in --pi-faint. Same weight and grey here, so a purchase ledger and the
+   cost centre beside it no longer show two different arrows. */
+html .ap-sheet,
+html .ar-sheet {
+  --chevron: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%237a8396' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* The inbox's document viewer, mounted in the AP sheet's document pane
+   (ap-sheet.tsx). The sheet still shows and hides the pane; its own viewer
+   bar and page are set aside for the shared one, which carries the source
+   highlight. */
+html .ap-sheet #doc-preview.has-react-preview > :not(.react-preview) {
+  display: none !important;
+}
+html .ap-sheet #doc-preview.has-react-preview > .react-preview {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }

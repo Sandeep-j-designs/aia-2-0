@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Maximize, Plus, Trash2 } from "@/components/icons";
 import Typography from "@/components/common/typography";
 import RupeeInput from "@/components/common/rupee-input";
@@ -14,8 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LEDGERS } from "@/config/pages/inbox/journal-masters";
+import {
+  LEDGERS,
+  ledgerTakesCostCentre,
+} from "@/config/pages/inbox/journal-masters";
 import AllocationCell from "./allocation-cell";
+import CostAllocationPanel from "./cost-allocation-panel";
 import type { Form, JournalLineError } from "@/components/inbox/v2/store";
 
 /**
@@ -73,16 +77,20 @@ const COL = {
   narration: "", // takes the remainder
   debit: "w-[140px]",
   credit: "w-[140px]",
-  allocation: "w-[150px]",
+  allocation: "w-[168px]",
   actions: "w-[44px]",
 };
-const TABLE_FLOOR = "min-w-[794px]";
+const TABLE_FLOOR = "min-w-[812px]";
 
 type Props = {
   lines: Line[];
   /** Line indexes carrying a fault, and which cell it belongs to. */
   errors: JournalLineError[];
-  costClass: string;
+  /**
+   * The header's class or cost centre, when one is set. It answers for every
+   * line, so the Cost centre cells lock and name it.
+   */
+  costLock?: { label: string; detail: string } | null;
   readOnly?: boolean;
   onLineChange: (index: number, patch: Partial<Line>) => void;
   onAmountChange: (index: number, side: "dr" | "cr", value: number) => void;
@@ -116,7 +124,7 @@ const LEDGER_GROUPS = [...new Set(LEDGERS.map((l) => l.group))].map(
 const LedgerLines = ({
   lines,
   errors,
-  costClass,
+  costLock,
   readOnly,
   onLineChange,
   onAmountChange,
@@ -128,6 +136,13 @@ const LedgerLines = ({
 }: Props) => {
   const errorAt = (index: number, kind: "amount" | "ledger") =>
     errors.some((e) => e.index === index && e.kind === kind);
+  /*
+    The line whose cost centre split is open, in a row of its own under it
+    (7 Oct 2026) — the dialog it used to open is now this panel. One at a
+    time, like every in-place panel on the form.
+  */
+  const [splitAt, setSplitAt] = useState<number | null>(null);
+  const columns = readOnly ? 5 : 6;
 
   return (
     <section className="jv-lines">
@@ -185,165 +200,223 @@ const LedgerLines = ({
             {lines.map((line, index) => {
               const amountError = errorAt(index, "amount");
               const ledgerError = errorAt(index, "ledger");
+              const splitting = splitAt === index;
               return (
-                <TableRow key={index} className={BODY_ROW}>
-                  <TableCell className={BODY_CELL}>
-                    <ComboBox
-                      title="Select ledger"
-                      size="sm"
-                      searchPlaceholder="Search ledgers…"
-                      isMultiSelect={false}
-                      hideClearButton
-                      modal={false}
-                      disabled={readOnly}
-                      invalid={ledgerError}
-                      selectedValue={line.ledger}
-                      // Every name the list can hold, so the trigger can show
-                      // a created or extracted ledger that is not a master.
-                      options={[
-                        ...new Set(
-                          [
-                            line.ledger,
-                            ...createdLedgers,
-                            ...LEDGERS.map((l) => l.name),
-                          ].filter(Boolean)
-                        ),
-                      ].map((name) => ({ label: name, value: name }))}
-                      optionGroups={[
-                        ...(createdLedgers.length
-                          ? [
-                              {
-                                label: "New",
-                                options: createdLedgers.map((name) => ({
-                                  label: name,
-                                  value: name,
-                                })),
-                              },
-                            ]
-                          : []),
-                        // An extracted ledger that is not a master yet still
-                        // has to be findable, or the trigger names a value the
-                        // list cannot show.
-                        ...(line.ledger &&
-                        !createdLedgers.includes(line.ledger) &&
-                        !LEDGERS.some((l) => l.name === line.ledger)
-                          ? [
-                              {
-                                label: "From the document",
-                                options: [
-                                  { label: line.ledger, value: line.ledger },
-                                ],
-                              },
-                            ]
-                          : []),
-                        ...LEDGER_GROUPS,
-                      ]}
-                      wrapperClassName="min-w-[280px]"
-                      triggerClassName="text-sm jv-cell-trigger"
-                      onChange={(value) =>
-                        onLineChange(index, { ledger: String(value) })
-                      }
-                      actionLabel={
-                        onCreateLedger
-                          ? (query) =>
-                              query
-                                ? `Create ledger “${query}”`
-                                : "Create ledger"
-                          : undefined
-                      }
-                      onAction={
-                        onCreateLedger
-                          ? (query) => onCreateLedger(query, index)
-                          : undefined
-                      }
-                    />
-                    {ledgerError ? (
-                      <Typography
-                        variant="sm"
-                        className="mt-1 text-[12px] text-pi-danger"
-                      >
-                        Required Field
-                      </Typography>
-                    ) : null}
-                  </TableCell>
-
-                  <TableCell className={BODY_CELL}>
-                    <Input
-                      aria-label="Line narration"
-                      placeholder="Add a line narration"
-                      readOnly={readOnly}
-                      value={line.description}
-                      onChange={(event) =>
-                        onLineChange(index, { description: event.target.value })
-                      }
-                    />
-                  </TableCell>
-
-                  <TableCell className={BODY_CELL}>
-                    <RupeeInput
-                      aria-label="Debit"
-                      value={line.dr}
-                      disabled={readOnly}
-                      hasError={amountError}
-                      onChange={(value) => onAmountChange(index, "dr", value)}
-                    />
-                    {amountError ? (
-                      <Typography
-                        variant="sm"
-                        className="mt-1 text-right text-[12px] text-pi-danger"
-                      >
-                        Required Field
-                      </Typography>
-                    ) : null}
-                  </TableCell>
-
-                  <TableCell className={BODY_CELL}>
-                    <RupeeInput
-                      aria-label="Credit"
-                      value={line.cr}
-                      disabled={readOnly}
-                      hasError={amountError}
-                      onChange={(value) => onAmountChange(index, "cr", value)}
-                    />
-                    {amountError ? (
-                      <Typography
-                        variant="sm"
-                        className="mt-1 text-right text-[12px] text-pi-danger"
-                      >
-                        Required Field
-                      </Typography>
-                    ) : null}
-                  </TableCell>
-
-                  <TableCell className={BODY_CELL}>
-                    <AllocationCell
-                      value={line.costCentre}
-                      hasAmount={!!(line.dr || line.cr)}
-                      costClass={costClass}
-                      readOnly={readOnly}
-                      onChange={(costCentre) =>
-                        onLineChange(index, { costCentre })
-                      }
-                    />
-                  </TableCell>
-
-                  {!readOnly ? (
-                    // px-0 and the 32px icon-sm button: under `table-fixed` this column
-                    // is held at 44px, and the cell's usual 10px of side
-                    // padding would leave a 40px control 24px to sit in.
-                    <TableCell className={cn(BODY_CELL, "px-0")}>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Remove line"
-                        className="mx-auto"
-                        onClick={() => onRemoveLine(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-pi-faint" />
-                      </Button>
+                <React.Fragment key={index}>
+                  <TableRow
+                    className={cn(BODY_ROW, splitting && "border-b-0")}
+                    data-source-line={index}
+                  >
+                    <TableCell
+                      className={BODY_CELL}
+                      data-source={`line.${index}.ledger`}
+                      data-source-label={`Line ${index + 1} · Ledger`}
+                    >
+                      <ComboBox
+                        title="Select ledger"
+                        size="sm"
+                        searchPlaceholder="Search ledgers…"
+                        isMultiSelect={false}
+                        hideClearButton
+                        modal={false}
+                        disabled={readOnly}
+                        invalid={ledgerError}
+                        selectedValue={line.ledger}
+                        // Every name the list can hold, so the trigger can show
+                        // a created or extracted ledger that is not a master.
+                        options={[
+                          ...new Set(
+                            [
+                              line.ledger,
+                              ...createdLedgers,
+                              ...LEDGERS.map((l) => l.name),
+                            ].filter(Boolean)
+                          ),
+                        ].map((name) => ({ label: name, value: name }))}
+                        optionGroups={[
+                          ...(createdLedgers.length
+                            ? [
+                                {
+                                  label: "New",
+                                  options: createdLedgers.map((name) => ({
+                                    label: name,
+                                    value: name,
+                                  })),
+                                },
+                              ]
+                            : []),
+                          // An extracted ledger that is not a master yet still
+                          // has to be findable, or the trigger names a value the
+                          // list cannot show.
+                          ...(line.ledger &&
+                          !createdLedgers.includes(line.ledger) &&
+                          !LEDGERS.some((l) => l.name === line.ledger)
+                            ? [
+                                {
+                                  label: "From the document",
+                                  options: [
+                                    {
+                                      label: line.ledger,
+                                      value: line.ledger,
+                                    },
+                                  ],
+                                },
+                              ]
+                            : []),
+                          ...LEDGER_GROUPS,
+                        ]}
+                        wrapperClassName="min-w-[280px]"
+                        triggerClassName="text-sm jv-cell-trigger"
+                        onChange={(value) =>
+                          onLineChange(index, { ledger: String(value) })
+                        }
+                        actionLabel={
+                          onCreateLedger
+                            ? (query) =>
+                                query
+                                  ? `Create ledger “${query}”`
+                                  : "Create ledger"
+                            : undefined
+                        }
+                        onAction={
+                          onCreateLedger
+                            ? (query) => onCreateLedger(query, index)
+                            : undefined
+                        }
+                      />
+                      {ledgerError ? (
+                        <Typography
+                          variant="sm"
+                          className="mt-1 text-[12px] text-pi-danger"
+                        >
+                          Required Field
+                        </Typography>
+                      ) : null}
                     </TableCell>
+
+                    <TableCell
+                      className={BODY_CELL}
+                      data-source={`line.${index}`}
+                      data-source-label={`Line ${index + 1} · Narration`}
+                    >
+                      <Input
+                        aria-label="Line narration"
+                        placeholder="Add a line narration"
+                        readOnly={readOnly}
+                        value={line.description}
+                        onChange={(event) =>
+                          onLineChange(index, {
+                            description: event.target.value,
+                          })
+                        }
+                      />
+                    </TableCell>
+
+                    <TableCell
+                      className={BODY_CELL}
+                      data-source={`line.${index}.dr`}
+                      data-source-label={`Line ${index + 1} · Debit`}
+                    >
+                      <RupeeInput
+                        aria-label="Debit"
+                        value={line.dr}
+                        disabled={readOnly}
+                        hasError={amountError}
+                        onChange={(value) => onAmountChange(index, "dr", value)}
+                      />
+                      {amountError ? (
+                        <Typography
+                          variant="sm"
+                          className="mt-1 text-right text-[12px] text-pi-danger"
+                        >
+                          Required Field
+                        </Typography>
+                      ) : null}
+                    </TableCell>
+
+                    <TableCell
+                      className={BODY_CELL}
+                      data-source={`line.${index}.cr`}
+                      data-source-label={`Line ${index + 1} · Credit`}
+                    >
+                      <RupeeInput
+                        aria-label="Credit"
+                        value={line.cr}
+                        disabled={readOnly}
+                        hasError={amountError}
+                        onChange={(value) => onAmountChange(index, "cr", value)}
+                      />
+                      {amountError ? (
+                        <Typography
+                          variant="sm"
+                          className="mt-1 text-right text-[12px] text-pi-danger"
+                        >
+                          Required Field
+                        </Typography>
+                      ) : null}
+                    </TableCell>
+
+                    <TableCell className={BODY_CELL}>
+                      <AllocationCell
+                        value={line.costCentre}
+                        allocation={line.costAllocation}
+                        amount={line.dr || line.cr}
+                        applicable={ledgerTakesCostCentre(line.ledger)}
+                        locked={costLock}
+                        readOnly={readOnly}
+                        splitting={splitting}
+                        onSplit={() => setSplitAt(index)}
+                        onChange={(patch) => {
+                          onLineChange(index, patch);
+                          if (splitting) setSplitAt(null);
+                        }}
+                      />
+                    </TableCell>
+
+                    {!readOnly ? (
+                      // px-0 and the 32px icon-sm button: under `table-fixed` this column
+                      // is held at 44px, and the cell's usual 10px of side
+                      // padding would leave a 40px control 24px to sit in.
+                      <TableCell className={cn(BODY_CELL, "px-0")}>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Remove line"
+                          className="mx-auto"
+                          onClick={() => onRemoveLine(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-pi-faint" />
+                        </Button>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                  {splitting ? (
+                    <TableRow
+                      className={cn(
+                        BODY_ROW,
+                        "jv-split-row hover:bg-transparent"
+                      )}
+                    >
+                      <TableCell colSpan={columns} className="px-3 pb-3 pt-0">
+                        <CostAllocationPanel
+                          amount={line.dr || line.cr}
+                          initial={line.costAllocation ?? null}
+                          seedCentre={line.costCentre}
+                          // under the Cost centre cell: the actions column and
+                          // half the allocation column in from the right
+                          notchRight={readOnly ? 58 : 102}
+                          onClose={() => setSplitAt(null)}
+                          onSave={(next) =>
+                            onLineChange(index, {
+                              costCentre: "",
+                              costAllocation: next,
+                            })
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
                   ) : null}
-                </TableRow>
+                </React.Fragment>
               );
             })}
           </TableBody>
@@ -357,7 +430,6 @@ const LedgerLines = ({
           </div>
         ) : null}
       </div>
-
     </section>
   );
 };

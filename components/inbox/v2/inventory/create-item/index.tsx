@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronLeft } from "@/components/icons";
-import { FormJourney } from "../../form-journey";
+import { FormJourney, MoreDetails } from "../../form-journey";
 import { Button } from "@/components/ui/button";
 import { useStockItemForm } from "@/hooks/pages/inbox/use-stock-item-form";
 import { PageButton } from "@/components/inbox/v2/ui";
@@ -42,7 +42,6 @@ const CreateItem = ({ company, itemUuid, onBack, notify }: Props) => {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <FormHeader
-        eyebrow="Inventory Masters"
         title={isEditMode ? "Edit Stock Item" : "Create Stock Item"}
         back={
           <PageButton
@@ -71,17 +70,14 @@ const CreateItem = ({ company, itemUuid, onBack, notify }: Props) => {
 
       <div className="min-h-0 flex-1 overflow-auto">
         <form id={FORM_ID} onSubmit={onSubmit} noValidate className={FORM_BODY}>
-          <FormJourney
-            title={
-              isEditMode
-                ? "Review your stock item."
-                : "Give your inventory a good foundation."
-            }
-            description="Add the item details, then configure opening stock and tax settings."
-          >
+          {/* The bill form's order (8 Oct 2026): what the item is and how
+              it is taxed on the form, opening stock under More details. */}
+          <FormJourney>
             <CoreDetailsSection form={form} />
-            <OpeningBalanceSection form={form} />
             <GstDetailsSection form={form} />
+            <MoreDetails groups={["Opening balance"]}>
+              <OpeningBalanceSection form={form} />
+            </MoreDetails>
           </FormJourney>
         </form>
       </div>

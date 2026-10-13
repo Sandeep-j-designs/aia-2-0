@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import ApSheet from "@/components/inbox/v2/ap-sheet";
+import Preview from "@/components/inbox/v2/preview";
 import { apDocumentFor } from "@/config/pages/inbox/ap-document";
 import {
   Item,
@@ -66,6 +67,9 @@ export default function Sheet({
         );
         const original = {
           ...i.original,
+          // The type the header (or the table) set, so a document moved here
+          // from another book opens on the type that was picked.
+          voucherType: i.form.voucherType || i.original.voucherType,
           bill: {
             ...i.original.bill,
             voucherNo: i.form.voucherNo,
@@ -75,11 +79,28 @@ export default function Sheet({
             gstReg: i.form.gst,
             costCentre: i.form.costCentre,
             flagged: [],
-            items: i.form.lines.map((l) => ({
-              desc: l.description,
-              ledger: l.ledger,
-              amount: l.amount,
-            })),
+            /* The form's lines win, but they carry no HSN, quantity, unit or
+               rate — so what the document printed against the same line is
+               put back, or every goods line would reach the sheet looking
+               like a bare ledger amount. Matched by description, not position
+               (the form can hold the lines in another order), so a line the
+               accountant added or rewrote takes nothing. */
+            items: i.form.lines.map((l) => {
+              const printed = i.original.bill?.items.find(
+                (p) => p.desc === l.description
+              );
+              return {
+                desc: l.description,
+                ledger: l.ledger,
+                amount: l.amount,
+                ...(printed && {
+                  hsn: printed.hsn,
+                  qty: printed.qty,
+                  unit: printed.unit,
+                  rate: printed.rate,
+                }),
+              };
+            }),
             // A hand-raised bill borrows a seeded item's scaffolding, not its
             // tax lines.
             taxes: i.created ? {} : i.original.bill?.taxes || {},
@@ -139,6 +160,7 @@ export default function Sheet({
       key={`${item.company}-${item.id}-${item.route}`}
       itemId={`${item.company}-${item.id}-${item.route}`}
       noDocument={item.created}
+      preview={item.created ? undefined : <Preview item={item} embedded />}
     />
   );
 }

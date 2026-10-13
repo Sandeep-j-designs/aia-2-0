@@ -7,8 +7,8 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  RefreshCw,
   Trash2,
+  FolderTree,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,6 +33,8 @@ import {
   searchCoa,
 } from "@/hooks/pages/inbox/use-chart-of-accounts";
 import { useColumnResize } from "@/hooks/pages/inbox/use-column-resize";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import type {
   AccountingMastersCounts,
   CoaTreeNode,
@@ -61,6 +63,7 @@ import {
   SyncChip,
   PAGE_CHROME,
   PAGE_SCROLLER,
+  SCROLLER_BOX,
   TABLE_SHELL,
   cellGround,
   syncStateOf,
@@ -140,7 +143,10 @@ const SyncCell = ({ node }: { node: CoaTreeNode }) => {
         : state === "failed"
           ? ["Failed to Sync", node.thirdPartySyncMessage ?? ""]
           : [undefined, undefined];
-  return <SyncChip status={status} title={title} detail={detail} />;
+  // -ml-2: the chip's own padding, so its dot sits on the header's line.
+  return (
+    <SyncChip status={status} title={title} detail={detail} className="-ml-2" />
+  );
 };
 
 type Row = { node: CoaTreeNode; level: number; expanded: boolean };
@@ -152,7 +158,6 @@ type Props = {
   onAdd: () => void;
   onEdit: (node: CoaTreeNode) => void;
   onDelete: (node: CoaTreeNode) => void;
-  onSync: (ids: string[]) => void;
   notify: (
     message: string,
     kind?: "success" | "error" | "warning" | "info"
@@ -166,7 +171,6 @@ const LedgerTree = ({
   onAdd,
   onEdit,
   onDelete,
-  onSync,
   notify,
 }: Props) => {
   const [search, setSearch] = useState("");
@@ -204,11 +208,6 @@ const LedgerTree = ({
     .map((r) => r.node)
     .filter(canSelect)
     .map((n) => n.accountUuid as string);
-  const selectedIds = Object.keys(selection).filter(
-    (id) =>
-      selection[id] &&
-      allNodes.some((n) => n.accountUuid === id && canSelect(n))
-  );
   const selectedOnScreen = selectableIds.filter((id) => selection[id]).length;
   const headerChecked: boolean | "indeterminate" =
     selectableIds.length > 0 && selectedOnScreen === selectableIds.length
@@ -232,6 +231,9 @@ const LedgerTree = ({
     sizes: COA_SIZES,
     storageKey: "coa.tree.widths.v1",
   });
+  // The resize hook's element is the page scroller, so the pinned edges
+  // shade against the same scroll.
+  const pinEdges = usePinEdges(resize.gridElement);
 
   const askDelete = (node: CoaTreeNode) => {
     // production's handleDelete: anything Tally already has stays.
@@ -242,10 +244,6 @@ const LedgerTree = ({
     setDeleting(node);
   };
 
-  const sync = () => {
-    onSync(selectedIds);
-    setSelection({});
-  };
 
   // The summary cards: what the tree already knows, counted. Read-only.
   const summary = useMemo(() => {
@@ -369,285 +367,299 @@ const LedgerTree = ({
   };
 
   return (
-    // The column-resize hook measures its element's width and horizontal
-    // scroll, and the page scroller is now the element that has both.
-    <div ref={resize.gridRef} className={PAGE_SCROLLER}>
-      <div className={PAGE_CHROME}>
-      <MasterHeading
-        eyebrow="Accounting workspace"
-        title="Chart of Accounts"
-        meta={`${ledgerTotal} ${ledgerTotal === 1 ? "ledger" : "ledgers"} in ${groupTotal} ${groupTotal === 1 ? "group" : "groups"}`}
-        actions={
-          <>
-            <Button variant="outline" onClick={sync}>
-              <RefreshCw />
-              {selectedIds.length
-                ? `Sync ${selectedIds.length} selected`
-                : "Sync"}
-            </Button>
-            <Button onClick={onAdd}>
-              <Plus />
-              Add Ledger
-            </Button>
-          </>
-        }
-      />
+    <div className={SCROLLER_BOX}>
+      {/* The column-resize hook measures its element's width and horizontal
+        scroll, and the page scroller is now the element that has both. */}
+      <div ref={resize.gridRef} className={PAGE_SCROLLER}>
+        <div className={PAGE_CHROME}>
+          <MasterHeading
+            eyebrow="Accounting workspace"
+            title="Chart of Accounts"
+            meta={`${ledgerTotal} ${ledgerTotal === 1 ? "ledger" : "ledgers"} in ${groupTotal} ${groupTotal === 1 ? "group" : "groups"}`}
+            actions={
+              // Sync lives in the top bar only (8 Oct 2026).
+              <Button onClick={onAdd}>
+                <Plus />
+                Add Ledger
+              </Button>
+            }
+          />
 
-      <SummaryGrid>
-        <SummaryCard
-          hero
-          label="Not synced to Tally"
-          icon={<CloudUpload />}
-          value={unsynced}
-          unit={unsynced === 1 ? "ledger" : "ledgers"}
-          meta={
-            unsynced
-              ? `${summary.failed} failed · ${summary.notSynced} not synced`
-              : "Every ledger is in Tally"
-          }
-        />
-        <SummaryCard
-          label="Synced to Tally"
-          icon={<CircleCheck />}
-          value={summary.synced}
-          unit={summary.synced === 1 ? "ledger" : "ledgers"}
-          meta={`of ${summary.ledgers} ${summary.ledgers === 1 ? "ledger" : "ledgers"}`}
-        />
-        <SummaryCard
-          label="Unused"
-          icon={<Ban />}
-          value={summary.unused}
-          unit={summary.unused === 1 ? "ledger" : "ledgers"}
-          meta="No transactions posted yet"
-        />
-      </SummaryGrid>
-
-      <MasterToolbar>
-        <MasterTabs
-          value="ledger"
-          tabs={[
-            {
-              id: "ledger",
-              // production's formatLedgerMastersTabLabel
-              label:
-                counts.totalGroupCount && counts.totalLedgerCount
-                  ? `Groups (${counts.totalGroupCount}) & Ledgers (${counts.totalLedgerCount})`
-                  : "Groups & Ledgers",
-            },
-          ]}
-        />
-        <MasterSearch
-          label="Search Ledgers or groups"
-          placeholder="Search Ledgers or groups"
-          value={search}
-          onChange={setSearch}
-        />
-      </MasterToolbar>
-      </div>
-
-      <div className={TABLE_SHELL}>
-        <div className="min-w-0 flex-1">
-          <Table
-            aria-label="Chart of Accounts"
-            style={{ width: resize.tableWidth }}
-            className={MASTER_TABLE_CLASS}
-          >
-            <TableHeader className={MASTER_HEADER_CLASS}>
-              <TableRow>
-                <TableHead
-                  style={{ width: SELECT_WIDTH }}
-                  className={cn(HEAD_BOOKEND, "left-0 px-3")}
-                >
-                  <Checkbox
-                    aria-label="Select all ledgers"
-                    checked={headerChecked}
-                    disabled={!selectableIds.length}
-                    onCheckedChange={(checked) =>
-                      setSelection((current) => {
-                        const next = { ...current };
-                        selectableIds.forEach((id) => {
-                          if (checked) next[id] = true;
-                          else delete next[id];
-                        });
-                        return next;
-                      })
-                    }
-                  />
-                </TableHead>
-                {COLUMNS.map(({ key, label, align }) => (
-                  <HeaderCell
-                    key={key}
-                    columnKey={key}
-                    label={label}
-                    sizes={COA_SIZES}
-                    resize={resize}
-                    align={align}
-                    resizable={key !== "sync"}
-                  />
-                ))}
-                <TableHead
-                  style={{ width: ACTIONS_WIDTH }}
-                  className={cn(HEAD_BOOKEND, "right-0")}
-                >
-                  <span className={cn(T.head, "flex h-4 items-center truncate")}>
-                    Actions
-                  </span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => {
-                const { node } = row;
-                const ledger = isLedger(node);
-                const id = node.accountUuid ?? "";
-                const ticked = ledger && !!selection[id];
-                // Group rows are the reference's register-group-row: a
-                // quieter 44px band on the head ground; ledgers are 56px.
-                const rest = ledger || searching ? "bg-background" : "bg-pi-head-bg";
-                const height = ledger || searching ? "h-14" : "h-11";
-                return (
-                  <TableRow
-                    key={`${node.id}-${row.level}`}
-                    data-node={ledger ? "ledger" : "group"}
-                    aria-selected={ticked || undefined}
-                    onClick={() => (ledger ? onEdit(node) : toggle(node))}
-                    className={cn(
-                      "group cursor-pointer hover:bg-transparent",
-                      ticked && "bg-pi-brand-tint hover:bg-pi-brand-tint",
-                      !ledger && node.isLeaf && !searching && "cursor-default"
-                    )}
-                  >
-                    <TableCell
-                      onClick={(e) => e.stopPropagation()}
-                      className={cn(
-                        "sticky left-0 z-[1] px-3 py-0 align-middle",
-                        height,
-                        cellGround(ticked, true, rest),
-                        ticked && SELECTED_EDGE
-                      )}
-                    >
-                      {ledger ? (
-                        <Checkbox
-                          aria-label={`Select ${node.label}`}
-                          checked={ticked}
-                          disabled={!canSelect(node)}
-                          onCheckedChange={(checked) =>
-                            setSelection((current) => {
-                              const next = { ...current };
-                              if (checked) next[id] = true;
-                              else delete next[id];
-                              return next;
-                            })
-                          }
-                        />
-                      ) : null}
-                    </TableCell>
-                    {COLUMNS.map(({ key, align }) => (
-                      <TableCell
-                        key={key}
-                        className={cn(
-                          "overflow-hidden px-4 py-0 align-middle",
-                          height,
-                          cellGround(ticked, true, rest),
-                          T.cell,
-                          align === "right" && "text-right"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "flex min-w-0 flex-col justify-center overflow-hidden",
-                            ledger || searching ? "h-[55px]" : "h-[43px]",
-                            align === "right" && "items-end",
-                            key === "sync" && "items-start"
-                          )}
-                        >
-                          {cell(key, row)}
-                        </div>
-                      </TableCell>
-                    ))}
-                    <TableCell
-                      onClick={(e) => e.stopPropagation()}
-                      className={cn(
-                        "sticky right-0 z-[1] px-4 py-0 align-middle",
-                        height,
-                        cellGround(ticked, true, rest)
-                      )}
-                    >
-                      {ledger ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Actions for ${node.label}`}
-                              className="size-7 text-pi-faint hover:text-pi-ink"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-36">
-                            <DropdownMenuItem onSelect={() => onEdit(node)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            {Number(node.transactionCount ?? 0) === 0 ? (
-                              <DropdownMenuItem
-                                onSelect={() => askDelete(node)}
-                                className="text-pi-danger focus:bg-pi-danger-bg focus:text-pi-danger"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            ) : null}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          {!rows.length && (
-            <EmptyBlock
-              title={
-                searching
-                  ? "No ledgers or groups match your search."
-                  : "No ledger groups found."
+          <SummaryGrid>
+            <SummaryCard
+              hero
+              label="Not synced to Tally"
+              icon={<CloudUpload />}
+              value={unsynced}
+              unit={unsynced === 1 ? "ledger" : "ledgers"}
+              meta={
+                unsynced
+                  ? `${summary.failed} failed · ${summary.notSynced} not synced`
+                  : "Every ledger is in Tally"
               }
             />
-          )}
+            <SummaryCard
+              label="Synced to Tally"
+              icon={<CircleCheck />}
+              value={summary.synced}
+              unit={summary.synced === 1 ? "ledger" : "ledgers"}
+              meta={`of ${summary.ledgers} ${summary.ledgers === 1 ? "ledger" : "ledgers"}`}
+            />
+            <SummaryCard
+              label="Unused"
+              icon={<Ban />}
+              value={summary.unused}
+              unit={summary.unused === 1 ? "ledger" : "ledgers"}
+              meta="No transactions posted yet"
+            />
+          </SummaryGrid>
+
+          <MasterToolbar>
+            <MasterTabs
+              value="ledger"
+              tabs={[
+                {
+                  id: "ledger",
+                  // production's formatLedgerMastersTabLabel
+                  label:
+                    counts.totalGroupCount && counts.totalLedgerCount
+                      ? `Groups (${counts.totalGroupCount}) & Ledgers (${counts.totalLedgerCount})`
+                      : "Groups & Ledgers",
+                },
+              ]}
+            />
+            <MasterSearch
+              label="Search Ledgers or groups"
+              placeholder="Search Ledgers or groups"
+              value={search}
+              onChange={setSearch}
+            />
+          </MasterToolbar>
         </div>
+
+        <div className={TABLE_SHELL}>
+          <div className="min-w-0 flex-1" {...pinEdges}>
+            <Table
+              aria-label="Chart of Accounts"
+              style={{ width: resize.tableWidth }}
+              className={MASTER_TABLE_CLASS}
+            >
+              <TableHeader className={MASTER_HEADER_CLASS}>
+                <TableRow>
+                  <TableHead
+                    style={{ width: SELECT_WIDTH }}
+                    className={cn(HEAD_BOOKEND, "pin-edge-l left-0 px-3")}
+                  >
+                    <Checkbox
+                      aria-label="Select all ledgers"
+                      checked={headerChecked}
+                      disabled={!selectableIds.length}
+                      onCheckedChange={(checked) =>
+                        setSelection((current) => {
+                          const next = { ...current };
+                          selectableIds.forEach((id) => {
+                            if (checked) next[id] = true;
+                            else delete next[id];
+                          });
+                          return next;
+                        })
+                      }
+                    />
+                  </TableHead>
+                  {COLUMNS.map(({ key, label, align }) => (
+                    <HeaderCell
+                      key={key}
+                      columnKey={key}
+                      label={label}
+                      sizes={COA_SIZES}
+                      resize={resize}
+                      align={align}
+                      resizable={key !== "sync"}
+                    />
+                  ))}
+                  <TableHead
+                    style={{ width: ACTIONS_WIDTH }}
+                    className={cn(HEAD_BOOKEND, "pin-edge-r right-0")}
+                  >
+                    <span
+                      className={cn(T.head, "flex h-4 items-center truncate")}
+                    >
+                      Actions
+                    </span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => {
+                  const { node } = row;
+                  const ledger = isLedger(node);
+                  const id = node.accountUuid ?? "";
+                  const ticked = ledger && !!selection[id];
+                  // Group rows are the reference's register-group-row: a
+                  // quieter 44px band on the head ground; ledgers are 56px.
+                  const rest =
+                    ledger || searching ? "bg-background" : "bg-pi-head-bg";
+                  const height = ledger || searching ? "h-14" : "h-11";
+                  return (
+                    <TableRow
+                      key={`${node.id}-${row.level}`}
+                      data-node={ledger ? "ledger" : "group"}
+                      aria-selected={ticked || undefined}
+                      onClick={() => (ledger ? onEdit(node) : toggle(node))}
+                      className={cn(
+                        "group cursor-pointer hover:bg-transparent",
+                        ticked && "bg-pi-brand-tint hover:bg-pi-brand-tint",
+                        !ledger && node.isLeaf && !searching && "cursor-default"
+                      )}
+                    >
+                      <TableCell
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          "pin-edge-l sticky left-0 z-[1] px-3 py-0 align-middle",
+                          height,
+                          cellGround(ticked, true, rest),
+                          ticked && SELECTED_EDGE
+                        )}
+                      >
+                        {ledger ? (
+                          <Checkbox
+                            aria-label={`Select ${node.label}`}
+                            checked={ticked}
+                            disabled={!canSelect(node)}
+                            onCheckedChange={(checked) =>
+                              setSelection((current) => {
+                                const next = { ...current };
+                                if (checked) next[id] = true;
+                                else delete next[id];
+                                return next;
+                              })
+                            }
+                          />
+                        ) : null}
+                      </TableCell>
+                      {COLUMNS.map(({ key, align }) => (
+                        <TableCell
+                          key={key}
+                          className={cn(
+                            "overflow-hidden px-4 py-0 align-middle",
+                            height,
+                            cellGround(ticked, true, rest),
+                            T.cell,
+                            align === "right" && "text-right"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "flex min-w-0 flex-col justify-center overflow-hidden",
+                              ledger || searching ? "h-[55px]" : "h-[43px]",
+                              align === "right" && "items-end",
+                              key === "sync" && "items-start"
+                            )}
+                          >
+                            {cell(key, row)}
+                          </div>
+                        </TableCell>
+                      ))}
+                      <TableCell
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          "pin-edge-r sticky right-0 z-[1] px-4 py-0 align-middle",
+                          height,
+                          cellGround(ticked, true, rest)
+                        )}
+                      >
+                        {ledger ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Actions for ${node.label}`}
+                                className="size-7 text-pi-faint hover:text-pi-ink"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-36">
+                              <DropdownMenuItem onSelect={() => onEdit(node)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              {Number(node.transactionCount ?? 0) === 0 ? (
+                                <DropdownMenuItem
+                                  onSelect={() => askDelete(node)}
+                                  className="text-pi-danger focus:bg-pi-danger-bg focus:text-pi-danger"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            {!rows.length && (
+              <EmptyBlock
+                {...(searching
+                  ? {
+                      title: "No ledgers or groups match your search",
+                      body: "Try part of the name, or the group it sits under.",
+                      filters: [{ label: `Search: “${search.trim()}”` }],
+                      onClear: () => setSearch(""),
+                    }
+                  : {
+                      icon: FolderTree,
+                      title: "No ledgers yet",
+                      body: "Sync your chart of accounts from Tally, or add a ledger here. Groups and ledgers appear as one tree.",
+                      actions: (
+                        <Button onClick={onAdd}>
+                          <Plus />
+                          Add Ledger
+                        </Button>
+                      ),
+                    })}
+              />
+            )}
+          </div>
+        </div>
+        <PageDialog
+          open={!!deleting}
+          title="Delete ledger?"
+          onClose={() => setDeleting(null)}
+          className="max-w-[460px]"
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setDeleting(null)}>
+                Cancel
+              </Button>
+              <Button
+                isDestructive
+                onClick={() => {
+                  if (deleting) onDelete(deleting);
+                  setDeleting(null);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete ledger
+              </Button>
+            </>
+          }
+        >
+          <p className={T.value}>
+            <span className="font-semibold text-foreground">
+              {deleting?.label}
+            </span>{" "}
+            has no transactions and has not been synced to Tally. Deleting it
+            removes it from AI Accountant for good.
+          </p>
+        </PageDialog>
       </div>
-      <PageDialog
-        open={!!deleting}
-        title="Delete ledger?"
-        onClose={() => setDeleting(null)}
-        className="max-w-[460px]"
-      >
-        <p className={T.value}>
-          <span className="font-semibold text-foreground">
-            {deleting?.label}
-          </span>{" "}
-          has no transactions and has not been synced to Tally. Deleting it
-          removes it from AI Accountant for good.
-        </p>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleting(null)}>
-            Cancel
-          </Button>
-          <Button
-            isDestructive
-            onClick={() => {
-              if (deleting) onDelete(deleting);
-              setDeleting(null);
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
-        </div>
-      </PageDialog>
+      <OverlayScrollbars scroller={resize.gridElement} />
     </div>
   );
 };

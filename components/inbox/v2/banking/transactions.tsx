@@ -1,5 +1,14 @@
-import React, { useMemo, useState } from "react";
-import { Eye, RefreshCw, Trash2, Undo2, Upload } from "@/components/icons";
+import React, { useMemo, useRef, useState } from "react";
+import {
+  CircleCheck,
+  Clock,
+  CloudUpload,
+  Eye,
+  Landmark,
+  Trash2,
+  Undo2,
+  Upload,
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -7,9 +16,11 @@ import BulkActionBar from "@/components/common/bulk-action-bar";
 import { ComboBox } from "@/components/common/combo-box";
 import DateFilter, { FY_PRESETS } from "@/components/common/date-filter";
 import DateRangePanel from "@/components/common/date-filter/panel";
+import OverlayScrollbars from "@/components/common/overlay-scrollbars";
 import { Tooltip } from "@/components/common/tooltip";
 import { cn } from "@/lib/utils";
 import { bankingActions, isCashLedger } from "@/hooks/pages/inbox/use-banking";
+import usePinEdges from "@/hooks/pages/inbox/use-pin-edges";
 import { gstRegistrationsOf } from "@/config/pages/inbox/mock-banking";
 import type {
   BankLedgerData,
@@ -82,7 +93,6 @@ const SORT_VALUE: Partial<
 const iso = (d?: Date) => (d ? d.toISOString().slice(0, 10) : "");
 const typeLabel = (t: BankTransaction) =>
   t.paymentType ? t.paymentType[0].toUpperCase() + t.paymentType.slice(1) : "";
-const plural = (n: number) => `${n} transaction${n === 1 ? "" : "s"}`;
 
 type Props = {
   company: string;
@@ -184,6 +194,61 @@ const Transactions = ({
     setPage(0);
     setSelected([]);
   };
+  /*
+   * The empty table (8 Oct 2026): filtered, it offers to clear; truly empty,
+   * it shows the stages a bank line moves through, counted, and acts on the
+   * one that holds lines.
+   */
+  const synced = ready.filter(
+    (t) => t.thirdPartySyncStatus === "synced"
+  ).length;
+  const lines = (n: number) => `${n} transaction${n === 1 ? "" : "s"}`;
+  const txnFlow = [
+    { label: "Needs review", count: review.length, icon: Clock, current: tab === "review" },
+    { label: "Accounting ready", count: ready.length, icon: CircleCheck, current: tab === "ready" },
+    { label: "Synced to Tally", count: synced, icon: CloudUpload },
+  ];
+  const transactionsEmpty: React.ComponentProps<typeof TransactionsTable>["empty"] =
+    anyFilter || aiOnly || hideSynced
+      ? {
+          title: "No transactions match these filters",
+          body: `None of the ${lines(tab === "review" ? review.length : ready.length)} in ${tab === "review" ? "Needs Review" : "Accounting Ready"} match.`,
+          filters: [],
+          onClear: () => reset(),
+        }
+      : !review.length && !ready.length
+        ? {
+            icon: Landmark,
+            title: "No transactions yet",
+            body: "Upload a bank statement for this account. Its transactions appear here, with a ledger suggested for each one.",
+            actions: (
+              <Button onClick={onUpload}>
+                <Upload className="h-4 w-4" />
+                Upload Statement
+              </Button>
+            ),
+          }
+        : tab === "review"
+          ? {
+              flow: txnFlow,
+              title: "Nothing left to review",
+              body: `Every transaction has a ledger. ${lines(ready.length)} ${ready.length === 1 ? "is" : "are"} accounting-ready${synced ? `, and ${synced} already in Tally` : ""}.`,
+              actions: (
+                <Button variant="outline" onClick={() => setTab("ready")}>
+                  View accounting-ready
+                </Button>
+              ),
+            }
+          : {
+              flow: txnFlow,
+              title: "Nothing accounting-ready yet",
+              body: `${lines(review.length)} still ${review.length === 1 ? "needs" : "need"} a ledger or a check before ${review.length === 1 ? "it is" : "they are"} ready to post.`,
+              actions: (
+                <Button onClick={() => setTab("review")}>
+                  Review {lines(review.length)}
+                </Button>
+              ),
+            };
   const reset = () => {
     setSearch("");
     setDates({});
@@ -369,318 +434,302 @@ const Transactions = ({
     finish();
   };
 
-  const sync = () => {
-    const pending = (selectedRows.length ? selectedRows : ready).filter(
-      (t) =>
-        t.thirdPartySyncStatus === "not_synced" ||
-        t.thirdPartySyncStatus === "event_creations_failed"
-    );
-    if (!pending.length) {
-      notify("Everything here is already synced to Tally.", "info");
-      return;
-    }
-    bankingActions.sync(
-      company,
-      pending.map((t) => t.bankLineUuid),
-      (count) => notify(`${plural(count)} synced to Tally`)
-    );
-    setSelected([]);
-    notify("Sync started\nAIA will tell you here when it finishes.");
-  };
 
   const openTxn = openId ? own.find((t) => t.bankLineUuid === openId) : null;
+  // The page scroller; it owns the horizontal scroll the table's pinned
+  // bookends shade against (the attributes go on it, an ancestor of the cells).
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const pinEdges = usePinEdges(scroller);
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className={PAGE_SCROLL}>
-        <Pinned>
-          <PageHead
-            eyebrow="Banking"
-            back={{ label: "Back to Banking", onClick: onBack }}
-            title={
-              <div className="-ml-2 min-w-0">
-                <ComboBox
-                  title="Select Bank Ledger"
-                  options={ledgers
-                    .filter((l) => !isCashLedger(l))
-                    .map((l) => ({ value: l.id, label: l.ledgerName }))}
-                  selectedValue={ledger.id}
-                  onChange={(value) => onSwitch(String(value))}
-                  isMultiSelect={false}
-                  hideClearButton
-                  formatTriggerLabel={(label) => `${label} - Transactions`}
-                  triggerClassName="h-auto w-auto min-w-[180px] max-w-full rounded-sm border-none bg-transparent px-2 py-0.5 shadow-none hover:bg-pi-fill"
-                  singleTriggerContentClassName={PAGE_TITLE}
-                />
-              </div>
-            }
-            actions={
-              <>
-                {onReady && (
-                  <Button variant="secondary" onClick={sync}>
-                    <RefreshCw className="h-4 w-4" />
-                    Sync
-                  </Button>
-                )}
-                <Button variant="secondary" onClick={onLogs}>
-                  <Eye className="h-4 w-4" />
-                  Statement Logs
-                </Button>
-                <Button onClick={onUpload}>
-                  <Upload className="h-4 w-4" />
-                  Upload Statement
-                </Button>
-              </>
-            }
-          />
-
-          <UnderlineTabs
-            tabs={[
-              { id: "review", label: "Needs Review", count: review.length },
-              { id: "ready", label: "Accounting Ready", count: ready.length },
-            ]}
-            value={tab}
-            onChange={(next) => {
-              setTab(next as Tab);
-              setAiOnly(false);
-              setHideSynced(false);
-              setStaged({});
-              firstPage();
-            }}
-          />
-
-          <div className={TOOLBAR}>
-            <SearchBox
-              label="Search transactions"
-              placeholder="Search..."
-              value={search}
-              onChange={(value) => {
-                setSearch(value);
-                firstPage();
-              }}
-            />
-            <ToolbarRule />
-            <QuickFilter
-              label="Type"
-              options={TYPE_OPTIONS}
-              selected={types}
-              onChange={(next) => {
-                setTypes(next);
-                firstPage();
-              }}
-            />
-            <DateFilter
-              label="Date"
-              value={dates}
-              onChange={(next) => {
-                setDates(next);
-                firstPage();
-              }}
-            />
-            <Tooltip
-              side="bottom"
-              message={
-                onReady
-                  ? "Hide transactions that have already been synced."
-                  : "Display transactions with complete data to review before marking as accounting-ready."
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* The scroller's own box, so the overlay bars and the floating
+          selection bar sit over the table and end above the pager. */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <div ref={scroller} className={PAGE_SCROLL} {...pinEdges}>
+          <Pinned>
+            <PageHead
+              eyebrow="Banking"
+              back={{ label: "Back to Banking", onClick: onBack }}
+              title={
+                <div className="-ml-2 min-w-0">
+                  <ComboBox
+                    title="Select Bank Ledger"
+                    options={ledgers
+                      .filter((l) => !isCashLedger(l))
+                      .map((l) => ({ value: l.id, label: l.ledgerName }))}
+                    selectedValue={ledger.id}
+                    onChange={(value) => onSwitch(String(value))}
+                    isMultiSelect={false}
+                    hideClearButton
+                    formatTriggerLabel={(label) => `${label} - Transactions`}
+                    triggerClassName="h-auto w-auto min-w-[180px] max-w-full rounded-sm border-none bg-transparent px-2 py-0.5 shadow-none hover:bg-pi-fill"
+                    singleTriggerContentClassName={PAGE_TITLE}
+                  />
+                </div>
               }
-            >
-              <Label className="ml-2 flex cursor-pointer items-center gap-2 whitespace-nowrap">
-                <Switch
-                  checked={onReady ? hideSynced : aiOnly}
-                  onCheckedChange={(checked) => {
-                    if (onReady) setHideSynced(checked);
-                    else setAiOnly(checked);
-                    firstPage();
-                  }}
-                />
-                <span className={cn(T.cell, "text-pi-body")}>
-                  {onReady
-                    ? "Hide Synced Transactions"
-                    : "Show AI Categorised Transactions"}
-                </span>
-              </Label>
-            </Tooltip>
-            <span className="flex-1" />
-            {anyFilter && (
-              <Button variant="ghost" onClick={reset}>
-                <Undo2 className="h-3 w-3" />
-                Reset Filters
-              </Button>
-            )}
-            <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
+              actions={
+                <>
+                  {/* Sync lives in the top bar only (8 Oct 2026). */}
+                  <Button variant="secondary" onClick={onLogs}>
+                    <Eye className="h-4 w-4" />
+                    Statement Logs
+                  </Button>
+                  <Button onClick={onUpload}>
+                    <Upload className="h-4 w-4" />
+                    Upload Statement
+                  </Button>
+                </>
+              }
+            />
+
+            <UnderlineTabs
+              tabs={[
+                { id: "review", label: "Needs Review", count: review.length },
+                { id: "ready", label: "Accounting Ready", count: ready.length },
+              ]}
+              value={tab}
+              onChange={(next) => {
+                setTab(next as Tab);
+                setAiOnly(false);
+                setHideSynced(false);
+                setStaged({});
+                firstPage();
+              }}
+            />
+
+            <div className={TOOLBAR}>
+              <SearchBox
+                label="Search transactions"
+                placeholder="Search..."
+                value={search}
+                onChange={(value) => {
+                  setSearch(value);
+                  firstPage();
+                }}
+              />
+              <ToolbarRule />
+              <QuickFilter
+                label="Type"
+                options={TYPE_OPTIONS}
+                selected={types}
+                onChange={(next) => {
+                  setTypes(next);
+                  firstPage();
+                }}
+              />
+              <DateFilter
+                label="Date"
+                value={dates}
+                onChange={(next) => {
+                  setDates(next);
+                  firstPage();
+                }}
+              />
+              <Tooltip
+                side="bottom"
+                message={
+                  onReady
+                    ? "Hide transactions that have already been synced."
+                    : "Display transactions with complete data to review before marking as accounting-ready."
+                }
+              >
+                <Label className="ml-2 flex cursor-pointer items-center gap-2 whitespace-nowrap">
+                  <Switch
+                    checked={onReady ? hideSynced : aiOnly}
+                    onCheckedChange={(checked) => {
+                      if (onReady) setHideSynced(checked);
+                      else setAiOnly(checked);
+                      firstPage();
+                    }}
+                  />
+                  <span className={cn(T.cell, "text-pi-body")}>
+                    {onReady
+                      ? "Hide Synced Transactions"
+                      : "Show AI Categorised Transactions"}
+                  </span>
+                </Label>
+              </Tooltip>
+              <span className="flex-1" />
+              {anyFilter && (
+                <Button variant="ghost" onClick={reset}>
+                  <Undo2 className="h-3 w-3" />
+                  Reset Filters
+                </Button>
+              )}
+              <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
+            </div>
+          </Pinned>
+
+          <TableCard>
+            <TransactionsTable
+              company={company}
+              rows={pageRows}
+              ready={onReady}
+              selected={selected}
+              onSelectedChange={setSelected}
+              sort={sort}
+              onSort={(key) => {
+                setSort((current) => nextSort(current, key));
+                firstPage();
+              }}
+              sortable={SORTABLE}
+              filterFor={filterFor}
+              filterActive={filterActive}
+              onOpen={(txn) => setOpenId(txn.bankLineUuid)}
+              onUpdate={(txn, change, message) => {
+                bankingActions.updateTransaction(
+                  company,
+                  txn.bankLineUuid,
+                  change
+                );
+                notify(message);
+              }}
+              onToggleReady={toggleReady}
+              onUnbuilt={onUnbuilt}
+              empty={transactionsEmpty}
+            />
+          </TableCard>
+        </div>
+        <OverlayScrollbars scroller={scroller} />
+
+        {selected.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
+            <BulkActionBar
+              className="pointer-events-auto"
+              selectedCount={selected.length}
+              totalCount={rows.length}
+              onSelectAll={
+                selected.length < rows.length
+                  ? () => setSelected(rows.map((t) => t.bankLineUuid))
+                  : undefined
+              }
+              // Categorize: a type and a ledger staged for every selected row.
+              // Production allows it only for one side (all debits or all
+              // credits), so a mixed selection cannot categorise.
+              fields={
+                onReady
+                  ? []
+                  : [
+                      {
+                        key: "type",
+                        // "Transaction Type" in production; the bar's 130px
+                        // fields cut that short, and the column says "Type".
+                        label: "Type",
+                        value: staged.type,
+                        isDisabled: mixed,
+                        options: (side === "debit"
+                          ? ["Payment", "Contra"]
+                          : ["Receipt", "Contra"]
+                        ).map((v) => ({ label: v, value: v })),
+                      },
+                      {
+                        key: "ledger",
+                        label: "Ledger",
+                        value: staged.ledger,
+                        isDisabled: mixed,
+                        options: bulkLedgerGroups.flatMap((g) =>
+                          g.options.map((o) => ({ label: o, value: o }))
+                        ),
+                        optionGroups: bulkLedgerGroups.map((g) => ({
+                          label: g.heading,
+                          options: g.options.map((o) => ({
+                            label: o,
+                            value: o,
+                          })),
+                        })),
+                        createNoun: "ledger",
+                        onCreate: () => onUnbuilt("Creating a ledger"),
+                      },
+                    ]
+              }
+              onFieldChange={(key, value) =>
+                setStaged((s) => {
+                  const next = { ...s };
+                  const k = key as "type" | "ledger";
+                  if (next[k] === value) delete next[k];
+                  else next[k] = value;
+                  // A Contra takes only bank or cash ledgers.
+                  if (
+                    k === "type" &&
+                    next.ledger &&
+                    !ledgerGroupsFor(
+                      TYPE_BY_LABEL[value],
+                      ledger.ledgerName,
+                      company
+                    )
+                      .flatMap((g) => g.options)
+                      .includes(next.ledger)
+                  )
+                    delete next.ledger;
+                  return next;
+                })
+              }
+              actions={
+                onReady
+                  ? [
+                      {
+                        label: "Revert to Needs Review",
+                        onClick: bulkRevert,
+                        variant: "primary",
+                      },
+                    ]
+                  : [
+                      ...(hasStaged
+                        ? [{ label: "Save", onClick: bulkSave }]
+                        : []),
+                      {
+                        label: hasStaged
+                          ? "Save & Mark as Ready"
+                          : "Mark as ready",
+                        onClick: bulkReady,
+                        variant: "primary" as const,
+                      },
+                    ]
+              }
+              deleteLabel={`Delete ${selected.length} selected`}
+              onDelete={() => setConfirmDelete(true)}
+              onClearSelection={finish}
+            />
           </div>
-        </Pinned>
-
-        <TableCard>
-          <TransactionsTable
-            company={company}
-            rows={pageRows}
-            ready={onReady}
-            selected={selected}
-            onSelectedChange={setSelected}
-            sort={sort}
-            onSort={(key) => {
-              setSort((current) => nextSort(current, key));
-              firstPage();
-            }}
-            sortable={SORTABLE}
-            filterFor={filterFor}
-            filterActive={filterActive}
-            onOpen={(txn) => setOpenId(txn.bankLineUuid)}
-            onUpdate={(txn, change, message) => {
-              bankingActions.updateTransaction(
-                company,
-                txn.bankLineUuid,
-                change
-              );
-              notify(message);
-            }}
-            onToggleReady={toggleReady}
-            onUnbuilt={onUnbuilt}
-            empty={
-              anyFilter || aiOnly || hideSynced
-                ? { title: "No transactions match your filters" }
-                : {
-                    title:
-                      "No transactions found, upload statements to see transactions here",
-                  }
-            }
-          />
-        </TableCard>
-
-        <Pinned>
-          <Pager
-            page={page}
-            pageSize={pageSize}
-            total={rows.length}
-            onPageChange={(next) => {
-              setPage(next);
-              setSelected([]);
-            }}
-            onPageSizeChange={setPageSize}
-          />
-        </Pinned>
+        )}
       </div>
 
-      {selected.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
-          <BulkActionBar
-            className="pointer-events-auto"
-            selectedCount={selected.length}
-            totalCount={rows.length}
-            onSelectAll={
-              selected.length < rows.length
-                ? () => setSelected(rows.map((t) => t.bankLineUuid))
-                : undefined
-            }
-            // Categorize: a type and a ledger staged for every selected row.
-            // Production allows it only for one side (all debits or all
-            // credits), so a mixed selection cannot categorise.
-            fields={
-              onReady
-                ? []
-                : [
-                    {
-                      key: "type",
-                      // "Transaction Type" in production; the bar's 130px
-                      // fields cut that short, and the column says "Type".
-                      label: "Type",
-                      value: staged.type,
-                      isDisabled: mixed,
-                      options: (side === "debit"
-                        ? ["Payment", "Contra"]
-                        : ["Receipt", "Contra"]
-                      ).map((v) => ({ label: v, value: v })),
-                    },
-                    {
-                      key: "ledger",
-                      label: "Ledger",
-                      value: staged.ledger,
-                      isDisabled: mixed,
-                      options: bulkLedgerGroups.flatMap((g) =>
-                        g.options.map((o) => ({ label: o, value: o }))
-                      ),
-                      optionGroups: bulkLedgerGroups.map((g) => ({
-                        label: g.heading,
-                        options: g.options.map((o) => ({ label: o, value: o })),
-                      })),
-                      createNoun: "ledger",
-                      onCreate: () => onUnbuilt("Creating a ledger"),
-                    },
-                  ]
-            }
-            onFieldChange={(key, value) =>
-              setStaged((s) => {
-                const next = { ...s };
-                const k = key as "type" | "ledger";
-                if (next[k] === value) delete next[k];
-                else next[k] = value;
-                // A Contra takes only bank or cash ledgers.
-                if (
-                  k === "type" &&
-                  next.ledger &&
-                  !ledgerGroupsFor(
-                    TYPE_BY_LABEL[value],
-                    ledger.ledgerName,
-                    company
-                  )
-                    .flatMap((g) => g.options)
-                    .includes(next.ledger)
-                )
-                  delete next.ledger;
-                return next;
-              })
-            }
-            actions={
-              onReady
-                ? [
-                    {
-                      label: "Revert to Needs Review",
-                      onClick: bulkRevert,
-                      variant: "primary",
-                    },
-                  ]
-                : [
-                    ...(hasStaged
-                      ? [{ label: "Save", onClick: bulkSave }]
-                      : []),
-                    {
-                      label: hasStaged
-                        ? "Save & Mark as Ready"
-                        : "Mark as ready",
-                      onClick: bulkReady,
-                      variant: "primary" as const,
-                    },
-                  ]
-            }
-            deleteLabel={`Delete ${selected.length} selected`}
-            onDelete={() => setConfirmDelete(true)}
-            onClearSelection={finish}
-          />
-        </div>
-      )}
+      {/* Below the page scroller, not inside it: the pager stays at the
+          bottom of the viewport, and the horizontal bar ends above it. */}
+      <Pager
+        page={page}
+        pageSize={pageSize}
+        total={rows.length}
+        onPageChange={(next) => {
+          setPage(next);
+          setSelected([]);
+        }}
+        onPageSizeChange={setPageSize}
+      />
 
       <PageDialog
         open={confirmDelete}
         title="Confirm Delete Transactions"
         onClose={() => setConfirmDelete(false)}
         className="max-w-[460px]"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button isDestructive onClick={bulkDelete}>
+              <Trash2 className="h-4 w-4" />
+              Delete transactions
+            </Button>
+          </>
+        }
       >
         <p className={T.value}>
           Some of the selected transactions are categorized. Deleting them will
           permanently remove their categorization data.
         </p>
         <p className={cn(T.value, "mt-2")}>Are you sure you want to proceed?</p>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-            Cancel
-          </Button>
-          <Button isDestructive onClick={bulkDelete}>
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
-        </div>
       </PageDialog>
 
       <TransactionSheet
