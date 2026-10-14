@@ -243,6 +243,7 @@ export type Item = {
   autoHold?: { reason: string; at: string };
   retries: number;
   error?: string;
+  collectionFailure?: boolean;
   firstAttempt: boolean;
   extractionResult?: Pick<
     Item,
@@ -382,7 +383,7 @@ export const blankArSheet = (): ArInvoiceState => ({
   fields: { ...AR_FIELD_DEFAULTS },
 });
 /** One mock document read into the Inbox's shape, as seeding does it. */
-const itemFromMock = (x: InboxItem, n: number): Item => {
+export const itemFromMock = (x: InboxItem, n: number): Item => {
   const route = (x.route || "AP") as Route;
   const b = x.bill;
   /*
@@ -1607,6 +1608,18 @@ export function scheduleExtraction(id: string) {
 export function retry(id: string) {
   const x = state.items.find((x) => x.id === id);
   if (!x) return;
+  if (x.collectionFailure) {
+    update(
+      id,
+      {
+        retries: x.retries + 1,
+        error:
+          "The same source attachment is still unreadable. Ask Neo for a clearer copy.",
+      },
+      "Source extraction retried"
+    );
+    return;
+  }
   update(
     id,
     { status: "Received", retries: x.retries + 1, firstAttempt: false },
@@ -2789,6 +2802,51 @@ export function neoCreate(item: Item, runId: string, fromId?: string) {
         );
     }
   );
+  return next;
+}
+
+/** Ingestion failures remain documents, not invented zero-value vouchers. */
+export function sourceFailure(item: Item, runId: string) {
+  const existing = state.items.find((x) => x.id === item.id);
+  if (existing) return existing;
+  const failed: Item = {
+    ...item,
+    company: state.company,
+    status: "Failed",
+    amount: 0,
+    collectionFailure: true,
+    error: "Unreadable source attachment. Request a clearer copy.",
+    form: { ...item.form, lines: [] },
+  };
+  state = { ...state, items: [failed, ...state.items] };
+  neoLog("Source extraction failed", runId, failed, { reason: failed.error });
+  return failed;
+}
+
+export function neoReplaceFailed(item: Item, runId: string) {
+  const existing = state.items.find(
+    (x) => x.id === item.id && x.company === state.company
+  );
+  if (!existing || existing.status !== "Failed")
+    throw new Error(
+      "The failed document has changed; review it before replacing."
+    );
+  if (!state.permissions.includes(item.route))
+    throw new Error("You do not have access to prepare this voucher.");
+  const next: Item = {
+    ...item,
+    company: state.company,
+    status: "Needs Review",
+    preparedBy: { agent: "Neo", runId, onBehalfOf: actor },
+  };
+  state = {
+    ...state,
+    items: state.items.map((x) => (x.id === next.id ? next : x)),
+  };
+  neoLog("Prepared clearer replacement", runId, next, {
+    reason:
+      "Replaced unreadable attachment after a simulated supplier reply; awaiting review.",
+  });
   return next;
 }
 

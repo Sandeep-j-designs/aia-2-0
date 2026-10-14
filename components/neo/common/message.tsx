@@ -30,7 +30,7 @@ type Props = {
 const RISK_NOTE = {
   commit: "approves as you",
   external: "is simulated; nothing leaves the prototype",
-  draft: "undoable from Runs",
+  draft: "undoable from Tasks",
   read: "",
 };
 
@@ -64,7 +64,7 @@ const Message = ({
     <div className="flex flex-col gap-2.5 duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none">
       {m.steps && <Steps steps={m.steps} onRef={onRef} />}
       {m.text !== undefined && (
-        <p className="whitespace-pre-wrap text-body-3 leading-6 text-topnav-avatar-text">
+        <p className="whitespace-pre-wrap text-body-3 leading-6 text-pi-ink">
           {m.text}
         </p>
       )}
@@ -75,7 +75,7 @@ const Message = ({
               key={`${l.label}-${l.target}`}
               type="button"
               onClick={() => onRef(l)}
-              className="flex h-7 items-center gap-1 rounded-md border border-surface-stroke px-2 text-label-3 font-semibold text-border hover:border-border hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              className="flex h-7 items-center gap-1 rounded-md border border-pi-line px-2 text-label-3 font-semibold text-primary hover:border-border hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
             >
               {l.label}
               <ArrowUpRight className="h-3 w-3" />
@@ -128,10 +128,10 @@ const Message = ({
                   className={cn(
                     "flex h-8 items-center gap-1.5 rounded-lg px-3 text-label-3 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
                     !live
-                      ? "border border-surface-stroke text-surface-foreground-muted"
+                      ? "border border-pi-line text-pi-body"
                       : a.primary
-                        ? "bg-background text-surface hover:bg-accent"
-                        : "border border-surface-stroke text-topnav-avatar-text hover:border-border hover:bg-surface-muted"
+                        ? "bg-primary text-primary-foreground hover:bg-primary-hover"
+                        : "border border-pi-line text-pi-ink hover:border-border hover:bg-pi-fill"
                   )}
                 >
                   {!live && "✓ "}
@@ -140,7 +140,7 @@ const Message = ({
                     a.primary &&
                     a.risk !== "commit" &&
                     a.risk !== "external" && (
-                      <kbd className="flex items-center gap-0.5 rounded-sm bg-surface/10 px-1 font-sans text-caption-1 text-surface">
+                      <kbd className="flex items-center gap-0.5 rounded-sm bg-primary-foreground/20 px-1 font-sans text-caption-1 text-primary-foreground">
                         Ctrl <CornerDownLeft className="h-3 w-3" />
                       </kbd>
                     )}
@@ -149,7 +149,7 @@ const Message = ({
             })}
           </div>
           {live && primary?.risk && RISK_NOTE[primary.risk] && (
-            <p className="text-caption-1 text-surface-foreground-muted">
+            <p className="text-caption-1 text-pi-body">
               {primary.label} {RISK_NOTE[primary.risk]}.
             </p>
           )}
@@ -162,7 +162,7 @@ const Message = ({
               key={s}
               type="button"
               onClick={() => onPrompt(s)}
-              className="rounded-lg border border-surface-stroke px-2.5 py-1.5 text-left text-label-3 text-topnav-avatar-text hover:border-border hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              className="rounded-lg border border-pi-line px-2.5 py-1.5 text-left text-label-3 text-pi-ink hover:border-border hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
             >
               {s}
             </button>

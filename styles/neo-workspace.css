@@ -1,0 +1,103 @@
+/* Use the workspace's actual width, including space reserved for Neo. */
+.review-toolbar-container {
+  container: review-toolbar / inline-size;
+}
+
+.review-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.review-toolbar-routing {
+  display: flex;
+  flex: 1;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.review-toolbar-reason {
+  min-width: 0;
+}
+
+.review-toolbar-routing > :not(.review-toolbar-reason) {
+  flex-shrink: 0;
+}
+
+html[data-neo-open] .review-toolbar-reason-text {
+  display: none;
+}
+
+html[data-neo-open] .review-toolbar-reason {
+  flex-shrink: 0;
+}
+
+.review-toolbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+@container review-toolbar (max-width: 1200px) {
+  .review-toolbar-origin {
+    display: none;
+  }
+}
+
+@container review-toolbar (max-width: 850px) {
+  .review-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .review-toolbar-actions {
+    justify-content: flex-end;
+  }
+}
+
+@container review-toolbar (max-width: 480px) {
+  .review-toolbar-routing {
+    flex-wrap: wrap;
+  }
+  .review-toolbar {
+    padding-inline: 12px;
+  }
+  .review-toolbar-document-label {
+    display: none;
+  }
+  .review-toolbar-actions {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .review-toolbar-routing [role="combobox"] {
+    max-width: calc(100cqi - 120px);
+    overflow: hidden;
+  }
+}
+
+.neo-panel {
+  isolation: isolate;
+}
+.neo-panel button {
+  overflow-wrap: anywhere;
+}
+
+/* The embedded review sheets have their own fixed toast stacks. Keep both
+   notification systems clear of Neo's composer, including in overlay mode. */
+html[data-neo-open] :is(.ap-sheet, .ar-sheet) .toasts,
+html[data-neo-open] [data-sonner-toaster][data-y-position="bottom"] {
+  bottom: 160px;
+}
+
+@media (min-width: 1440px) {
+  html[data-neo-open] :is(.ap-sheet, .ar-sheet) .toasts {
+    right: calc(24rem + 16px);
+    bottom: 16px;
+  }
+  html[data-neo-open] [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: var(--offset-bottom, 24px);
+  }
+}

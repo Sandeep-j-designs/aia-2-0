@@ -1,4 +1,5 @@
 import React, { createContext, ReactNode } from "react";
+import { useSourceWatcher } from "@/hooks/pages/inbox/use-source-watcher";
 import {
   useNeoRuntime,
   type NeoRuntime,
@@ -15,6 +16,7 @@ type Props = { children: ReactNode };
  * DEV: mount in production's pages/_app.tsx beside GuideProvider.
  */
 const NeoProvider = ({ children }: Props) => {
+  useSourceWatcher();
   const runtime = useNeoRuntime();
   return <NeoContext.Provider value={runtime}>{children}</NeoContext.Provider>;
 };

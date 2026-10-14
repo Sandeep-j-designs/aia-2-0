@@ -84,6 +84,13 @@ const NAV: NavNode[] = [
     icon: <Inbox />,
   },
   {
+    kind: "item",
+    id: "agents",
+    label: "Agents",
+    path: "/inbox?module=AGENTS",
+    icon: <Workflow />,
+  },
+  {
     kind: "group",
     id: "payables",
     label: "Payables",
@@ -140,32 +147,6 @@ const NAV: NavNode[] = [
     icon: <Landmark />,
   },
   {
-    // What the AI may do on its own, and the record of what it did (13 Oct 2026).
-    kind: "group",
-    id: "automation",
-    label: "Automation",
-    icon: <Workflow />,
-    children: [
-      { id: "activity", label: "Activity log", path: "/automation/activity" },
-      { id: "rules", label: "Rules & learning", path: "/automation/rules" },
-      {
-        id: "policy",
-        label: "Client policy",
-        path: "/inbox?module=AUTO&page=policy",
-      },
-      {
-        id: "playbooks",
-        label: "Playbooks",
-        path: "/inbox?module=AUTO&page=playbooks",
-      },
-      {
-        id: "whatsapp",
-        label: "WhatsApp",
-        path: "/inbox?module=AUTO&page=whatsapp",
-      },
-    ],
-  },
-  {
     kind: "item",
     id: "configuration",
     label: "Sync Management",
@@ -176,6 +157,7 @@ const NAV: NavNode[] = [
 
 /** Breadcrumb trail shown in the top bar for each nav id. */
 export const NAV_TRAIL: Record<string, Crumb[]> = {
+  agents: ["Agents"],
   dashboard: ["Dashboard"],
   inbox: ["Workspace", "Inbox"],
   purchases: ["Payables", "Purchases"],

@@ -1,4 +1,7 @@
 import type { NeoContext, NeoTask } from "@/types/pages/neo";
+import inboxCollection from "@/config/pages/neo/tasks/inbox-collection";
+import sourceRequest from "@/config/pages/neo/tasks/source-request";
+import inboxSync from "@/config/pages/neo/tasks/inbox-sync";
 import approveBatch from "./approve-batch";
 import chase from "./chase";
 import duplicates from "./duplicates";
@@ -25,6 +28,9 @@ import {
  * definitions and this file is deleted.
  */
 export const NEO_TASKS: NeoTask[] = [
+  inboxCollection,
+  sourceRequest,
+  inboxSync,
   collections,
   provisions,
   invoiceFromPo,
@@ -44,7 +50,7 @@ export const NEO_TASKS: NeoTask[] = [
 
 /** What Neo can do, as it says it when asked or when it can't help. */
 export const NEO_CAPABILITIES = [
-  "Run a scripted bookkeeping pass: receive sample documents, check them, prepare draft fixes, and open the Inbox for review",
+  "Collect documents from scoped Inbox sources, prepare drafts, link duplicates and surface missing information",
   "Raise a sales invoice from a purchase bill",
   "Tell you what in the queue needs you, and what can be approved now",
   "Explain why a document is flagged or blocked",

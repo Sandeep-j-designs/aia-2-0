@@ -20,6 +20,10 @@ export const suggestionsFor = (context: NeoContext): string[] => {
     ["Needs Review", "Duplicate"].includes(x.status)
   );
   const out: string[] = [];
+  if (!item)
+    out.push(
+      "Collect documents from my connected sources and prepare my Inbox"
+    );
 
   if (item) {
     if (item.route === "AP")

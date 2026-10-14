@@ -49,6 +49,9 @@ import {
   Zap,
 } from "@/components/icons";
 import HistoryPanel from "./automation/common/history-panel";
+import Agents from "@/components/agents";
+import SourceProvenance from "@/components/inbox/v2/sources/provenance";
+import CollectionDocumentIssue from "@/components/inbox/v2/sources/document-issue";
 import { shortVendor } from "@/hooks/pages/inbox/use-auto-approve";
 import { closeActivity, undoActivity } from "@/hooks/pages/inbox/use-activity";
 import {
@@ -1401,6 +1404,13 @@ export default function Workspace() {
   const bankModule = router.query.module === "BANK";
   const checksModule = router.query.module === "CHECKS";
   const dashboardModule = router.query.module === "DASH";
+  const agentsModule = router.query.module === "AGENTS";
+  useEffect(() => {
+    if (router.query.sources === "1")
+      void router.replace(
+        "/inbox?module=AGENTS&page=document-collection&tab=configuration"
+      );
+  }, [router.query.sources]);
   useEffect(() => {
     setNeoSelection(selected);
   }, [selected]);
@@ -1746,6 +1756,14 @@ export default function Workspace() {
    * screen, and its Current Module is not a guess.
    */
   const sync = useTallySync({ items: books, route: moduleRoute ?? null });
+  const handledNeoSync = useRef<string | null>(null);
+  useEffect(() => {
+    const requested = router.query.neoSync;
+    if (typeof requested === "string" && handledNeoSync.current !== requested) {
+      handledNeoSync.current = requested;
+      sync.openConfirm();
+    }
+  }, [router.query.neoSync, sync.openConfirm]);
   /*
     An auto-approval can be undone until its voucher is in Tally. Once a sync
     takes it there, the log entry's Undo closes, wherever it is offered.
@@ -2188,26 +2206,32 @@ export default function Workspace() {
     // as current is the child, not the parent.
     JV: "journal-vouchers",
   };
-  const navId = notificationsPage
-    ? "notifications"
-    : dashboardModule
-      ? "dashboard"
-      : checksModule
-        ? "checks"
-        : autoModule
-          ? autoView.page
-          : gstModule
-            ? "gst"
-            : coaModule
-              ? "chart-of-accounts"
-              : inventoryModule
-                ? "inventory"
-                : bankModule
-                  ? "banking"
-                  : moduleRoute
-                    ? ROUTE_TO_NAV[moduleRoute]
-                    : "inbox";
+  const navId = agentsModule
+    ? "agents"
+    : notificationsPage
+      ? "notifications"
+      : dashboardModule
+        ? "dashboard"
+        : checksModule
+          ? "checks"
+          : autoModule
+            ? autoView.page
+            : gstModule
+              ? "gst"
+              : coaModule
+                ? "chart-of-accounts"
+                : inventoryModule
+                  ? "inventory"
+                  : bankModule
+                    ? "banking"
+                    : moduleRoute
+                      ? ROUTE_TO_NAV[moduleRoute]
+                      : "inbox";
   const selectNav = (navItemId: string) => {
+    if (navItemId === "agents") {
+      void router.push("/inbox?module=AGENTS");
+      return;
+    }
     if (navItemId === "checks") {
       void router.push("/inbox?module=CHECKS");
       return;
@@ -3112,39 +3136,35 @@ export default function Workspace() {
           ) : item ? (
             <>
               {/* Document routing and status lead; navigation and actions sit on the right. */}
-              <div
-                className={cn(
-                  band,
-                  gutter,
-                  "min-h-[52px] shrink-0 border-b border-pi-line bg-background py-2"
-                )}
-              >
-                <PageButton
-                  label={
-                    item.created
-                      ? `Back to ${moduleNames[item.route]}`
-                      : originRoute
-                        ? `Back to ${moduleNames[originRoute]}`
-                        : "Back to Inbox"
-                  }
-                  disabled={false}
-                  onClick={() => void router.push(exitHref)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </PageButton>
-                {/*
+              <div className="review-toolbar-container shrink-0 border-b border-pi-line bg-background">
+                <div className={cn(gutter, "review-toolbar min-h-[52px] py-2")}>
+                  <div className="review-toolbar-routing">
+                    <PageButton
+                      label={
+                        item.created
+                          ? `Back to ${moduleNames[item.route]}`
+                          : originRoute
+                            ? `Back to ${moduleNames[originRoute]}`
+                            : "Back to Inbox"
+                      }
+                      disabled={false}
+                      onClick={() => void router.push(exitHref)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </PageButton>
+                    {/*
                   A voucher raised by hand was never read off a document, so
                   there is no AI pick to override and nothing to re-extract
                   into another type: it is named, not switched.
                 */}
-                {reviewable && item.created && (
-                  <span className="text-sm font-semibold text-foreground">
-                    {newVoucherTitle[item.route]}
-                  </span>
-                )}
-                {reviewable && !item.created && (
-                  <>
-                    {/*
+                    {reviewable && item.created && (
+                      <span className="text-sm font-semibold text-foreground">
+                        {newVoucherTitle[item.route]}
+                      </span>
+                    )}
+                    {reviewable && !item.created && (
+                      <>
+                        {/*
                       One control for where the document posts (7 Oct 2026,
                       user: "They should be the same components not two
                       different ones"). The book and the voucher type are one
@@ -3155,85 +3175,85 @@ export default function Workspace() {
                       type in another book moves the document there with that
                       type (a book's first type is what Post as alone did).
                     */}
-                    <Label
-                      htmlFor="inbox-post-as"
-                      className="whitespace-nowrap text-sm text-secondary-foreground"
-                    >
-                      Post as
-                    </Label>
-                    <Select
-                      value={`${item.route}|${item.form.voucherType}`}
-                      disabled={switching}
-                      onValueChange={(v) => {
-                        const [r, ...rest] = v.split("|");
-                        setVoucherType(item.id, r as Route, rest.join("|"));
-                      }}
-                    >
-                      <SelectTrigger
-                        id="inbox-post-as"
-                        data-guide-id="inbox-route"
-                        aria-label={`Post as ${ROUTE_LABELS[item.route]}, ${item.form.voucherType}`}
-                        title="Change the voucher this document posts as"
-                        className={cn(
-                          // rounded-md, which is 6px here: --radius is 0.5rem
-                          // and md subtracts 2. Matches the back chevron.
-                          "h-9 w-auto gap-2 rounded-sm border border-pi-line-2 bg-background px-3 shadow-contact",
-                          "text-[13px] font-medium text-pi-ink",
-                          "hover:border-pi-line-strong focus:ring-0",
-                          "[&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-70"
-                        )}
-                      >
-                        {switching && <Spinner />}
-                        <SelectValue>
-                          <span className="flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="font-normal text-pi-body">
-                              {ROUTE_LABELS[item.route]}
-                            </span>
-                            {/* the top bar's breadcrumb slash: book / type
+                        <Label
+                          htmlFor="inbox-post-as"
+                          className="whitespace-nowrap text-sm text-secondary-foreground"
+                        >
+                          Post as
+                        </Label>
+                        <Select
+                          value={`${item.route}|${item.form.voucherType}`}
+                          disabled={switching}
+                          onValueChange={(v) => {
+                            const [r, ...rest] = v.split("|");
+                            setVoucherType(item.id, r as Route, rest.join("|"));
+                          }}
+                        >
+                          <SelectTrigger
+                            id="inbox-post-as"
+                            data-guide-id="inbox-route"
+                            aria-label={`Post as ${ROUTE_LABELS[item.route]}, ${item.form.voucherType}`}
+                            title="Change the voucher this document posts as"
+                            className={cn(
+                              // rounded-md, which is 6px here: --radius is 0.5rem
+                              // and md subtracts 2. Matches the back chevron.
+                              "h-9 w-auto gap-2 rounded-sm border border-pi-line-2 bg-background px-3 shadow-contact",
+                              "text-[13px] font-medium text-pi-ink",
+                              "hover:border-pi-line-strong focus:ring-0",
+                              "[&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-70"
+                            )}
+                          >
+                            {switching && <Spinner />}
+                            <SelectValue>
+                              <span className="flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="font-normal text-pi-body">
+                                  {ROUTE_LABELS[item.route]}
+                                </span>
+                                {/* the top bar's breadcrumb slash: book / type
                                 reads as one thing inside the other, and the
                                 caret stays the only control mark */}
-                            <span aria-hidden className="text-pi-faint">
-                              /
-                            </span>
-                            <span>
-                              {item.form.voucherType || "Select type"}
-                            </span>
-                          </span>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {/* the books in a fixed order, so the list never
+                                <span aria-hidden className="text-pi-faint">
+                                  /
+                                </span>
+                                <span>
+                                  {item.form.voucherType || "Select type"}
+                                </span>
+                              </span>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {/* the books in a fixed order, so the list never
                             reshuffles from one document to the next */}
-                        {(["AP", "AR", "JV"] as Route[])
-                          .filter((r) => state.permissions.includes(r))
-                          .map((r, index) => {
-                            const types = FORM_VOUCHER_TYPES[r];
-                            const list =
-                              r === item.route &&
-                              item.form.voucherType &&
-                              !types.includes(item.form.voucherType)
-                                ? [item.form.voucherType, ...types]
-                                : types;
-                            return (
-                              <SelectGroup key={r}>
-                                {index > 0 && <SelectSeparator />}
-                                <SelectLabel className="text-[11px] font-medium uppercase tracking-[0.06em] text-pi-faint">
-                                  {ROUTE_LABELS[r]}
-                                </SelectLabel>
-                                {list.map((t) => (
-                                  <SelectItem
-                                    key={`${r}|${t}`}
-                                    value={`${r}|${t}`}
-                                  >
-                                    {t}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            );
-                          })}
-                      </SelectContent>
-                    </Select>
-                    {/*
+                            {(["AP", "AR", "JV"] as Route[])
+                              .filter((r) => state.permissions.includes(r))
+                              .map((r, index) => {
+                                const types = FORM_VOUCHER_TYPES[r];
+                                const list =
+                                  r === item.route &&
+                                  item.form.voucherType &&
+                                  !types.includes(item.form.voucherType)
+                                    ? [item.form.voucherType, ...types]
+                                    : types;
+                                return (
+                                  <SelectGroup key={r}>
+                                    {index > 0 && <SelectSeparator />}
+                                    <SelectLabel className="text-[11px] font-medium uppercase tracking-[0.06em] text-pi-faint">
+                                      {ROUTE_LABELS[r]}
+                                    </SelectLabel>
+                                    {list.map((t) => (
+                                      <SelectItem
+                                        key={`${r}|${t}`}
+                                        value={`${r}|${t}`}
+                                      >
+                                        {t}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                );
+                              })}
+                          </SelectContent>
+                        </Select>
+                        {/*
                       The reason explains the AI's pick, so it comes off the
                       moment the pick is no longer what the screen shows. It
                       used to sit beside the new route and read as a
@@ -3241,71 +3261,88 @@ export default function Workspace() {
                       is the buyer on this vendor invoice", which is an argument
                       for the opposite of what the chip beside it says.
                     */}
-                    {/*
+                        {/*
                       Marked as the AI's line rather than the screen's: the
                       sparkle and the primary tint say a model wrote this,
                       which the muted grey it used to wear did not.
                     */}
-                    {item.reason && item.route === item.aiRoute && (
+                        {item.reason && item.route === item.aiRoute && (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label="AI routing suggestion"
+                                  className={cn(
+                                    T.sub,
+                                    "review-toolbar-reason inline-flex h-8 items-center gap-2 rounded-md px-1.5 text-left font-semibold text-primary hover:bg-pi-brand-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                  )}
+                                >
+                                  <Sparkles
+                                    className="h-3.5 w-3.5 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="review-toolbar-reason-text truncate">
+                                    {item.reason}
+                                  </span>
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" align="start">
+                                {item.reason}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {item.route !== item.aiRoute && (
+                          <Pill tone="warn">
+                            Overridden — AI suggested {routeNames[item.aiRoute]}
+                          </Pill>
+                        )}
+                      </>
+                    )}
+                    {!reviewable && <StatusPill status={item.status} />}
+                    {/* Who approved it, when it was not a person (13 Oct 2026). */}
+                    {item.status === "Approved" && item.autoApproved && (
                       <span
                         className={cn(
                           T.sub,
-                          "inline-flex items-center gap-2 font-semibold text-primary"
+                          "inline-flex items-center gap-1.5"
                         )}
+                        title={item.autoApproved.evidence}
                       >
-                        <Sparkles
-                          className="h-3.5 w-3.5 shrink-0"
-                          aria-hidden="true"
-                        />
-                        {item.reason}
+                        <Zap aria-hidden className="size-3.5 text-pi-brand" />
+                        Auto-approved · {item.autoApproved.evidence}
                       </span>
                     )}
-                    {item.route !== item.aiRoute && (
-                      <Pill tone="warn">
-                        Overridden — AI suggested {routeNames[item.aiRoute]}
-                      </Pill>
-                    )}
-                  </>
-                )}
-                {!reviewable && <StatusPill status={item.status} />}
-                {/* Who approved it, when it was not a person (13 Oct 2026). */}
-                {item.status === "Approved" && item.autoApproved && (
-                  <span
-                    className={cn(T.sub, "inline-flex items-center gap-1.5")}
-                    title={item.autoApproved.evidence}
-                  >
-                    <Zap aria-hidden className="size-3.5 text-pi-brand" />
-                    Auto-approved · {item.autoApproved.evidence}
-                  </span>
-                )}
 
-                {/*
+                    {/*
                   Where Tally stands on this voucher, as a marker rather than a
                   band across the screen. It replaced two full-width banners —
                   "Approved & posted" and "Editing a posted voucher" — that
                   between them said one thing the status pill beside this had
                   already said, and one thing this says on hover.
                 */}
-                {item.status === "Approved" && (
-                  <SyncCloud
-                    className="h-4 w-4"
-                    side="bottom"
-                    state={
-                      sync.inFlightIds.has(item.id)
-                        ? "syncing"
-                        : sync.syncedIds.has(item.id)
-                          ? "synced"
-                          : // resyncNeeded is only ever raised on a voucher
-                            // Tally had, so off the synced set it means the
-                            // copy over there is the older one.
-                            item.resyncNeeded
-                            ? "stale"
-                            : "pending"
-                    }
-                  />
-                )}
-                <span className="flex-1" />
-                {/*
+                    {item.status === "Approved" && (
+                      <SyncCloud
+                        className="h-4 w-4"
+                        side="bottom"
+                        state={
+                          sync.inFlightIds.has(item.id)
+                            ? "syncing"
+                            : sync.syncedIds.has(item.id)
+                              ? "synced"
+                              : // resyncNeeded is only ever raised on a voucher
+                                // Tally had, so off the synced set it means the
+                                // copy over there is the older one.
+                                item.resyncNeeded
+                                ? "stale"
+                                : "pending"
+                        }
+                      />
+                    )}
+                  </div>
+                  <div className="review-toolbar-actions">
+                    {/*
                   The pager reads as one object: arrows flanking the count they
                   move through, the count in the brand at full weight and the
                   arrows in it at low emphasis, so the position is what you read
@@ -3315,52 +3352,59 @@ export default function Workspace() {
                   the queue. Previous used to appear only past the first document,
                   which shifted Next sideways the moment you paged off it.
                 */}
-                {/* One voucher, raised by hand: nothing to page through. */}
-                {!item.created && (
-                  <div className="flex items-center gap-1">
-                    <PageButton
-                      label="Previous document"
-                      disabled={state.queue.indexOf(item.id) <= 0}
-                      className="text-pi-faint hover:bg-pi-fill hover:text-pi-ink disabled:opacity-40"
-                      onClick={() =>
-                        void router.push(
-                          detailHref(
-                            state.queue[state.queue.indexOf(item.id) - 1]
-                          )
-                        )
-                      }
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </PageButton>
-                    <span className="whitespace-nowrap text-[13px] font-medium tabular-nums text-pi-ink">
-                      {router.query.voucher ? "Voucher" : "Documents"}{" "}
-                      {Math.max(0, state.queue.indexOf(item.id)) + 1} of{" "}
-                      {state.queue.includes(item.id) ? state.queue.length : 1}
-                      {/* Which list this is, so two doors never read as two
+                    {/* One voucher, raised by hand: nothing to page through. */}
+                    {!item.created && (
+                      <div className="flex items-center gap-1">
+                        <PageButton
+                          label="Previous document"
+                          disabled={state.queue.indexOf(item.id) <= 0}
+                          className="text-pi-faint hover:bg-pi-fill hover:text-pi-ink disabled:opacity-40"
+                          onClick={() =>
+                            void router.push(
+                              detailHref(
+                                state.queue[state.queue.indexOf(item.id) - 1]
+                              )
+                            )
+                          }
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </PageButton>
+                        <span className="whitespace-nowrap text-[13px] font-medium tabular-nums text-pi-ink">
+                          <span className="review-toolbar-document-label">
+                            {router.query.voucher
+                              ? "Voucher"
+                              : "Documents"}{" "}
+                          </span>
+                          {Math.max(0, state.queue.indexOf(item.id)) + 1} of{" "}
+                          {state.queue.includes(item.id)
+                            ? state.queue.length
+                            : 1}
+                          {/* Which list this is, so two doors never read as two
                           queues. */}
-                      <span className="font-normal text-pi-faint">
-                        {" · "}
-                        {movedTo
-                          ? `Moved to ${moduleNames[movedTo]}`
-                          : originName}
-                      </span>
-                    </span>
-                    <PageButton
-                      label="Next document"
-                      // Wrapped, not passed: the click event is an argument, and
-                      // a truthy one would put the pager back on the review-only
-                      // walk this button is not doing.
-                      disabled={
-                        state.queue.indexOf(item.id) >= state.queue.length - 1
-                      }
-                      className="text-pi-faint hover:bg-pi-fill hover:text-pi-ink disabled:opacity-40"
-                      onClick={() => nextItem()}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </PageButton>
-                  </div>
-                )}
-                {/*
+                          <span className="review-toolbar-origin font-normal text-pi-faint">
+                            {" · "}
+                            {movedTo
+                              ? `Moved to ${moduleNames[movedTo]}`
+                              : originName}
+                          </span>
+                        </span>
+                        <PageButton
+                          label="Next document"
+                          // Wrapped, not passed: the click event is an argument, and
+                          // a truthy one would put the pager back on the review-only
+                          // walk this button is not doing.
+                          disabled={
+                            state.queue.indexOf(item.id) >=
+                            state.queue.length - 1
+                          }
+                          className="text-pi-faint hover:bg-pi-fill hover:text-pi-ink disabled:opacity-40"
+                          onClick={() => nextItem()}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </PageButton>
+                      </div>
+                    )}
+                    {/*
                   The actions, at the end of the row that already holds
                   everything else about this document. They had a docked bar of
                   their own along the bottom, which spent a full band of a
@@ -3372,73 +3416,75 @@ export default function Workspace() {
                   the snapshot in the PRD v2 bridge does — so the button
                   promised an action that had already happened.
                 */}
-                {/*
+                    {/*
                   The document's history: what the AI decided and why, who
                   changed what, who approved it (Automation, 13 Oct 2026).
                 */}
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="History"
-                        aria-haspopup="dialog"
-                        onClick={() => setHistoryOpen(true)}
-                        className="text-pi-body hover:text-pi-ink"
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>History</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <HistoryPanel
-                  open={historyOpen}
-                  onOpenChange={setHistoryOpen}
-                  company={item.company}
-                  itemId={item.id}
-                  subject={
-                    [item.form.party, item.form.invoiceNo]
-                      .filter(Boolean)
-                      .join(" · ") || item.file.name
-                  }
-                  user={actor}
-                  notify={notify}
-                />
-                {item.status !== "Deleted" && (
-                  <>
-                    {/*
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="History"
+                            aria-haspopup="dialog"
+                            onClick={() => setHistoryOpen(true)}
+                            className="text-pi-body hover:text-pi-ink"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>History</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <HistoryPanel
+                      open={historyOpen}
+                      onOpenChange={setHistoryOpen}
+                      company={item.company}
+                      itemId={item.id}
+                      subject={
+                        [item.form.party, item.form.invoiceNo]
+                          .filter(Boolean)
+                          .join(" · ") || item.file.name
+                      }
+                      user={actor}
+                      notify={notify}
+                    />
+                    {item.status !== "Deleted" && (
+                      <>
+                        {/*
                       A posted voucher opens as a record; this is the door into
                       the form, and Done editing is the same door closing. Both
                       used to be carried by a banner under this row, one button
                       on a band of its own.
                     */}
-                    {item.status === "Approved" && !approvedEditing && (
-                      <Button
-                        variant="secondary"
-                        disabled={!state.permissions.includes(item.route)}
-                        onClick={() => setEditingApproved(item.id)}
-                      >
-                        Edit entry
-                      </Button>
-                    )}
-                    <DangerButton onClick={deleteItem}>Delete</DangerButton>
-                    {/* Last, where Approve & Next sits in review — the filled
+                        {item.status === "Approved" && !approvedEditing && (
+                          <Button
+                            variant="secondary"
+                            disabled={!state.permissions.includes(item.route)}
+                            onClick={() => setEditingApproved(item.id)}
+                          >
+                            Edit entry
+                          </Button>
+                        )}
+                        <DangerButton onClick={deleteItem}>Delete</DangerButton>
+                        {/* Last, where Approve & Next sits in review — the filled
                         button is the way out of the state you are in, and it
                         should not move between the two. */}
-                    {approvedEditing && (
-                      <Button onClick={finishApprovedEdit}>Done editing</Button>
-                    )}
-                    {reviewable && (
-                      <BlockedReason reason={blockReason}>
-                        <Button
-                          data-guide-id="inbox-approve"
-                          // Default size, level with Delete, the route chip
-                          // and the pager: it stays the loudest thing in the
-                          // row by being the only filled control, not by being
-                          // taller.
-                          /*
+                        {approvedEditing && (
+                          <Button onClick={finishApprovedEdit}>
+                            Done editing
+                          </Button>
+                        )}
+                        {reviewable && (
+                          <BlockedReason reason={blockReason}>
+                            <Button
+                              data-guide-id="inbox-approve"
+                              // Default size, level with Delete, the route chip
+                              // and the pager: it stays the loudest thing in the
+                              // row by being the only filled control, not by being
+                              // taller.
+                              /*
                             A journal's own faults no longer disable this. They
                             are answered on the form — the imbalance banner and
                             the per-cell "Required Field" marks — and a button
@@ -3446,26 +3492,33 @@ export default function Workspace() {
                             still disables it is everything the form has no way
                             to say: no write access, and a hard-block duplicate.
                           */
-                          disabled={!canReview || switching || !!matched}
-                          onClick={() => {
-                            // Both embedded sheets defer to their own
-                            // validation — pressing this presses their Create
-                            // Bill / Create Invoice, which is what raises the
-                            // unresolved-field summary on the form. JV has no
-                            // sheet; it is validated by `issue` and answers on
-                            // the inbox's own form.
-                            if (item.route === "AP" || item.route === "AR")
-                              sheetSend.current("approve");
-                            else approveItem();
-                          }}
-                        >
-                          {item.created ? "Approve" : <>Approve &amp; Next</>}
-                        </Button>
-                      </BlockedReason>
+                              disabled={!canReview || switching || !!matched}
+                              onClick={() => {
+                                // Both embedded sheets defer to their own
+                                // validation — pressing this presses their Create
+                                // Bill / Create Invoice, which is what raises the
+                                // unresolved-field summary on the form. JV has no
+                                // sheet; it is validated by `issue` and answers on
+                                // the inbox's own form.
+                                if (item.route === "AP" || item.route === "AR")
+                                  sheetSend.current("approve");
+                                else approveItem();
+                              }}
+                            >
+                              {item.created ? (
+                                "Approve"
+                              ) : (
+                                <>Approve &amp; Next</>
+                              )}
+                            </Button>
+                          </BlockedReason>
+                        )}
+                      </>
                     )}
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
+              <CollectionDocumentIssue key={item.id} item={item} />
               {item.status === "Approved" && !approvedEditing ? (
                 <>
                   {/*
@@ -3902,6 +3955,8 @@ export default function Workspace() {
               companyId={state.company}
               companyIds={state.companies.map((c) => c.id)}
             />
+          ) : agentsModule ? (
+            <Agents key={state.company} company={state.company} />
           ) : dashboardModule ? (
             <Dashboard key={state.company} company={state.company} />
           ) : checksModule ? (
@@ -5207,9 +5262,11 @@ export default function Workspace() {
                                         // mail was sent to is the company's own,
                                         // so it said nothing, and who sent it is
                                         // the User column's job.
-                                        <span className="truncate">
-                                          {sourceLabels[x.source]}
-                                        </span>
+                                        <SourceProvenance
+                                          company={x.company}
+                                          itemId={x.id}
+                                          label={sourceLabels[x.source]}
+                                        />
                                       ) : c === "User" ? (
                                         <span
                                           className="block truncate"

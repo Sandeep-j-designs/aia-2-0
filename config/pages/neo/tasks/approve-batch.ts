@@ -19,6 +19,7 @@ const approveBatch: NeoTask = {
     );
     const ready = pool.filter((x) => billEvidence(x).ready),
       blocked = pool.filter((x) => !billEvidence(x).ready);
+    const versions = new Map(ready.map((x) => [x.id, JSON.stringify(x)]));
     const choice = await api.card(
       {
         kind: "list",
@@ -66,13 +67,16 @@ const approveBatch: NeoTask = {
       const current = getState().items.find((x) => x.id === preview.id);
       if (
         current?.status === "Needs Review" &&
+        current.company === api.context.company &&
+        JSON.stringify(current) === versions.get(current.id) &&
         billEvidence(current).ready &&
         !approve(current.id)
       )
         count++;
     }
+    if (count < ready.length) api.outcome("partial");
     await api.say(
-      `${count} bills approved by you. They are waiting for your Sync.`,
+      `${count} bills approved by you. ${ready.length - count ? `${ready.length - count} changed or no longer passed the checks; left for review. ` : ""}Approved bills are waiting for your Sync.`,
       ready.map((x) => ({ label: x.form.voucherNo, itemId: x.id }))
     );
     return `${count} approved by the user`;

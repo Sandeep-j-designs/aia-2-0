@@ -1,5 +1,72 @@
 # Unified Inbox — prototype
 
+## Inbox-first collection and Neo tasks
+
+Open **Agents** in the sidebar (`/inbox?module=AGENTS`) → **Set up agent**.
+Setup has two stages: connect a source with a live document preview, then choose
+when to run and save. Date access is expandable. Back and Edit preserve your choices;
+on-demand remains the default. Saving shows a ready state with Run now as the next action.
+Document Collection has Overview, Configuration and Activity tabs. Choose
+Gmail, Google Drive or WhatsApp Business, a sample account, restricted scope
+and start date, then choose **Run on demand** (default) or **Run continuously**.
+On demand saves without collecting; Run now or a Neo request starts one task
+without changing mode. Continuous activation starts an initial task and enables
+the session watcher. Pause suspends future background checks, Stop task ends
+the current task, and switching mode leaves an existing task to finish.
+
+Multiple connections share one organisation-scoped agent configuration. The
+catalogue is defined in `config/pages/agents/catalog.ts`; no placeholder future
+agents are shown. Configuration supports editing access, disconnect/reconnect
+and changing run mode. Activity includes manual/background runs and document
+links. Neo redirects missing setup to Agents rather than setting up in chat.
+
+Inbox has no separate collection strip or source setup drawer. Its existing
+Source column opens provenance, including multiple origins of exact duplicates.
+Unreadable files are Failed Inbox items with no fabricated voucher; missing
+invoice numbers and clearer-copy requests are resolved on document review.
+The existing History panel retains the shared audit record.
+
+Neo's **Tasks** tab tracks completed, partial, stopped, decision-needed and
+waiting-for-reply work. Existing ledger-edit previews, draft creation and
+approval remain available. Approval revalidates the exact previewed document;
+Sync is a separate confirmation in the existing Sync dialog. The Automation
+navigation group is removed and auto-approval defaults are off; legacy routes
+and shared audit components remain for compatibility.
+
+All connections, extraction results and message delivery are simulated. Data
+resets on reload. A 30-second watcher runs only for a continuous, unpaused agent
+in the selected organisation and shares Neo's collection importer;
+it does not run with the browser closed. No OAuth, actual mailbox access,
+WhatsApp integration, model service or background infrastructure was added.
+No arbitrary document text is executed as an instruction. Fixture content hashes
+stand in for hashes computed from bytes by a production ingestion service.
+
+Copy/merge `components/agents/`, `hooks/pages/agents/`, `config/pages/agents/`,
+`components/inbox/v2/sources/`, the additions under
+`hooks/pages/inbox/`, `config/pages/inbox/`, `types/pages/inbox/`, and the Neo
+task/runtime changes. Keep the existing prototype-stub deletion list below.
+The existing store adapter is the only draft-write path. Production seams:
+
+- Direct fetch `GET/PUT /api/agents/document-collection/configuration` →
+  `CollectionAgent`; `GET /api/agents/document-collection/runs` → `CollectionRun[]`.
+- Direct fetch `GET/POST /api/inbox/sources` → `InboxSource[]` / `InboxSource`;
+  `PATCH /api/inbox/sources/:id` changes scope/state with tenant authorisation.
+- `GET /api/inbox/sources/:id/candidates` → `SourceCandidate[]` (server-side
+  provider access and content hashes; replace `mock-sources.ts`).
+- `POST /api/inbox/collection-tasks` → streamed task progress + `SourceReceipt[]`;
+  durable worker, transactional receipts and company/content-hash uniqueness.
+- `POST /api/inbox/source-requests` → `SourceRequest`; separate send consent,
+  recipient validation and provider reply webhooks. Delete reply simulation.
+- Existing `/api/neo/runs` and `/api/inbox/items` contracts create drafts and
+  report task outcomes; replace the session watcher with provider events.
+
+Production work still required: OAuth and provider scopes, permission checks,
+durable jobs, malware/OCR pipeline, probable-duplicate review and real reply
+correlation. The prototype demonstrates exact-content deduplication only.
+
+Validation: `node tests/inbox-sources.test.cjs` and
+`node tests/agents-browser.cjs` (local Chrome and port 3001).
+
 Every document that arrives by email, WhatsApp, upload or shared drive lands in
 one inbox, gets classified to one of four posting routes (AP / AR / Banking /
 JV), and waits for a human to approve it. That approval step is the product.

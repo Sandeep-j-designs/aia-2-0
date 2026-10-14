@@ -23,7 +23,8 @@ const daysAgo = (days: number) =>
   new Date(Date.now() - days * 86_400_000).toISOString();
 
 export const mockAutoApproveSettings = (): AutoApproveSettings[] => [
-  { company: "shakun", enabled: true, minApprovals: 5, amountBand: 2 },
+  // Inbox-first agents prepare; approval remains a separate human action.
+  { company: "shakun", enabled: false, minApprovals: 5, amountBand: 2 },
   { company: "acme", enabled: false, minApprovals: 5, amountBand: 2 },
 ];
 

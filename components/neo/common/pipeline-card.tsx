@@ -29,7 +29,7 @@ const clock = (ms: number) => {
 };
 
 const SEGMENT: Record<NeoStageStatus, string> = {
-  waiting: "bg-surface-stroke",
+  waiting: "bg-pi-line",
   active: "bg-border",
   done: "bg-status-success",
   held: "bg-status-warning",
@@ -39,7 +39,7 @@ const TONE_DOT = {
   positive: "bg-status-success",
   notice: "bg-status-warning",
   negative: "bg-status-error",
-  neutral: "bg-surface-foreground-muted",
+  neutral: "bg-pi-faint",
 };
 
 /**
@@ -75,25 +75,23 @@ const PipelineCard = ({
   return (
     <section
       aria-label={card.title}
-      className="overflow-hidden rounded-xl border border-surface-stroke bg-surface-muted"
+      className="overflow-hidden rounded-xl border border-pi-line bg-pi-fill"
     >
       <header className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span
           className={cn(
             "flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-caption-1 font-bold uppercase tracking-wide",
             state === "Live"
-              ? "bg-border text-surface"
+              ? "bg-pi-brand-tint text-primary"
               : state === "Finished"
-                ? "bg-status-success text-surface"
-                : "bg-surface text-surface-foreground-muted"
+                ? "bg-pi-success-bg text-pi-success"
+                : "bg-background text-pi-body"
           )}
         >
           {state}
         </span>
-        <p className="text-label-3 font-semibold text-topnav-avatar-text">
-          {card.title}
-        </p>
-        <span className="ml-auto font-mono text-label-3 text-topnav-avatar-text tabular-nums">
+        <p className="text-label-3 font-semibold text-pi-ink">{card.title}</p>
+        <span className="ml-auto font-mono text-label-3 text-pi-ink tabular-nums">
           {clock(elapsed)}
         </span>
         {live && !card.finishedAt && (
@@ -103,7 +101,7 @@ const PipelineCard = ({
               onClick={paused ? onResume : onPause}
               aria-label={paused ? "Resume run" : "Pause run"}
               title={paused ? "Resume" : "Pause"}
-              className="grid h-6 w-6 place-items-center rounded-md text-topnav-avatar-text hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              className="grid h-6 w-6 place-items-center rounded-md text-pi-ink hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
             >
               {paused ? (
                 <Play className="h-3 w-3 fill-current" />
@@ -116,7 +114,7 @@ const PipelineCard = ({
               onClick={onStop}
               aria-label="Stop run"
               title="Stop — take over from here"
-              className="grid h-6 w-6 place-items-center rounded-md text-topnav-avatar-text hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              className="grid h-6 w-6 place-items-center rounded-md text-pi-ink hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
             >
               <Square className="h-3 w-3 fill-current" />
             </button>
@@ -146,24 +144,22 @@ const PipelineCard = ({
             key={s.id}
             className={cn(
               "flex items-center gap-2 text-body-4",
-              s.status === "waiting"
-                ? "text-surface-foreground-muted"
-                : "text-topnav-avatar-text"
+              s.status === "waiting" ? "text-pi-body" : "text-pi-ink"
             )}
           >
             {s.status === "done" ? (
               <CircleCheck className="h-3.5 w-3.5 flex-none text-status-success" />
             ) : s.status === "active" ? (
               paused ? (
-                <CirclePause className="h-3.5 w-3.5 flex-none text-border" />
+                <CirclePause className="h-3.5 w-3.5 flex-none text-primary" />
               ) : (
-                <Loader2 className="h-3.5 w-3.5 flex-none animate-spin text-border motion-reduce:animate-none" />
+                <Loader2 className="h-3.5 w-3.5 flex-none animate-spin text-primary motion-reduce:animate-none" />
               )
             ) : s.status === "held" ? (
               <CirclePause className="h-3.5 w-3.5 flex-none text-status-warning" />
             ) : (
               <span className="grid h-3.5 w-3.5 flex-none place-items-center">
-                <span className="h-2.5 w-2.5 rounded-full border border-surface-stroke" />
+                <span className="h-2.5 w-2.5 rounded-full border border-pi-line" />
               </span>
             )}
             <span
@@ -174,7 +170,7 @@ const PipelineCard = ({
             >
               {s.label}
             </span>
-            <span className="min-w-0 truncate text-right text-surface-foreground-muted tabular-nums [flex:1]">
+            <span className="min-w-0 truncate text-right text-pi-body tabular-nums [flex:1]">
               {s.detail}
             </span>
           </li>
@@ -182,15 +178,15 @@ const PipelineCard = ({
       </ol>
 
       {card.log.length > 0 && (
-        <div className="border-t border-surface-stroke bg-surface px-3 py-2">
-          <p className="mb-1 text-caption-1 font-semibold uppercase tracking-wide text-surface-foreground-muted">
+        <div className="border-t border-pi-line bg-background px-3 py-2">
+          <p className="mb-1 text-caption-1 font-semibold uppercase tracking-wide text-pi-body">
             Activity
           </p>
           <ol aria-live="polite" className="flex flex-col gap-1">
             {card.log.slice(-LOG_LINES).map((l) => (
               <li
                 key={l.id}
-                className="flex items-start gap-2 text-caption-1 leading-4 text-surface-foreground-muted duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+                className="flex items-start gap-2 text-caption-1 leading-4 text-pi-body duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
               >
                 <span className="w-9 flex-none font-mono tabular-nums">
                   {clock(l.at - card.startedAt)}
@@ -211,14 +207,12 @@ const PipelineCard = ({
                         target: "inbox",
                       })
                     }
-                    className="min-w-0 text-left text-topnav-avatar-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                    className="min-w-0 text-left text-pi-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
                   >
                     {l.text}
                   </button>
                 ) : (
-                  <span className="min-w-0 text-topnav-avatar-text">
-                    {l.text}
-                  </span>
+                  <span className="min-w-0 text-pi-ink">{l.text}</span>
                 )}
               </li>
             ))}

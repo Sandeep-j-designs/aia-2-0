@@ -143,7 +143,7 @@ const NeoPanel = () => {
         type="button"
         onClick={() => neo.setOpen(true)}
         title="Ask Neo (Ctrl J)"
-        className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-xl bg-surface px-1.5 py-3 text-topnav-avatar-text shadow-popover-shadow hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+        className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-xl bg-background px-1.5 py-3 text-pi-ink shadow-popover-shadow hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
       >
         <NeoMark className="h-6 w-6 text-label-3" live={!!neo.busy} />
         <span className="text-caption-1 font-semibold [writing-mode:vertical-rl]">
@@ -159,14 +159,14 @@ const NeoPanel = () => {
     <aside
       aria-label="Neo"
       onKeyDown={onKeyDown}
-      className="fixed right-0 top-0 z-40 flex h-screen w-96 max-w-full flex-col bg-surface text-topnav-avatar-text shadow-popover-shadow duration-200 animate-in slide-in-from-right-8 fade-in-0 motion-reduce:animate-none"
+      className="neo-panel fixed right-0 top-0 z-40 flex h-dvh w-full max-w-full flex-col border-l border-pi-line bg-background text-pi-ink shadow-popover-shadow duration-200 animate-in slide-in-from-right-8 fade-in-0 motion-reduce:animate-none sm:w-96"
     >
-      <header className="flex h-[50px] flex-none items-center gap-2.5 border-b border-surface-stroke px-3">
+      <header className="relative flex min-h-[112px] flex-none items-start gap-3 border-b border-pi-line px-5 pb-14 pt-4">
         <NeoMark live={!!neo.busy && !neo.paused} />
         <div className="min-w-0 leading-tight">
-          <h2 className="text-label-2 font-bold">Neo</h2>
+          <h2 className="text-base font-semibold leading-6">Neo</h2>
           <p
-            className="truncate text-caption-1 text-surface-foreground-muted"
+            className="truncate text-caption-1 text-pi-body"
             aria-live="polite"
           >
             {neo.busy
@@ -179,14 +179,14 @@ const NeoPanel = () => {
         <div
           role="tablist"
           aria-label="Neo views"
-          className="ml-auto flex gap-0.5 rounded-lg bg-surface-muted p-0.5"
+          className="absolute bottom-3 left-5 right-5 flex gap-1 rounded-lg bg-pi-fill p-1"
         >
           {(
             [
               { id: "chat", label: "Chat", icon: MessageSquare },
               {
                 id: "runs",
-                label: `Runs${neo.runs.length ? ` ${neo.runs.length}` : ""}`,
+                label: `Tasks${neo.runs.length ? ` ${neo.runs.length}` : ""}`,
                 icon: History,
               },
             ] as const
@@ -198,10 +198,10 @@ const NeoPanel = () => {
               aria-selected={neo.tab === t.id}
               onClick={() => neo.setTab(t.id)}
               className={cn(
-                "flex h-6 items-center gap-1 whitespace-nowrap rounded-md px-2 text-label-3 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
+                "flex h-8 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
                 neo.tab === t.id
-                  ? "bg-surface text-topnav-avatar-text"
-                  : "text-surface-foreground-muted hover:text-topnav-avatar-text"
+                  ? "bg-background text-primary shadow-sm"
+                  : "text-pi-body hover:text-pi-ink"
               )}
             >
               <t.icon className="h-3.5 w-3.5" />
@@ -215,7 +215,7 @@ const NeoPanel = () => {
           title="New chat"
           disabled={!!neo.busy || !neo.messages.length}
           onClick={neo.reset}
-          className="grid h-7 w-7 place-items-center rounded-md text-surface-foreground-muted hover:bg-surface-muted hover:text-topnav-avatar-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border disabled:opacity-40"
+          className="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-md text-pi-body hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border disabled:opacity-40"
         >
           <SquarePen className="h-3.5 w-3.5" />
         </button>
@@ -224,13 +224,13 @@ const NeoPanel = () => {
           aria-label="Close Neo"
           title="Close (Esc)"
           onClick={() => neo.setOpen(false)}
-          className="grid h-7 w-7 place-items-center rounded-md text-surface-foreground-muted hover:bg-surface-muted hover:text-topnav-avatar-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-pi-body hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
         >
           <X className="h-4 w-4" />
         </button>
       </header>
 
-      <p className="border-b border-surface-stroke px-3 py-1.5 text-caption-1 text-surface-foreground-muted">
+      <p className="px-5 pb-1 pt-3 text-xs leading-5 text-pi-body">
         {companyOf(neo.runContext?.company || state.company)?.name}
         {neo.runContext ? " · Run scope is fixed" : " · Scripted prototype"}
       </p>
@@ -240,7 +240,10 @@ const NeoPanel = () => {
         locked={!!neo.runContext}
       />
 
-      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={scroller}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain [overflow-wrap:anywhere]"
+      >
         {neo.tab === "runs" ? (
           <RunList
             runs={neo.runs}
@@ -249,7 +252,7 @@ const NeoPanel = () => {
             busy={!!neo.busy}
           />
         ) : neo.messages.length ? (
-          <div className="flex flex-col gap-4 px-3 py-4">
+          <div className="flex flex-col gap-6 px-5 py-6">
             {neo.messages.map((m) => (
               <Message
                 key={m.id}
@@ -268,12 +271,12 @@ const NeoPanel = () => {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col gap-5 px-4 py-6">
+          <div className="flex flex-col gap-7 px-5 py-7">
             <div>
-              <p className="text-h6 font-bold text-topnav-avatar-text">
+              <p className="text-xl font-semibold tracking-tight text-pi-ink">
                 {greeting()}, {firstName}.
               </p>
-              <p className="mt-1.5 text-body-3 text-surface-foreground-muted">
+              <p className="mt-3 text-sm leading-6 text-pi-body">
                 {waiting.count
                   ? `${waiting.count} document${waiting.count === 1 ? "" : "s"} worth ${money(waiting.total)} are waiting in ${company}.`
                   : `${company}'s queue is clear.`}{" "}
@@ -285,10 +288,10 @@ const NeoPanel = () => {
             <button
               type="button"
               onClick={() => send(LIVE_RUN_PROMPT)}
-              className="group flex flex-col gap-3 rounded-xl bg-background p-4 text-left text-foreground shadow-popover-shadow transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+              className="group flex flex-col gap-3 rounded-xl border border-pi-line bg-background p-4 text-left text-foreground transition-colors hover:border-pi-brand-border hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
             >
               <span className="flex items-center justify-between">
-                <span className="rounded-sm bg-surface px-1.5 py-0.5 text-caption-1 font-bold uppercase tracking-wide text-topnav-avatar-text">
+                <span className="rounded-sm bg-background px-1.5 py-0.5 text-caption-1 font-bold uppercase tracking-wide text-pi-ink">
                   Live run
                 </span>
                 <kbd className="rounded-sm bg-muted px-1.5 font-sans text-caption-1 font-semibold text-muted-foreground">
@@ -312,18 +315,18 @@ const NeoPanel = () => {
             </button>
 
             <div>
-              <p className="mb-2 text-caption-1 font-semibold uppercase tracking-wide text-surface-foreground-muted">
+              <p className="mb-2 text-caption-1 font-semibold uppercase tracking-wide text-pi-body">
                 Or ask for one thing
               </p>
-              <ul className="flex flex-col gap-1">
+              <ul className="flex flex-col gap-2">
                 {suggestions.map((s, i) => (
                   <li key={s}>
                     <button
                       type="button"
                       onClick={() => send(s)}
-                      className="group flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-label-3 text-topnav-avatar-text hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                      className="group flex w-full items-center gap-3 rounded-lg border border-pi-line px-3 py-3 text-left text-[13px] leading-5 text-pi-ink hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
                     >
-                      <kbd className="grid h-5 min-w-5 flex-none place-items-center rounded-sm bg-surface-muted px-1 font-sans text-caption-1 font-semibold text-border group-hover:bg-border group-hover:text-surface">
+                      <kbd className="grid h-5 min-w-5 flex-none place-items-center rounded-sm bg-pi-fill px-1 font-sans text-caption-1 font-semibold text-primary group-hover:bg-primary group-hover:text-primary-foreground">
                         {i + 1}
                       </kbd>
                       {s}

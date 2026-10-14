@@ -19,12 +19,7 @@ const NeoShell = ({ children }: Props) => {
     else delete root.dataset.neoOpen;
   }, [open]);
   return (
-    <div
-      className={cn(
-        "transition-[padding] duration-200 motion-reduce:transition-none",
-        open && "min-[1440px]:pr-96"
-      )}
-    >
+    <div className={cn("min-w-0", open && "min-[1440px]:pr-96")}>
       {children}
     </div>
   );

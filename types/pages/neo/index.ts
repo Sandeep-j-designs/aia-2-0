@@ -172,7 +172,14 @@ export type NeoMessage = {
 };
 
 export type NeoRunStatus =
-  "running" | "needs-you" | "done" | "failed" | "stopped" | "undone";
+  | "running"
+  | "needs-you"
+  | "done"
+  | "partial"
+  | "waiting"
+  | "failed"
+  | "stopped"
+  | "undone";
 
 export type NeoRun = {
   id: string;
@@ -202,6 +209,7 @@ export type NeoContext = {
  * tool calls) can do to the conversation.
  */
 export type NeoTaskApi = {
+  outcome: (status: "done" | "partial" | "waiting" | "needs-you") => void;
   runId: string;
   prompt: string;
   context: NeoContext;

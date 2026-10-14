@@ -42,7 +42,11 @@ import {
 const uid = (p: string) =>
   `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
-class Stopped extends Error {}
+class Stopped extends Error {
+  constructor() {
+    super("Task stopped");
+  }
+}
 
 const reducedMotion = () =>
   typeof window !== "undefined" &&
@@ -276,7 +280,11 @@ export const useNeoRuntime = () => {
           rejecters.current.set(id, reject);
         });
 
+      let outcome: NeoRunStatus = "done";
       const api: NeoTaskApi = {
+        outcome: (status) => {
+          outcome = status;
+        },
         runId,
         prompt: text,
         context: ctx,
@@ -443,7 +451,8 @@ export const useNeoRuntime = () => {
           setLiveStatus(said ? { text: said, progress } : null),
         navigate: async (path) => {
           guard();
-          if (path.includes("neoReview=")) setOpen(false);
+          if (path.includes("neoReview=") || path.includes("neoSync="))
+            setOpen(false);
           if (router.asPath !== path) await router.push(path);
         },
         chain: async (next) => {
@@ -457,7 +466,7 @@ export const useNeoRuntime = () => {
       try {
         const summary = await task.run(api);
         patchRun(runId, {
-          status: "done",
+          status: outcome,
           summary: typeof summary === "string" ? summary : undefined,
         });
       } catch (error) {
@@ -472,7 +481,7 @@ export const useNeoRuntime = () => {
               id: uid("m"),
               role: "neo",
               runId,
-              text: `${stopReason}. ${touched.size} records were created or changed; completed changes remain. Runs lists them and offers Undo for eligible drafts.`,
+              text: `${stopReason}. ${touched.size} records were created, linked or changed; completed changes remain. Tasks lists them. Eligible draft changes can be undone from document History.`,
             },
           ]);
         } else {
@@ -644,6 +653,21 @@ export const useNeoRuntime = () => {
     runContext: runs.find((r) => r.id === busy)?.context,
     detach: () => setDetached(true),
     startRun,
+    completeWaiting: (runId: string) =>
+      setRuns((rs) =>
+        rs.map((r) =>
+          r.id === runId &&
+          r.context.company === getState().company &&
+          r.status === "waiting"
+            ? {
+                ...r,
+                status: "done",
+                summary:
+                  "Supplier reply received (simulated); replacement queued for collection",
+              }
+            : r
+        )
+      ),
     answer,
     editCard,
     stop,
