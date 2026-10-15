@@ -109,6 +109,35 @@ export type NeoCard =
       }[];
     }
   | {
+      /**
+       * Change by rule: one instruction over many records, signed off once.
+       * The person can untick rows; Neo pre-unticks the ones it doubts and
+       * says why. Applying it edits drafts only — approved records are never
+       * in the set, and are counted so the person knows they were left alone.
+       */
+      kind: "changeset";
+      title: string;
+      /** The rule in words: "vendor = Mahindra Logistics Ltd · ledger = …". */
+      rule: string;
+      field: "Ledger" | "Cost centre";
+      /** "Move" or "Tag" — the verb on the sign-off button. */
+      verb: string;
+      company: string;
+      /** Records the rule matched that are approved, so left untouched. */
+      approvedSkipped: number;
+      rows: NeoChangeRow[];
+    }
+  | {
+      /**
+       * A batch of vouchers Neo is entering (Neo voucher entry). The card
+       * draws the batch from its store, so what it shows is always the
+       * batch as it stands; `view` is which step this card is.
+       */
+      kind: "batch";
+      batchId: string;
+      view: "settings" | "register" | "drafts";
+    }
+  | {
       kind: "message";
       channel: "WhatsApp" | "Email";
       to: string;
@@ -126,6 +155,17 @@ export type NeoCard =
       stages: NeoStage[];
       log: NeoLogLine[];
     };
+
+export type NeoChangeRow = {
+  itemId: string;
+  label: string;
+  from: string;
+  to: string;
+  amount: number;
+  checked: boolean;
+  /** Why Neo left this one unticked. */
+  doubt?: string;
+};
 
 export type NeoStageStatus = "waiting" | "active" | "done" | "held";
 
@@ -155,9 +195,14 @@ export type NeoAction = {
   risk?: NeoRisk;
 };
 
+/** A file sent with a request; `docId` when the prototype can read it. */
+export type NeoAttachment = { name: string; docId?: string };
+
 export type NeoMessage = {
   id: string;
   role: "user" | "neo";
+  /** Files the user sent with this message. */
+  attachments?: NeoAttachment[];
   runId?: string;
   text?: string;
   steps?: NeoStep[];
@@ -212,10 +257,14 @@ export type NeoTaskApi = {
   outcome: (status: "done" | "partial" | "waiting" | "needs-you") => void;
   runId: string;
   prompt: string;
+  /** Files sent with the request. */
+  attachments: NeoAttachment[];
   context: NeoContext;
   signal: AbortSignal;
   focus: (itemId: string) => void;
   say: (text: string, links?: NeoRef[]) => Promise<void>;
+  /** Offer follow-up requests as one-tap chips once the run is done. */
+  suggest: (prompts: string[]) => void;
   step: (label: string, cite?: NeoRef) => Promise<(label?: string) => void>;
   fail: (label: string) => void;
   ask: (question: string, options: NeoOption[]) => Promise<string>;
@@ -245,6 +294,10 @@ export type NeoTask = {
   id: string;
   title: string;
   /** Whether this task answers the prompt, and how strongly. 0 is no. */
-  match: (prompt: string, context: NeoContext) => number;
+  match: (
+    prompt: string,
+    context: NeoContext,
+    attachments?: NeoAttachment[]
+  ) => number;
   run: (api: NeoTaskApi) => Promise<string | void>;
 };

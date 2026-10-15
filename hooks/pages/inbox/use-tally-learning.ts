@@ -149,7 +149,7 @@ export const tallyLearning = {
       const run = state[company].run;
       logActivity({
         company,
-        actor: { kind: "ai", name: "AI · Tally history" },
+        actor: { kind: "ai", name: "Neo · Tally history" },
         kind: "learned",
         module: "Automation",
         action: "Learned from Tally history",

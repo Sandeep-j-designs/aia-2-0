@@ -44,11 +44,11 @@ const PlaybooksPage = ({ company, tab = "playbooks", onTab }: Props) => {
     });
   return (
     <FeaturePage
-      title="Playbooks"
+      title="Routines"
       tab={tab}
       onTab={onTab}
       tabs={[
-        { id: "playbooks", label: "Playbooks", count: data.playbooks.length },
+        { id: "playbooks", label: "Routines", count: data.playbooks.length },
         { id: "schedules", label: "Schedules", count: data.schedules.length },
       ]}
       actions={

@@ -113,7 +113,7 @@ export const applyPolicyPrediction = (id: string) => {
   logActivity(
     {
       company: item.company,
-      actor: { kind: "ai", name: "AI · Policy" },
+      actor: { kind: "ai", name: "Neo · Policy" },
       kind: "predicted",
       module: "Purchases",
       action: "Predicted ledger from policy",

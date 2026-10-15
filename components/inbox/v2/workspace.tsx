@@ -149,6 +149,10 @@ import {
   applyPolicyPrediction,
 } from "@/hooks/pages/inbox/use-client-policy";
 import PreparedTag from "@/components/neo/common/prepared-tag";
+import Brief from "@/components/neo/brief";
+import NeoOffers from "@/components/neo/offers";
+import BatchStrip from "@/components/neo/batch-strip";
+import ChaseBanner from "@/components/neo/chase-banner";
 import { setNeoSelection } from "@/utils/pages/neo/selection";
 import Sheet from "./sheet";
 import Banking, { type BankingView } from "./banking";
@@ -1405,6 +1409,9 @@ export default function Workspace() {
   const checksModule = router.query.module === "CHECKS";
   const dashboardModule = router.query.module === "DASH";
   const agentsModule = router.query.module === "AGENTS";
+  const neoModule = router.query.module === "NEO";
+  const batchFilter =
+    typeof router.query.batch === "string" ? router.query.batch : "";
   useEffect(() => {
     if (router.query.sources === "1")
       void router.replace(
@@ -1825,6 +1832,9 @@ export default function Workspace() {
         // sits outside the filter panel because it is about the run, not about
         // the documents, and it clears itself when the next run starts.
         .filter((x) => !sync.reviewingFailures || sync.failedSyncIds.has(x.id))
+        // A Neo batch's drafts, from its "Review in Inbox": the list is the
+        // batch, so Approve & Next walks it and nothing else.
+        .filter((x) => !batchFilter || x.batch?.id === batchFilter)
         .filter(
           (x) =>
             (!filters.from || x.received.slice(0, 10) >= filters.from) &&
@@ -1859,6 +1869,7 @@ export default function Workspace() {
       sort,
       sync.reviewingFailures,
       sync.failedSyncIds,
+      batchFilter,
     ]
   );
 
@@ -2206,28 +2217,34 @@ export default function Workspace() {
     // as current is the child, not the parent.
     JV: "journal-vouchers",
   };
-  const navId = agentsModule
-    ? "agents"
-    : notificationsPage
-      ? "notifications"
-      : dashboardModule
-        ? "dashboard"
-        : checksModule
-          ? "checks"
-          : autoModule
-            ? autoView.page
-            : gstModule
-              ? "gst"
-              : coaModule
-                ? "chart-of-accounts"
-                : inventoryModule
-                  ? "inventory"
-                  : bankModule
-                    ? "banking"
-                    : moduleRoute
-                      ? ROUTE_TO_NAV[moduleRoute]
-                      : "inbox";
+  const navId = neoModule
+    ? "neo-today"
+    : agentsModule
+      ? "agents"
+      : notificationsPage
+        ? "notifications"
+        : dashboardModule
+          ? "dashboard"
+          : checksModule
+            ? "checks"
+            : autoModule
+              ? autoView.page
+              : gstModule
+                ? "gst"
+                : coaModule
+                  ? "chart-of-accounts"
+                  : inventoryModule
+                    ? "inventory"
+                    : bankModule
+                      ? "banking"
+                      : moduleRoute
+                        ? ROUTE_TO_NAV[moduleRoute]
+                        : "inbox";
   const selectNav = (navItemId: string) => {
+    if (navItemId === "neo-today") {
+      void router.push("/inbox?module=NEO");
+      return;
+    }
     if (navItemId === "agents") {
       void router.push("/inbox?module=AGENTS");
       return;
@@ -2301,6 +2318,20 @@ export default function Workspace() {
     // then session.update(...) and useUserCompaniesStore.selectCompany.
     if (!quiet)
       notify(`Switched to ${companyOf(value)?.name ?? "organisation"}`);
+  };
+  /**
+   * Open a screen in a given client, from the firm brief or a chase: switch
+   * to the company first (as the org chip does), then go where the work is.
+   */
+  const openIn = (company: string, href: string) => {
+    if (company !== state.company) {
+      configure({ company, queue: [], queueFrom: undefined });
+      setSelected([]);
+      setFilters(defaultFilters);
+      setTab("Need review");
+      notify(`Switched to ${companyOf(company)?.name ?? "organisation"}`);
+    }
+    void router.push(href);
   };
   /** A new organisation becomes the active one, as production's create does. */
   const createOrganisation = (name: string) => {
@@ -3519,6 +3550,9 @@ export default function Workspace() {
                 </div>
               </div>
               <CollectionDocumentIssue key={item.id} item={item} />
+              {item.status === "Approved" && !approvedEditing && (
+                <ChaseBanner item={item} />
+              )}
               {item.status === "Approved" && !approvedEditing ? (
                 <>
                   {/*
@@ -3783,6 +3817,7 @@ export default function Workspace() {
                       approving.
                     </RecordBanner>
                   )}
+                  <ChaseBanner item={item} />
                   {/*
                     Three layouts, and which one a route gets is decided by one
                     thing: whether its sheet draws the source document itself.
@@ -3955,6 +3990,8 @@ export default function Workspace() {
               companyId={state.company}
               companyIds={state.companies.map((c) => c.id)}
             />
+          ) : neoModule ? (
+            <Brief onOpen={openIn} />
           ) : agentsModule ? (
             <Agents key={state.company} company={state.company} />
           ) : dashboardModule ? (
@@ -4288,6 +4325,15 @@ export default function Workspace() {
                         }
                         onPrimaryButtonClick={() => openSingleUpload()}
                       />
+                      {!moduleRoute && batchFilter && (
+                        <BatchStrip
+                          id={batchFilter}
+                          onClear={() => void router.push("/inbox")}
+                        />
+                      )}
+                      {!moduleRoute && !batchFilter && (
+                        <NeoOffers company={state.company} />
+                      )}
                       {/*
                         What the AI approved on its own today, and what it
                         held back (Automation › Auto-approve, 13 Oct 2026). A

@@ -160,7 +160,7 @@ const PurchaseRegisterSection = ({
             if (mapping.headerOffset === PR_DETECTED_HEADER_OFFSET)
               logActivity({
                 company,
-                actor: { kind: "ai", name: "AI · File cleanup" },
+                actor: { kind: "ai", name: "Neo · File cleanup" },
                 kind: "cleaned",
                 module: "GST",
                 action: "Cleaned up an uploaded purchase register",

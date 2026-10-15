@@ -5,7 +5,8 @@ import {
 import {
   blankForm,
   getState,
-  neoCreate,
+  actor,
+  personCreate,
   neoDiscard,
   type Item,
 } from "@/components/inbox/v2/store";
@@ -96,10 +97,10 @@ export const createProvisionDrafts = (
         amount: p.amount,
         reason: p.reason,
         source: "upload",
-        sender: "Neo",
+        sender: actor,
         file: {
           name: `${voucherNo} · ${p.group}`,
-          size: "Prepared by Neo",
+          size: "From the provision schedule",
           ext: "pdf",
         },
         original: {
@@ -129,14 +130,14 @@ export const createProvisionDrafts = (
         autoApproved: undefined,
         autoHold: undefined,
       };
-      created.push(neoCreate(draft, runId));
+      created.push(personCreate(draft, runId));
     }
   }
   logActivity(
     {
       company,
-      actor: { kind: "ai", name: "Neo" },
-      kind: "predicted",
+      actor: { kind: "person", name: actor },
+      kind: "override",
       module: "Journals",
       action: "Prepared year-end provisions",
       subject: `${created.length} balanced draft journals`,

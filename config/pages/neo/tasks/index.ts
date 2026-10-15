@@ -1,70 +1,95 @@
-import type { NeoContext, NeoTask } from "@/types/pages/neo";
+import type { NeoAttachment, NeoContext, NeoTask } from "@/types/pages/neo";
 import inboxCollection from "@/config/pages/neo/tasks/inbox-collection";
 import sourceRequest from "@/config/pages/neo/tasks/source-request";
-import inboxSync from "@/config/pages/neo/tasks/inbox-sync";
-import approveBatch from "./approve-batch";
+import askBooks from "./ask-books";
+import batchEntry from "./batch-entry";
+import batchActions from "./batch-actions";
+import changeByRule from "./change-by-rule";
 import chase from "./chase";
-import duplicates from "./duplicates";
-import explain from "./explain";
 import journal from "./journal";
 import liveRun from "./live-run";
-import reledger from "./reledger";
 import salesFromPurchase from "./sales-from-purchase";
 import triage from "./triage";
 import collections from "@/config/pages/neo/tasks/collections";
-import provisions from "@/config/pages/neo/tasks/provisions";
-import invoiceFromPo from "@/config/pages/neo/tasks/invoice-from-po";
-import {
-  freightInsight,
-  itcInsight,
-  mahindraReledger,
-} from "@/config/pages/neo/tasks/insights";
+import { freightInsight, itcInsight } from "@/config/pages/neo/tasks/insights";
 
 /**
  * Everything Neo can do in this prototype, in the order a tie is broken.
+ *
+ * Neo does the work no single screen can (Neo proposition, 14 Oct 2026):
+ * ask the books, change by rule, chase and draft, and the day across
+ * clients. Tasks that only pressed a button the screen already has —
+ * approve a batch, sync, find duplicates, open the PO draft, explain a flag,
+ * March provisions — were taken out; those live on their screens.
  *
  * DEV: this registry is the scripted stand-in for the model's planner. With a
  * model behind `POST /api/neo/runs`, the prompt goes to it with these as tool
  * definitions and this file is deleted.
  */
 export const NEO_TASKS: NeoTask[] = [
+  batchActions,
+  batchEntry,
   inboxCollection,
   sourceRequest,
-  inboxSync,
   collections,
-  provisions,
-  invoiceFromPo,
   freightInsight,
   itcInsight,
-  mahindraReledger,
   liveRun,
   salesFromPurchase,
   journal,
+  changeByRule,
   chase,
-  duplicates,
+  askBooks,
   triage,
-  explain,
-  reledger,
-  approveBatch,
 ];
 
-/** What Neo can do, as it says it when asked or when it can't help. */
-export const NEO_CAPABILITIES = [
-  "Collect documents from scoped Inbox sources, prepare drafts, link duplicates and surface missing information",
-  "Raise a sales invoice from a purchase bill",
-  "Tell you what in the queue needs you, and what can be approved now",
-  "Explain why a document is flagged or blocked",
-  "Move a vendor's bills to another ledger",
-  "Find duplicates and clear them out",
-  "Book month-end journals — depreciation, provisions, prepaid",
-  "Approve a batch you've checked",
-  "Draft a message to a vendor for a missing GSTIN or a clearer copy",
+/**
+ * What Neo can do, as example requests. When a request matches nothing, the
+ * closest three are offered as one-tap chips instead of a list of features.
+ */
+export const NEO_EXAMPLES = [
+  "Enter a batch of bills with an instruction",
+  "How much did we spend with Mahindra Logistics in September?",
+  "Why is freight up in September?",
+  "Who owes us money?",
+  "Which vendors aren't in my masters?",
+  "Move all Mahindra Logistics bills from Transportation to Freight Inward",
+  "Ask the vendor for their GSTIN",
+  "Draft collection reminders",
+  "Book depreciation of ₹12,000 on office equipment",
+  "Create a sales invoice from a purchase",
+  "What needs me across my clients today?",
 ];
 
-export const pickTask = (prompt: string, context: NeoContext) => {
+const words = (s: string) =>
+  new Set(
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9₹ ]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
+
+/** The examples that share the most words with what was typed. */
+export const closestExamples = (prompt: string, n = 3) => {
+  const typed = words(prompt);
+  return NEO_EXAMPLES.map((e) => ({
+    e,
+    score: [...words(e)].filter((w) => typed.has(w)).length,
+  }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n)
+    .map((x) => x.e);
+};
+
+export const pickTask = (
+  prompt: string,
+  context: NeoContext,
+  attachments: NeoAttachment[] = []
+) => {
   const scored = NEO_TASKS.map((task) => ({
     task,
-    score: task.match(prompt, context),
+    score: task.match(prompt, context, attachments),
   }))
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score);

@@ -28,8 +28,16 @@ const jiti = require(path.join(ROOT, "node_modules/jiti"))(__filename, {
   alias: { "@": ROOT },
   interopDefault: true,
 });
-const { MOCK_INBOX_ITEMS } = jiti(path.join(ROOT, "config/pages/inbox/mock-inbox.ts"));
-const { printedSupplier } = jiti(path.join(ROOT, "config/pages/inbox/ap-document.ts"));
+const { MOCK_INBOX_ITEMS } = jiti(
+  path.join(ROOT, "config/pages/inbox/mock-inbox.ts")
+);
+// Neo voucher entry's sample batch: uploads, not seeded Inbox items.
+const { MOCK_BATCH_DOCUMENTS } = jiti(
+  path.join(ROOT, "config/pages/neo/mock-batch-documents.ts")
+);
+const { printedSupplier } = jiti(
+  path.join(ROOT, "config/pages/inbox/ap-document.ts")
+);
 const { partyNamed, MOCK_OWN_REGISTRATION } = jiti(
   path.join(ROOT, "config/pages/inbox/mock-parties.ts")
 );
@@ -46,9 +54,11 @@ const PAGE = { width: 794, height: 1123 };
 
 /* ------------------------------------------------------------ the parties */
 
-const CITIES = /(Bengaluru|Davanagere|Harihar|Hyderabad|Pune|Ahmedabad|Kutch|Chengalpattu|Mumbai)/;
+const CITIES =
+  /(Bengaluru|Davanagere|Harihar|Hyderabad|Pune|Ahmedabad|Kutch|Chengalpattu|Mumbai)/;
 /** A supplier banks where it trades: the branch is its own town's main one. */
-const branchOf = (address) => `${(address.match(CITIES) || [, "Bengaluru"])[1]} Main`;
+const branchOf = (address) =>
+  `${(address.match(CITIES) || [, "Bengaluru"])[1]} Main`;
 
 const own = MOCK_OWN_REGISTRATION.shakun;
 const US = {
@@ -91,29 +101,235 @@ const partyOf = (name, fallback = {}) => {
  * the template family, and the incidental detail a real one carries.
  */
 const STYLE = {
-  "INB-2041": { t: "corporate", accent: "#1d3f66", irn: true, reference: "4012876631", refLabel: "Order number", account: "Customer no. 79118842", notes: "Service tags: 7Q2XKH4, 7Q2XKH5<br>ProSupport Plus entitlement starts on delivery." },
+  "INB-2041": {
+    t: "corporate",
+    accent: "#1d3f66",
+    irn: true,
+    reference: "4012876631",
+    refLabel: "Order number",
+    account: "Customer no. 79118842",
+    notes:
+      "Service tags: 7Q2XKH4, 7Q2XKH5<br>ProSupport Plus entitlement starts on delivery.",
+  },
   "INB-2051": { same: "INB-2041" },
-  "INB-2042": { t: "tally", irn: true, eway: true, stamp: { text: "RECEIVED", sub: "SORPL · Harihar Stores\n05 SEP 2026" }, dispatchedThrough: "VRL Logistics (LR 7781204)", destination: "Harihar", deliveryTerms: "FOR Harihar", poNo: "SORPL/PO/26-27/0418", poDate: "21 Aug 2026", terms: "30 Days" },
-  "INB-2052": { t: "tally", irn: true, poNo: "SORPL/PO/26-27/0391", poDate: "06 Aug 2026", terms: "30 Days", dispatchedThrough: "Own vehicle KA-17-C-4412", destination: "Harihar" },
-  "INB-2053": { t: "corporate", accent: "#2b5a3a", irn: true, reference: "ZB-118204", refLabel: "Subscription", account: "Org ID 60031287", dueText: "Due on receipt", notes: "Auto-charged to the card on file on the invoice date." },
-  "BULK-001": { t: "corporate", accent: "#3b3f8f", irn: true, reference: "7342 1180", refLabel: "Serial no.", account: "Partner: Davanagere Infotech", dueText: "Due on receipt" },
-  "BULK-002": { t: "corporate", accent: "#5a1f2b", irn: true, reference: "AC 300118", refLabel: "Account code", account: "Credit customer", dueText: "15 days from invoice", notes: "Shipment-wise annexure (298 AWBs) sent separately." },
-  "BULK-003": { t: "corporate", accent: "#7a3b12", irn: true, reference: "RO BLR/26/0918", refLabel: "Release order", account: "Client code SOR-KA-04", notes: "Telecast certificate for August attached with the release order." },
-  "BULK-004": { t: "tally", eway: true, poNo: "SORPL/PO/26-27/0402", poDate: "14 Aug 2026", terms: "30 Days", dispatchedThrough: "Tanker TS-08-UD-2271", destination: "Harihar", deliveryTerms: "Ex-works Jeedimetla" },
-  "BULK-005": { t: "tally", terms: "30 Days", poNo: "SORPL/PO/26-27/0412", poDate: "22 Aug 2026", destination: "Harihar" },
+  "INB-2042": {
+    t: "tally",
+    irn: true,
+    eway: true,
+    stamp: { text: "RECEIVED", sub: "SORPL · Harihar Stores\n05 SEP 2026" },
+    dispatchedThrough: "VRL Logistics (LR 7781204)",
+    destination: "Harihar",
+    deliveryTerms: "FOR Harihar",
+    poNo: "SORPL/PO/26-27/0418",
+    poDate: "21 Aug 2026",
+    terms: "30 Days",
+  },
+  "INB-2052": {
+    t: "tally",
+    irn: true,
+    poNo: "SORPL/PO/26-27/0391",
+    poDate: "06 Aug 2026",
+    terms: "30 Days",
+    dispatchedThrough: "Own vehicle KA-17-C-4412",
+    destination: "Harihar",
+  },
+  "INB-2053": {
+    t: "corporate",
+    accent: "#2b5a3a",
+    irn: true,
+    reference: "ZB-118204",
+    refLabel: "Subscription",
+    account: "Org ID 60031287",
+    dueText: "Due on receipt",
+    notes: "Auto-charged to the card on file on the invoice date.",
+  },
+  "BULK-001": {
+    t: "corporate",
+    accent: "#3b3f8f",
+    irn: true,
+    reference: "7342 1180",
+    refLabel: "Serial no.",
+    account: "Partner: Davanagere Infotech",
+    dueText: "Due on receipt",
+  },
+  "BULK-002": {
+    t: "corporate",
+    accent: "#5a1f2b",
+    irn: true,
+    reference: "AC 300118",
+    refLabel: "Account code",
+    account: "Credit customer",
+    dueText: "15 days from invoice",
+    notes: "Shipment-wise annexure (298 AWBs) sent separately.",
+  },
+  "BULK-003": {
+    t: "corporate",
+    accent: "#7a3b12",
+    irn: true,
+    reference: "RO BLR/26/0918",
+    refLabel: "Release order",
+    account: "Client code SOR-KA-04",
+    notes: "Telecast certificate for August attached with the release order.",
+  },
+  "BULK-004": {
+    t: "tally",
+    eway: true,
+    poNo: "SORPL/PO/26-27/0402",
+    poDate: "14 Aug 2026",
+    terms: "30 Days",
+    dispatchedThrough: "Tanker TS-08-UD-2271",
+    destination: "Harihar",
+    deliveryTerms: "Ex-works Jeedimetla",
+  },
+  "BULK-005": {
+    t: "tally",
+    terms: "30 Days",
+    poNo: "SORPL/PO/26-27/0412",
+    poDate: "22 Aug 2026",
+    destination: "Harihar",
+  },
   "BULK-006": { t: "tally", terms: "30 Days", destination: "Davanagere" },
-  "BULK-007": { t: "tally", terms: "10 Days", otherRef: "Canteen contract 2026-27" },
-  "BULK-009": { t: "corporate", accent: "#24434f", irn: true, reference: "WO/SOR/2026/07", refLabel: "Work order", account: "Site: Harihar plant" },
+  "BULK-007": {
+    t: "tally",
+    terms: "10 Days",
+    otherRef: "Canteen contract 2026-27",
+  },
+  "BULK-009": {
+    t: "corporate",
+    accent: "#24434f",
+    irn: true,
+    reference: "WO/SOR/2026/07",
+    refLabel: "Work order",
+    account: "Site: Harihar plant",
+  },
   "BULK-010": { t: "fuel", phone: "08192 242 118" },
-  "CONV-001": { t: "tally", terms: "30 Days", otherRef: "Agreement OSL/WH/2026/14" },
-  "CONV-005": { t: "corporate", accent: "#123a6b", irn: true, reference: "Card 29-118-55210", refLabel: "Customer card", account: "Store 29-118 Yeshwanthpur", dueText: "Paid at counter", notes: "Annexure of 41 articles printed overleaf." },
+  "CONV-001": {
+    t: "tally",
+    terms: "30 Days",
+    otherRef: "Agreement OSL/WH/2026/14",
+  },
+  "CONV-005": {
+    t: "corporate",
+    accent: "#123a6b",
+    irn: true,
+    reference: "Card 29-118-55210",
+    refLabel: "Customer card",
+    account: "Store 29-118 Yeshwanthpur",
+    dueText: "Paid at counter",
+    notes: "Annexure of 41 articles printed overleaf.",
+  },
   "INB-2048": { t: "utility" },
-  "INB-2044": { t: "tally", irn: true, eway: true, terms: "15 Days", dispatchedThrough: "Own vehicle KA-17-D-0921", destination: "Davanagere" },
-  "INB-2045": { t: "tally", irn: true, eway: true, terms: "15 Days", dispatchedThrough: "Om Sai Logistics", destination: "Bengaluru" },
-  "INB-2031": { t: "tally", irn: true, eway: true, terms: "30 Days", poNo: "4100388127", poDate: "18 Aug 2026", dispatchedThrough: "Om Sai Logistics", destination: "Navi Mumbai" },
+  "INB-2044": {
+    t: "tally",
+    irn: true,
+    eway: true,
+    terms: "15 Days",
+    dispatchedThrough: "Own vehicle KA-17-D-0921",
+    destination: "Davanagere",
+  },
+  "INB-2045": {
+    t: "tally",
+    irn: true,
+    eway: true,
+    terms: "15 Days",
+    dispatchedThrough: "Om Sai Logistics",
+    destination: "Bengaluru",
+  },
+  "INB-2031": {
+    t: "tally",
+    irn: true,
+    eway: true,
+    terms: "30 Days",
+    poNo: "4100388127",
+    poDate: "18 Aug 2026",
+    dispatchedThrough: "Om Sai Logistics",
+    destination: "Navi Mumbai",
+  },
   "CONV-004": { same: "INB-2031" },
   "INB-2046": { t: "memo" },
   "CONV-002": { t: "memo" },
+  // Neo voucher entry — the Harihar batch (config/pages/neo/mock-batch-documents.ts)
+  "HRH-01": {
+    t: "corporate",
+    accent: "#b3121f",
+    irn: true,
+    reference: "LR MLL/JNPT/88412",
+    refLabel: "Consignment",
+    account: "Customer code SORPL-KA",
+    notes:
+      "2 trips · 2 × 20 KL ISO tank. Freight under GTA, tax charged at 12% (forward charge).",
+  },
+  "HRH-02": {
+    t: "corporate",
+    accent: "#b3121f",
+    irn: true,
+    reference: "LR MLL/JNPT/88577",
+    refLabel: "Consignment",
+    account: "Customer code SORPL-KA",
+    notes:
+      "2 trips · 2 × 20 KL ISO tank. Freight under GTA, tax charged at 12% (forward charge).",
+  },
+  "HRH-03": {
+    t: "corporate",
+    accent: "#b3121f",
+    irn: true,
+    reference: "LR MLL/HRH/90103",
+    refLabel: "Consignment",
+    account: "Customer code SORPL-KA",
+    notes:
+      "1 trip · 32 ft multi-axle. Freight under GTA, tax charged at 12% (forward charge).",
+  },
+  "HRH-09": { same: "HRH-02" },
+  "HRH-04": {
+    t: "corporate",
+    accent: "#5a1f2b",
+    irn: true,
+    reference: "AC 300118",
+    refLabel: "Account code",
+    account: "Credit customer",
+    notes: "Shipment-wise annexure (64 AWBs) sent separately.",
+  },
+  "HRH-05": {
+    t: "tally",
+    terms: "30 Days",
+    dispatchedThrough: "Lorry KA-17-B-3381",
+    destination: "Harihar",
+    otherRef: "LR OSL/2026/0093",
+    taxNote:
+      "GST on GTA services is payable by the recipient under reverse charge (5%). Tax payable on reverse charge: Yes.",
+  },
+  "HRH-06": {
+    t: "tally",
+    terms: "30 Days",
+    dispatchedThrough: "VRL parcel service",
+    destination: "Harihar",
+    otherRef: "Way bill HBL/55120",
+  },
+  "HRH-07": {
+    t: "tally",
+    irn: true,
+    eway: true,
+    poNo: "SORPL/PO/26-27/0455",
+    poDate: "29 Aug 2026",
+    terms: "30 Days",
+    dispatchedThrough: "Own vehicle KA-17-A-2210",
+    destination: "Harihar",
+  },
+  "HRH-08": {
+    t: "tally",
+    irn: true,
+    poNo: "SORPL/PO/26-27/0455",
+    poDate: "29 Aug 2026",
+    terms: "30 Days",
+    dispatchedThrough: "Own vehicle KA-17-A-2210",
+    destination: "Harihar",
+  },
+  "HRH-10": {
+    t: "tally",
+    terms: "30 Days",
+    destination: "Davanagere",
+    otherRef: "Trip sheet KPR/T/0911",
+  },
 };
 
 const JOURNALS = {
@@ -125,13 +341,15 @@ const JOURNALS = {
       <tr><td>Vehicles</td><td class="r">2,56,000.00</td><td class="r">30%</td><td class="r">38,400.00</td></tr>
       <tr><td>Computers</td><td class="r">1,08,000.00</td><td class="r">40%</td><td class="r">21,600.00</td></tr>
       <tr class="t"><td>Total</td><td class="r">55,84,000.00</td><td></td><td class="r">4,44,000.00</td></tr></tbody></table>`,
-    remarks: "Half-year charge at written-down-value rates under Schedule II; additions after 30 Sep are not included and will be charged in the H2 run.",
+    remarks:
+      "Half-year charge at written-down-value rates under Schedule II; additions after 30 Sep are not included and will be charged in the H2 run.",
   },
   "CONV-002": {
     title: "Re-bill — Peenya godown rent, August 2026",
     preparedBy: "S. Hegde, Accounts",
     schedule: `<p style="font-family:Arial,sans-serif;font-size:10.5px">Rent for bay 3 of the Peenya godown, paid by us to the landlord on 03 Aug 2026 (UTR HDFCR52026080312214), is occupied by Annapoorna Wholesale under the sub-licence of 01 Apr 2026. The amount is recoverable in full.</p>`,
-    remarks: "Accounts to confirm whether this is raised as a sales invoice (with GST) rather than a journal.",
+    remarks:
+      "Accounts to confirm whether this is raised as a sales invoice (with GST) rather than a journal.",
   },
 };
 
@@ -148,7 +366,9 @@ const modelFor = (item) => {
   const style = STYLE[item.id];
   if (!style) return null;
   if (style.same) {
-    const base = MOCK_INBOX_ITEMS.find((x) => x.id === style.same);
+    const base = [...MOCK_INBOX_ITEMS, ...MOCK_BATCH_DOCUMENTS].find(
+      (x) => x.id === style.same
+    );
     return { ...modelFor(base), id: item.id };
   }
 
@@ -177,7 +397,9 @@ const modelFor = (item) => {
   const rate = rateOf(doc.subTotal, doc.taxes);
   const number = sale ? doc.invoiceNo : doc.supplierInvoiceNo;
   const date = sale ? doc.invoiceDate : doc.billDate;
-  const goods = doc.items.some((l) => l.qty != null && !/^99/.test(l.hsn || ""));
+  const goods = doc.items.some(
+    (l) => l.qty != null && !/^99/.test(l.hsn || "")
+  );
 
   return {
     id: item.id,
@@ -216,6 +438,7 @@ const modelFor = (item) => {
     rate,
     grand: doc.grandTotal,
     dueText: style.dueText,
+    taxNote: style.taxNote,
     utility: style.t === "utility" ? UTILITY : null,
     fills: style.t === "fuel" ? FILLS : null,
   };
@@ -231,19 +454,55 @@ const UTILITY = {
   premises: "Sy. No. 118/2, Harihar–Davanagere Road, Harihar 577601",
   virtualAc: "BESCOM00DVGHT112",
   readings: [
-    { meter: "KA-HT-55120", param: "kWh", present: "1,84,766.20", previous: "1,84,523.10", diff: "243.10", consumption: "48,620" },
-    { meter: "KA-HT-55120", param: "kVAh", present: "1,93,102.40", previous: "1,92,846.70", diff: "255.70", consumption: "51,140" },
-    { meter: "KA-HT-55120", param: "MD (kVA)", present: "1.62", previous: "—", diff: "—", consumption: "324" },
+    {
+      meter: "KA-HT-55120",
+      param: "kWh",
+      present: "1,84,766.20",
+      previous: "1,84,523.10",
+      diff: "243.10",
+      consumption: "48,620",
+    },
+    {
+      meter: "KA-HT-55120",
+      param: "kVAh",
+      present: "1,93,102.40",
+      previous: "1,92,846.70",
+      diff: "255.70",
+      consumption: "51,140",
+    },
+    {
+      meter: "KA-HT-55120",
+      param: "MD (kVA)",
+      present: "1.62",
+      previous: "—",
+      diff: "—",
+      consumption: "324",
+    },
   ],
 };
 
 const FILLS = [
-  { date: "04/08/26", indent: "2201", vehicle: "KA-17-C-4412 (tanker)", litres: 180 },
+  {
+    date: "04/08/26",
+    indent: "2201",
+    vehicle: "KA-17-C-4412 (tanker)",
+    litres: 180,
+  },
   { date: "09/08/26", indent: "2214", vehicle: "DG set 250 kVA", litres: 120 },
-  { date: "14/08/26", indent: "2236", vehicle: "KA-17-C-4412 (tanker)", litres: 160 },
+  {
+    date: "14/08/26",
+    indent: "2236",
+    vehicle: "KA-17-C-4412 (tanker)",
+    litres: 160,
+  },
   { date: "19/08/26", indent: "2251", vehicle: "KA-17-D-0921", litres: 140 },
   { date: "24/08/26", indent: "2270", vehicle: "DG set 250 kVA", litres: 100 },
-  { date: "29/08/26", indent: "2288", vehicle: "KA-17-C-4412 (tanker)", litres: 120 },
+  {
+    date: "29/08/26",
+    indent: "2288",
+    vehicle: "KA-17-C-4412 (tanker)",
+    litres: 120,
+  },
 ];
 
 /* ---------------------------------------------------------------- render */
@@ -302,7 +561,14 @@ const STAMP = `<script>
 const chrome = (args) =>
   execFileSync(
     CHROME,
-    ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check", ...args],
+    [
+      "--headless=new",
+      "--disable-gpu",
+      "--hide-scrollbars",
+      "--no-first-run",
+      "--no-default-browser-check",
+      ...args,
+    ],
     { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 }
   ).toString();
 
@@ -312,7 +578,11 @@ const regionsOf = (dom) => {
   const m = dom.match(/<pre id="regions">([\s\S]*?)<\/pre>/);
   if (!m) throw new Error("no regions in the measured DOM");
   const raw = JSON.parse(
-    m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    m[1]
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
   );
   const pad = 2; // breathing room so the outline never sits on the glyphs
   return Object.fromEntries(
@@ -333,7 +603,7 @@ const regionsOf = (dom) => {
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 const out = {};
-for (const item of MOCK_INBOX_ITEMS) {
+for (const item of [...MOCK_INBOX_ITEMS, ...MOCK_BATCH_DOCUMENTS]) {
   const model = modelFor(item);
   if (!model) continue;
   const html = render(model).replace("</body>", `${STAMP}</body>`);
@@ -359,7 +629,9 @@ for (const item of MOCK_INBOX_ITEMS) {
     ],
     regions,
   };
-  console.log(`${item.id.padEnd(9)} ${model.template.padEnd(9)} ${Object.keys(regions).length} regions`);
+  console.log(
+    `${item.id.padEnd(9)} ${model.template.padEnd(9)} ${Object.keys(regions).length} regions`
+  );
 }
 
 const ts = `import type { SourceDocument } from "@/types/pages/inbox";
@@ -379,4 +651,6 @@ export const MOCK_SOURCE_DOCUMENTS: Record<string, SourceDocument> = ${JSON.stri
 `;
 fs.writeFileSync(TS_OUT, ts);
 fs.rmSync(WORK, { recursive: true, force: true });
-console.log(`\n${Object.keys(out).length} documents → public/docs, regions → ${path.relative(ROOT, TS_OUT)}`);
+console.log(
+  `\n${Object.keys(out).length} documents → public/docs, regions → ${path.relative(ROOT, TS_OUT)}`
+);

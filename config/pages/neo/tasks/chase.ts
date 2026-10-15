@@ -6,6 +6,9 @@ import {
 } from "@/components/inbox/v2/store";
 import type { NeoCard, NeoTask } from "@/types/pages/neo";
 import { findName, has } from "@/utils/pages/neo";
+import { openChaseOn, recordChase } from "@/hooks/pages/neo/use-chases";
+import { demoNote } from "@/config/pages/neo/demo";
+import type { ChaseAsk } from "@/types/pages/neo/chases";
 import {
   companyItems,
   describe,
@@ -108,6 +111,16 @@ const chase: NeoTask = {
         ASKS.map((a) => ({ id: a.id, label: a.label }))
       ));
 
+    const already = openChaseOn(x.id, askId as ChaseAsk);
+    if (already) {
+      await api.say(
+        already.status === "received"
+          ? `${x.form.party || "The vendor"} already replied: “${already.reply?.text}” Use it on the bill rather than asking again.`
+          : `I asked ${x.form.party || "the vendor"} for this on ${new Date(already.sentAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} and I'm still waiting. I won't send it twice.`,
+        [refTo(x)]
+      );
+      return "Chase already open";
+    }
     const drafting = await api.step("Drafting the message", refTo(x));
     await api.wait(500);
     /*
@@ -154,7 +167,7 @@ const chase: NeoTask = {
     const choice = await api.card(card, [
       {
         id: "send",
-        label: "Simulate send",
+        label: "Send",
         primary: true,
         risk: "external",
       },
@@ -173,10 +186,21 @@ const chase: NeoTask = {
       simulated: true,
       body: card.body,
     });
+    recordChase({
+      company: x.company,
+      ask: askId as ChaseAsk,
+      party: x.form.party || to,
+      channel: card.channel,
+      to,
+      body: card.body,
+      itemId: x.id,
+      docRef: doc,
+      runId: api.runId,
+    });
     api.touch([x.id]);
     sending(`Sent to ${to} · logged against ${x.id}`);
     await api.say(
-      `Sent — simulated in this prototype, so nothing actually left the page. It's logged against ${describe(x)}.`,
+      `Sent. I'll watch for the reply and link it to ${describe(x)} when it lands — it's under Chases in Tasks until then.${demoNote(" (Simulated: nothing left the prototype.)")}`,
       [refTo(x)]
     );
     return `Asked ${x.form.party || to}`;

@@ -69,7 +69,7 @@ const Agents = ({ company }: { company: string }) => {
     c.agent.runMode === "continuous" ? "Continuous" : "On demand";
   if (!detail)
     return (
-      <FeaturePage title="Agents">
+      <FeaturePage title="Sources">
         <div className="mx-auto max-w-5xl space-y-8 py-4">
           <div>
             <p className="mb-3 text-xs font-medium uppercase tracking-widest text-pi-brand">

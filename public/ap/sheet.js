@@ -2434,16 +2434,23 @@ function suggestTdsLines(){
   });
   bySection.forEach((e,secId)=>{
     const sec = byId(MASTERS.tdsSections,secId);
-    const priorFY = v.fyServices;
+    /* A draft Neo prepared in a batch carries what it worked out: the year to
+       date before this bill (its earlier bills in the batch included), and an
+       exemption the accountant confirmed — 194C(6), say. The form prices the
+       bill the way the batch register did, rather than disagreeing with it. */
+    const priorFY = SAMPLE.fyServices!=null ? SAMPLE.fyServices : v.fyServices;
+    const exempt = SAMPLE.tdsExempt && SAMPLE.tdsExempt.section===secId ? SAMPLE.tdsExempt : null;
     const crossesSingle = sec.single ? e.single >= sec.single : true;
     const crossesAnnual = (priorFY + e.base) >= sec.annual;
-    const applies = crossesSingle || crossesAnnual;
+    const applies = !exempt && (crossesSingle || crossesAnnual);
     let rate = (sec.rateIndividual && v.deductee==='individual') ? sec.rateIndividual : sec.rate;
     if(!v.pan) rate = 20;                                  // s.206AA — no PAN
     out.push({
       type:'tds', key:secId, section:secId, name:sec.name, rate:applies?rate:0, base:e.base,
       amount:applies?r2(e.base*rate/100):0,
-      note: applies
+      note: exempt
+        ? `not deducted — ${exempt.reason}`
+        : applies
         ? (v.pan?'':'No PAN — 20% u/s 206AA · ')+(crossesSingle&&sec.single?`single payment ≥ ${money(sec.single)}`:`FY aggregate ≥ ${money(sec.annual)}`)
         : `below threshold — not deducted`,
       detail:`Single ${money(sec.single)} / annual ${money(sec.annual)} · this vendor FY services ${money(priorFY)} + ${money(e.base)}`
@@ -12780,6 +12787,10 @@ function boot(){
     let patched = false;
     if(doc.dueDate){ state.dueDate = doc.dueDate; patched = true; }
     if(doc.placeOfSupply){ state.destState = doc.placeOfSupply; patched = true; }
+    /* A registered GTA that charged no tax: the recipient pays it. The bill
+       says so in words, which the treatment cannot; a Neo batch draft carries
+       it as a flag, and the line rate it carries is the GTA rate. */
+    if(doc.reverseCharge){ state.reverseCharge = true; syncRcmLedger(); patched = true; }
     if(patched){ syncLedgerToSupply(); render(); }
   }
 

@@ -152,6 +152,8 @@ export type GodownAllocation = {
   amount: number;
 };
 export type Item = {
+  /** Entered by Neo in a batch, under this instruction (Neo voucher entry). */
+  batch?: { id: string; instruction: string };
   preparedBy?: {
     agent: "Neo";
     runId: string;
@@ -739,7 +741,7 @@ function withAutoApprovals(base: State): State {
           status: "Approved",
           snapshot: structuredClone(item.form),
           doneAt: at,
-          doneBy: "AI · Auto-approve",
+          doneBy: "Neo · Auto-approve",
           autoApproved: { evidence: verdict.evidence, at },
         };
       return {
@@ -2513,7 +2515,7 @@ const subjectOf = (item: Item) =>
   item.file.name;
 
 /** The ledgers the AI read off the document, before anyone touched them. */
-const predictedLedgers = (item: Item) =>
+export const predictedLedgers = (item: Item) =>
   (
     item.original.bill?.items ||
     item.original.invoice?.items ||
@@ -2550,7 +2552,7 @@ function logSeededActivity() {
     logActivity({
       company: item.company,
       at: after(item.received, 1),
-      actor: { kind: "ai", name: "AI · Document reading" },
+      actor: { kind: "ai", name: "Neo · Document reading" },
       kind: "predicted",
       module,
       action: `Sent to ${module}`,
@@ -2563,7 +2565,7 @@ function logSeededActivity() {
         logActivity({
           company: item.company,
           at: after(item.received, 2),
-          actor: { kind: "ai", name: "AI · Bill reading" },
+          actor: { kind: "ai", name: "Neo · Bill reading" },
           kind: "predicted",
           module,
           action: "Predicted ledger",
@@ -2578,7 +2580,7 @@ function logSeededActivity() {
       logActivity({
         company: item.company,
         at: after(item.received, 2),
-        actor: { kind: "ai", name: "AI · Duplicate check" },
+        actor: { kind: "ai", name: "Neo · Duplicate check" },
         kind: "blocked",
         module: "Inbox",
         action: "Held as duplicate",
@@ -2593,7 +2595,7 @@ function logSeededActivity() {
       logActivity({
         company: item.company,
         at: item.autoHold.at,
-        actor: { kind: "ai", name: "AI · Auto-approve" },
+        actor: { kind: "ai", name: "Neo · Auto-approve" },
         kind: "held",
         module,
         action: "Held for review",
@@ -2611,7 +2613,7 @@ function logAutoApproval(item: Item) {
     {
       company: item.company,
       at: item.autoApproved.at,
-      actor: { kind: "ai", name: "AI · Auto-approve" },
+      actor: { kind: "ai", name: "Neo · Auto-approve" },
       kind: "auto-approved",
       module: MODULE_OF[item.route],
       action: "Auto-approved",
@@ -2681,7 +2683,7 @@ function tryAutoApprove(id: string) {
     };
     logActivity({
       company: item.company,
-      actor: { kind: "ai", name: "AI · Auto-approve" },
+      actor: { kind: "ai", name: "Neo · Auto-approve" },
       kind: "held",
       module: MODULE_OF[item.route],
       action: "Held for review",
@@ -2697,7 +2699,7 @@ function tryAutoApprove(id: string) {
     status: "Approved",
     snapshot: structuredClone(item.form),
     doneAt: at,
-    doneBy: "AI · Auto-approve",
+    doneBy: "Neo · Auto-approve",
     autoApproved: { evidence: verdict.evidence, at },
   };
   state = { ...state, items: state.items.map((x) => (x.id === id ? next : x)) };
@@ -2756,6 +2758,24 @@ function recordPersonApproval(item: Item) {
  * log entry naming the agent and the user it acted for.
  */
 export function neoCreate(item: Item, runId: string, fromId?: string) {
+  return createDraft(item, runId, fromId);
+}
+
+/**
+ * Add a draft a person started from a screen (a provision schedule, a
+ * compliance fix). It is credited to them, not to Neo: the rule that built it
+ * is evidence, not an author. `preparedBy` is only for work Neo ran.
+ */
+export function personCreate(item: Item, runId: string, fromId?: string) {
+  return createDraft(item, runId, fromId, actor);
+}
+
+function createDraft(
+  item: Item,
+  runId: string,
+  fromId?: string,
+  person?: string
+) {
   if (!state.permissions.includes(item.route))
     throw new Error("You do not have access to create this voucher type.");
   if (state.items.some((x) => x.id === item.id))
@@ -2772,11 +2792,13 @@ export function neoCreate(item: Item, runId: string, fromId?: string) {
     ...item,
     company: state.company,
     status: "Needs Review",
-    preparedBy: { agent: "Neo", runId, onBehalfOf: actor, fromId },
+    preparedBy: person
+      ? undefined
+      : { agent: "Neo", runId, onBehalfOf: actor, fromId },
   };
   state = { ...state, items: [next, ...state.items] };
-  event("Neo Draft Created", next, {
-    agent: "Neo",
+  event(person ? "Draft Created" : "Neo Draft Created", next, {
+    agent: person ? undefined : "Neo",
     on_behalf_of: actor,
     run_id: runId,
     route: next.route,
@@ -2785,8 +2807,10 @@ export function neoCreate(item: Item, runId: string, fromId?: string) {
   logActivity(
     {
       company: next.company,
-      actor: { kind: "ai", name: "Neo" },
-      kind: "predicted",
+      actor: person
+        ? { kind: "person", name: person }
+        : { kind: "ai", name: "Neo" },
+      kind: person ? "override" : "predicted",
       module: "Inbox",
       action: "Prepared draft",
       subject: next.form.voucherNo,

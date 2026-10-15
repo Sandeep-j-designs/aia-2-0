@@ -249,7 +249,7 @@ export const salesUpload = {
       const steps = find(id)?.cleanup?.steps ?? [];
       logActivity({
         company: companyId,
-        actor: { kind: "ai", name: "AI · File cleanup" },
+        actor: { kind: "ai", name: "Neo · File cleanup" },
         kind: "cleaned",
         module: "Sales",
         action: "Cleaned up an uploaded sales register",

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { openChaseOn, recordChase } from "@/hooks/pages/neo/use-chases";
 import { actor, getState, useStore } from "@/components/inbox/v2/store";
 import { useOpenDocuments } from "@/hooks/pages/inbox/use-bank-matches";
 import { logActivity } from "@/hooks/pages/inbox/use-activity";
@@ -36,6 +37,18 @@ export const sendReminder = (
     { invoiceId, company: item.company, at: "13 Oct", channel, body },
   ];
   listeners.forEach((f) => f());
+  // A reminder is a chase: Neo watches for the customer's answer.
+  if (!openChaseOn(invoiceId, "payment"))
+    recordChase({
+      company: item.company,
+      ask: "payment",
+      party: item.form.party,
+      channel,
+      to: item.form.party,
+      body,
+      itemId: invoiceId,
+      docRef: item.form.invoiceNo,
+    });
   logActivity({
     company: item.company,
     actor: { kind: "person", name: actor },

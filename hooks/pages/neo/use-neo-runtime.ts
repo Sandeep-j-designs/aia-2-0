@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { NEO_CAPABILITIES, pickTask } from "@/config/pages/neo/tasks";
-import { suggestionsFor } from "@/config/pages/neo/suggestions";
+import { closestExamples, pickTask } from "@/config/pages/neo/tasks";
 import type {
   NeoAction,
+  NeoAttachment,
   NeoCard,
   NeoContext,
   NeoMessage,
@@ -177,8 +177,12 @@ export const useNeoRuntime = () => {
   /* ------------------------------------------------------------- runs */
 
   const startRun = useCallback(
-    async (prompt: string) => {
-      const text = prompt.trim();
+    async (prompt: string, attachments: NeoAttachment[] = []) => {
+      const text =
+        prompt.trim() ||
+        (attachments.length
+          ? `${attachments.length} file${attachments.length === 1 ? "" : "s"} attached`
+          : "");
       if (!text || controller.current) return;
       setTab("chat");
       const runId = uid("run");
@@ -192,17 +196,25 @@ export const useNeoRuntime = () => {
         subject: text,
         reason: "User request; calculations read from company records",
       });
-      setMessages((ms) => [...ms, { id: uid("m"), role: "user", text }]);
+      setMessages((ms) => [
+        ...ms,
+        {
+          id: uid("m"),
+          role: "user",
+          text,
+          attachments: attachments.length ? attachments : undefined,
+        },
+      ]);
 
-      const task = pickTask(text, ctx);
+      const task = pickTask(text, ctx, attachments);
       if (!task) {
         setMessages((ms) => [
           ...ms,
           {
             id: uid("m"),
             role: "neo",
-            text: `I can't do that in this workspace yet. Here's what I can do: ${NEO_CAPABILITIES.map((c) => c.charAt(0).toLowerCase() + c.slice(1)).join("; ")}.`,
-            suggestions: suggestionsFor(ctx),
+            text: "I can't do that yet. Closest things I can do:",
+            suggestions: closestExamples(text),
           },
         ]);
         return;
@@ -287,6 +299,7 @@ export const useNeoRuntime = () => {
         },
         runId,
         prompt: text,
+        attachments,
         context: ctx,
         signal: abort.signal,
         focus: (itemId) => {
@@ -304,7 +317,7 @@ export const useNeoRuntime = () => {
         wait,
         say: async (said, links) => {
           guard();
-          if (task.id === "triage" || task.id === "explain") {
+          if (task.id === "triage") {
             push({ text: said, links });
             return;
           }
@@ -355,6 +368,10 @@ export const useNeoRuntime = () => {
               ),
             }));
         },
+        suggest: (prompts) => {
+          guard();
+          push({ suggestions: prompts });
+        },
         fail: (label) => {
           push({
             steps: [{ id: uid("s"), label, status: "failed" }],
@@ -378,6 +395,8 @@ export const useNeoRuntime = () => {
           const edited = editableCards.current.get(id);
           if (card.kind === "message" && edited?.kind === "message")
             card.body = edited.body;
+          if (card.kind === "changeset" && edited?.kind === "changeset")
+            card.rows = edited.rows;
           editableCards.current.delete(id);
           patch(id, (m) => ({ ...m, chosen: choice }));
           return choice;

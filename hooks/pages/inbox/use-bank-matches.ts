@@ -464,7 +464,7 @@ export const bankMatchActions = {
     const subject = `${txn.bankAccountName} · ${txn.description}`;
     logActivity({
       company,
-      actor: { kind: "ai", name: "AI · Bank matching" },
+      actor: { kind: "ai", name: "Neo · Bank matching" },
       kind: "matched",
       module: "Banking",
       action: "Suggested a match",

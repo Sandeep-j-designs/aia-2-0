@@ -219,7 +219,7 @@ export const bankRuleActions = {
     coded.forEach((t) =>
       logActivity({
         company,
-        actor: { kind: "ai", name: "AI · Bank rule" },
+        actor: { kind: "ai", name: "Neo · Bank rule" },
         kind: "rule",
         module: "Banking",
         action: "Categorised by rule",

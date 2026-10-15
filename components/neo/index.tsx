@@ -9,6 +9,9 @@ import {
 import { suggestionsFor } from "@/config/pages/neo/suggestions";
 import { actor, companyOf, useStore } from "@/components/inbox/v2/store";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
+import { sampleFor } from "@/hooks/pages/neo/use-batches";
+import { MOCK_BATCH_DOCUMENTS } from "@/config/pages/neo/mock-batch-documents";
+import type { NeoAttachment } from "@/types/pages/neo";
 import { money } from "@/utils/pages/neo";
 import { cn } from "@/lib/utils";
 import Composer from "./common/composer";
@@ -16,8 +19,8 @@ import ContextChip from "./common/context-chip";
 import Message from "./common/message";
 import NeoMark from "./common/neo-mark";
 import RunList from "./common/run-list";
-
-const LIVE_RUN_PROMPT = "Start a live bookkeeping run";
+import ChaseList from "./common/chase-list";
+import { demoNote } from "@/config/pages/neo/demo";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -41,6 +44,12 @@ const NeoPanel = () => {
   const neo = useNeo();
   const state = useStore();
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<NeoAttachment[]>([]);
+  const attach = (list: NeoAttachment[]) =>
+    setAttachments((as) => [
+      ...as,
+      ...list.filter((a) => !as.some((x) => x.name === a.name)),
+    ]);
   const input = useRef<HTMLTextAreaElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -85,9 +94,11 @@ const NeoPanel = () => {
   }, [neo.messages, neo.tab]);
 
   const send = (text = draft) => {
-    if (!text.trim() || neo.busy) return;
+    if ((!text.trim() && !attachments.length) || neo.busy) return;
     setDraft("");
-    void neo.startRun(text);
+    const files = attachments;
+    setAttachments([]);
+    void neo.startRun(text, files);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -232,7 +243,9 @@ const NeoPanel = () => {
 
       <p className="px-5 pb-1 pt-3 text-xs leading-5 text-pi-body">
         {companyOf(neo.runContext?.company || state.company)?.name}
-        {neo.runContext ? " · Run scope is fixed" : " · Scripted prototype"}
+        {neo.runContext
+          ? " · Run scope is fixed"
+          : demoNote(" · Scripted prototype")}
       </p>
       <ContextChip
         context={neo.runContext || neo.context}
@@ -245,12 +258,23 @@ const NeoPanel = () => {
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain [overflow-wrap:anywhere]"
       >
         {neo.tab === "runs" ? (
-          <RunList
-            runs={neo.runs}
-            onUndo={neo.undo}
-            onRef={neo.goTo}
-            busy={!!neo.busy}
-          />
+          <div className="flex flex-col">
+            <section className="flex flex-col gap-2 px-5 pt-5">
+              <h3 className="text-caption-1 font-semibold uppercase tracking-wide text-pi-body">
+                Chases
+              </h3>
+              <ChaseList
+                compact
+                onOpen={(_, href) => neo.goTo({ label: "", href })}
+              />
+            </section>
+            <RunList
+              runs={neo.runs}
+              onUndo={neo.undo}
+              onRef={neo.goTo}
+              busy={!!neo.busy}
+            />
+          </div>
         ) : neo.messages.length ? (
           <div className="flex flex-col gap-6 px-5 py-6">
             {neo.messages.map((m) => (
@@ -280,43 +304,25 @@ const NeoPanel = () => {
                 {waiting.count
                   ? `${waiting.count} document${waiting.count === 1 ? "" : "s"} worth ${money(waiting.total)} are waiting in ${company}.`
                   : `${company}'s queue is clear.`}{" "}
-                I prepare the work and show you exactly what will post. Nothing
-                is approved or sent until you say so.
+                I answer from the books, change bills by rule, and chase vendors
+                and customers. You see exactly what changes; nothing is approved
+                or sent until you say so.
               </p>
+              <button
+                type="button"
+                onClick={() =>
+                  neo.goTo({ label: "", href: "/inbox?module=NEO" })
+                }
+                className="mt-3 inline-flex items-center gap-1 rounded-sm text-label-3 font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              >
+                Open today across your clients
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => send(LIVE_RUN_PROMPT)}
-              className="group flex flex-col gap-3 rounded-xl border border-pi-line bg-background p-4 text-left text-foreground transition-colors hover:border-pi-brand-border hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
-            >
-              <span className="flex items-center justify-between">
-                <span className="rounded-sm bg-background px-1.5 py-0.5 text-caption-1 font-bold uppercase tracking-wide text-pi-ink">
-                  Live run
-                </span>
-                <kbd className="rounded-sm bg-muted px-1.5 font-sans text-caption-1 font-semibold text-muted-foreground">
-                  Demo
-                </kbd>
-              </span>
-              <span>
-                <span className="block text-label-1 font-bold">
-                  Work the Inbox with me
-                </span>
-                <span className="mt-1 block text-body-4 text-muted-foreground">
-                  New bills come in, I read and check each one, fix what I can,
-                  and hold the rest. Review the prepared batch in the Inbox,
-                  then approve and sync through the usual controls.
-                </span>
-              </span>
-              <span className="flex items-center gap-1 text-label-3 font-semibold text-primary">
-                Start
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
-              </span>
-            </button>
 
             <div>
               <p className="mb-2 text-caption-1 font-semibold uppercase tracking-wide text-pi-body">
-                Or ask for one thing
+                Ask for something
               </p>
               <ul className="flex flex-col gap-2">
                 {suggestions.map((s, i) => (
@@ -343,9 +349,29 @@ const NeoPanel = () => {
         ref={input}
         value={draft}
         busy={!!neo.busy}
+        attachments={attachments}
         onChange={setDraft}
         onSend={() => send()}
         onStop={neo.stop}
+        onAttachFiles={(files) =>
+          attach(
+            Array.from(files).map((f) => ({
+              name: f.name,
+              docId: sampleFor(f.name)?.id,
+            }))
+          )
+        }
+        onAttachSample={() =>
+          attach(
+            MOCK_BATCH_DOCUMENTS.map((d) => ({
+              name: d.file.name,
+              docId: d.id,
+            }))
+          )
+        }
+        onRemoveAttachment={(name) =>
+          setAttachments((as) => as.filter((a) => a.name !== name))
+        }
       />
     </aside>
   );

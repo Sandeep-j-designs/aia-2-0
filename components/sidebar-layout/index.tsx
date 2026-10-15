@@ -84,11 +84,16 @@ const NAV: NavNode[] = [
     icon: <Inbox />,
   },
   {
-    kind: "item",
-    id: "agents",
-    label: "Agents",
-    path: "/inbox?module=AGENTS",
+    // Neo, as one thing (Neo proposition, 14 Oct 2026): today's brief across
+    // clients, and the sources it may collect from — formerly "Agents".
+    kind: "group",
+    id: "neo",
+    label: "Neo",
     icon: <Workflow />,
+    children: [
+      { id: "neo-today", label: "Today", path: "/inbox?module=NEO" },
+      { id: "agents", label: "Sources", path: "/inbox?module=AGENTS" },
+    ],
   },
   {
     kind: "group",
@@ -157,7 +162,8 @@ const NAV: NavNode[] = [
 
 /** Breadcrumb trail shown in the top bar for each nav id. */
 export const NAV_TRAIL: Record<string, Crumb[]> = {
-  agents: ["Agents"],
+  "neo-today": ["Neo", "Today"],
+  agents: ["Neo", "Sources"],
   dashboard: ["Dashboard"],
   inbox: ["Workspace", "Inbox"],
   purchases: ["Payables", "Purchases"],
@@ -171,7 +177,7 @@ export const NAV_TRAIL: Record<string, Crumb[]> = {
   rules: ["Automation", "Rules & learning"],
   checks: ["Compliance", "Compliance checks"],
   policy: ["Automation", "Client policy"],
-  playbooks: ["Automation", "Playbooks"],
+  playbooks: ["Neo", "Routines"],
   whatsapp: ["Automation", "WhatsApp"],
 };
 

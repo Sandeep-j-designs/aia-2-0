@@ -16,7 +16,15 @@ type Props = {
  */
 const AskOptions = ({ ask, live, onPick }: Props) => (
   <div className="flex flex-col gap-2">
-    <p className="text-body-3 font-semibold text-pi-ink">{ask.question}</p>
+    {/* First line is the question; anything after it is the evidence. */}
+    <p className="text-body-3 font-semibold text-pi-ink">
+      {ask.question.split("\n")[0]}
+      {ask.question.includes("\n") && (
+        <span className="mt-0.5 block text-caption-1 font-normal text-pi-body">
+          {ask.question.split("\n").slice(1).join(" ")}
+        </span>
+      )}
+    </p>
     <div className="flex flex-col gap-1">
       {ask.options.map((o, i) => {
         const picked = ask.answer === o.id;

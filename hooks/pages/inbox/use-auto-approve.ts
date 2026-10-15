@@ -28,7 +28,7 @@ import type {
 
 type State = { settings: AutoApproveSettings[]; patterns: TrustPattern[] };
 
-const AI = { kind: "ai" as const, name: "AI · Auto-approve" };
+const AI = { kind: "ai" as const, name: "Neo · Auto-approve" };
 
 let state: State = { settings: [], patterns: [] };
 let seeded = false;

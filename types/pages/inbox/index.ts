@@ -263,7 +263,28 @@ export type InboxLineage = {
 /** Where payment against a posted bill stands. */
 export type InboxPaymentStatus = "unpaid" | "partiallyPaid" | "paid";
 
+/**
+ * What Neo decided for a draft it entered in a batch, handed to the bill form
+ * with the document so the form shows the batch's answers rather than
+ * re-predicting them (Neo voucher entry).
+ */
+export type NeoPrepared = {
+  /** AP expense ledger id for the bill's ledger lines. */
+  ledgerId?: string;
+  /** Cost centre id for every line. */
+  costCentreId?: string;
+  narration?: string;
+  /** The vendor's services total this year before this bill. */
+  fyServices?: number;
+  /** A deduction the accountant confirmed not to make, with why. */
+  tdsExempt?: { section: string; reason: string };
+  /** GST the company pays itself (a GTA bill under RCM), at this rate. */
+  reverseChargeRate?: number;
+};
+
 export type InboxItem = {
+  /** Set on drafts Neo entered in a batch. */
+  neo?: NeoPrepared;
   id: string;
   file: InboxFile;
   source: InboxSource;

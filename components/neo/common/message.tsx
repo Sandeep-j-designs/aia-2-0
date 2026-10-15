@@ -3,6 +3,10 @@ import { ArrowUpRight, CornerDownLeft } from "@/components/icons";
 import type { NeoCard, NeoMessage, NeoRef } from "@/types/pages/neo";
 import { cn } from "@/lib/utils";
 import AskOptions from "./ask-options";
+import ChangesetCard from "./changeset-card";
+import BatchCard from "./batch-card";
+import { useBatches } from "@/hooks/pages/neo/use-batches";
+import { FileText } from "@/components/icons";
 import DiffCard from "./diff-card";
 import ListCard from "./list-card";
 import MessageCard from "./message-card";
@@ -26,11 +30,11 @@ type Props = {
   onStop: () => void;
 };
 
-/** Words that say what an action risks, under its button. */
+/** What an action risks, said under its button. */
 const RISK_NOTE = {
-  commit: "approves as you",
-  external: "is simulated; nothing leaves the prototype",
-  draft: "undoable from Tasks",
+  commit: "This approves as you.",
+  external: "This sends the message exactly as shown.",
+  draft: "You can undo this from Tasks.",
   read: "",
 };
 
@@ -52,14 +56,54 @@ const Message = ({
   onResume,
   onStop,
 }: Props) => {
+  // Hooks first: a batch card's sign-off counts the ticked rows live.
+  const { batches } = useBatches();
   if (m.role === "user")
     return (
-      <p className="ml-12 self-end whitespace-pre-wrap rounded-xl rounded-br-sm bg-primary px-3 py-2 text-body-3 text-primary-foreground duration-200 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none">
-        {m.text}
-      </p>
+      <div className="ml-12 flex flex-col items-end gap-1.5 self-end duration-200 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none">
+        {m.attachments && m.attachments.length > 0 && (
+          <ul
+            aria-label="Attached files"
+            className="flex flex-wrap justify-end gap-1"
+          >
+            {m.attachments.map((a) => (
+              <li
+                key={a.name}
+                className="inline-flex max-w-[12rem] items-center gap-1 rounded-md border border-pi-line bg-background px-1.5 py-0.5 text-[11px] text-pi-body"
+              >
+                <FileText className="h-3 w-3 flex-none" />
+                <span className="code truncate">{a.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="whitespace-pre-wrap rounded-xl rounded-br-sm bg-primary px-3 py-2 text-body-3 text-primary-foreground">
+          {m.text}
+        </p>
+      </div>
     );
 
   const primary = m.actions?.find((a) => a.primary);
+  // A sign-off names exactly what it will do: "Move 6 bills".
+  const picked =
+    m.card?.kind === "changeset"
+      ? m.card.rows.filter((r) => r.checked).length
+      : 0;
+  // A batch register's sign-off says how many drafts it will make.
+  const batchCard = m.card?.kind === "batch" ? m.card : undefined;
+  const batchPicked =
+    batchCard?.view === "register"
+      ? (batches
+          .find((b) => b.id === batchCard.batchId)
+          ?.rows.filter((r) => r.checked && r.status !== "left-out").length ??
+        0)
+      : 0;
+  const labelOf = (a: NonNullable<NeoMessage["actions"]>[number]) =>
+    m.card?.kind === "changeset" && a.primary
+      ? `${m.card.verb} ${picked} bill${picked === 1 ? "" : "s"}`
+      : batchCard?.view === "register" && a.primary
+        ? `Create ${batchPicked} draft${batchPicked === 1 ? "" : "s"}`
+        : a.label;
   return (
     <div className="flex flex-col gap-2.5 duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none">
       {m.steps && <Steps steps={m.steps} onRef={onRef} />}
@@ -100,6 +144,17 @@ const Message = ({
       )}
       {m.card?.kind === "list" && <ListCard card={m.card} onRef={onRef} />}
       {m.card?.kind === "diff" && <DiffCard card={m.card} onRef={onRef} />}
+      {m.card?.kind === "batch" && (
+        <BatchCard card={m.card} editable={live} onRef={onRef} />
+      )}
+      {m.card?.kind === "changeset" && (
+        <ChangesetCard
+          card={m.card}
+          editable={live}
+          onChange={onEditCard}
+          onRef={onRef}
+        />
+      )}
       {m.card?.kind === "message" && (
         <MessageCard
           inputId={`neo-out-${m.id}`}
@@ -123,10 +178,16 @@ const Message = ({
                 <button
                   key={a.id}
                   type="button"
-                  disabled={!live}
+                  disabled={
+                    !live ||
+                    (m.card?.kind === "changeset" && a.primary && !picked) ||
+                    (batchCard?.view === "register" &&
+                      a.primary &&
+                      !batchPicked)
+                  }
                   onClick={() => onAnswer(a.id)}
                   className={cn(
-                    "flex h-8 items-center gap-1.5 rounded-lg px-3 text-label-3 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
+                    "flex h-8 items-center gap-1.5 rounded-lg px-3 text-label-3 font-semibold transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
                     !live
                       ? "border border-pi-line text-pi-body"
                       : a.primary
@@ -135,7 +196,7 @@ const Message = ({
                   )}
                 >
                   {!live && "✓ "}
-                  {a.label}
+                  {labelOf(a)}
                   {live &&
                     a.primary &&
                     a.risk !== "commit" &&
@@ -150,7 +211,7 @@ const Message = ({
           </div>
           {live && primary?.risk && RISK_NOTE[primary.risk] && (
             <p className="text-caption-1 text-pi-body">
-              {primary.label} {RISK_NOTE[primary.risk]}.
+              {RISK_NOTE[primary.risk]}
             </p>
           )}
         </div>

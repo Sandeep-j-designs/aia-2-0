@@ -56,6 +56,10 @@ export type ApDocument = {
   billDate: string;
   dueDate: string;
   narration: string;
+  /** Neo batch drafts only; null otherwise (see apDocumentFor). */
+  fyServices?: number | null;
+  tdsExempt?: { section: string; reason: string } | null;
+  reverseCharge?: boolean;
   lines: ApDocumentLine[];
 };
 
@@ -186,7 +190,17 @@ export const apDocumentFor = (item: InboxItem): ApDocument | null => {
     supplierInvoiceNo: bill.supplierInvoiceNo,
     billDate: toIso(bill.billDate),
     dueDate: toIso(bill.dueDate),
-    narration: item.source.subject ? `From email — ${item.source.subject}` : "",
+    narration:
+      item.neo?.narration ??
+      (item.source.subject ? `From email — ${item.source.subject}` : ""),
+    /*
+      A Neo batch draft hands over the batch's TDS context. Always present —
+      null when not — because the sheet merges each document over the last,
+      and a key left out would carry the previous bill's exemption across.
+    */
+    fyServices: item.neo?.fyServices ?? null,
+    tdsExempt: item.neo?.tdsExempt ?? null,
+    reverseCharge: !!item.neo?.reverseChargeRate,
 
     /*
       Goods go over as item lines, services as ledger lines (7 Oct 2026, user:
@@ -207,12 +221,12 @@ export const apDocumentFor = (item: InboxItem): ApDocument | null => {
         text: line.desc,
         hsn: line.hsn || "",
         amount: line.amount,
-        gst,
-        cc: "",
+        gst: item.neo?.reverseChargeRate ?? gst,
+        cc: item.neo?.costCentreId || "",
         route,
         ...(route === "item"
           ? { item: "", ...itemFigures(line.amount, line) }
-          : { ledger: "" }),
+          : { ledger: item.neo?.ledgerId || "" }),
       };
     }),
   };

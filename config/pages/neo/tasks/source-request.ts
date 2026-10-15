@@ -5,6 +5,7 @@ import {
   sourceContact,
 } from "@/hooks/pages/inbox/use-inbox-sources";
 import type { NeoCard, NeoTask } from "@/types/pages/neo";
+import { recordChase } from "@/hooks/pages/neo/use-chases";
 
 const sourceRequest: NeoTask = {
   id: "source-request",
@@ -45,12 +46,12 @@ const sourceRequest: NeoTask = {
       body: `Hello,\n\nThe attachment ${receipt.candidateKey} received in our accounts mailbox is unreadable. Please reply with a clearer PDF of the original invoice.\n\nThank you,\nAccounts team`,
     };
     await api.say(
-      "I’ve drafted a request to the sample source contact. Review or edit it before sending. Nothing leaves this prototype."
+      "I’ve drafted a request to the source contact. Review or edit it before sending."
     );
     const choice = await api.card(card, [
       {
         id: "send",
-        label: "Send request (simulated)",
+        label: "Send request",
         risk: "external",
         primary: true,
       },
@@ -59,9 +60,20 @@ const sourceRequest: NeoTask = {
     if (choice !== "send") return "Request not sent";
     await api.checkpoint();
     requestSourceCopy(receipt, api.runId, card.body);
+    recordChase({
+      company,
+      ask: "copy",
+      party: card.to,
+      channel: card.channel,
+      to: card.to,
+      body: card.body,
+      itemId: receipt.itemId,
+      docRef: receipt.candidateKey,
+      runId: api.runId,
+    });
     api.outcome("waiting");
     await api.say(
-      "Request recorded with your approved message. I’m waiting for a reply. Open the document in Inbox and use Simulate supplier reply to test the replacement flow.",
+      "Sent with your approved message. I’ll link the clearer copy to this document when it arrives — it’s under Chases in Tasks until then.",
       [{ label: "View pending request", itemId: receipt.itemId }]
     );
     return "Waiting for a clearer copy · simulated send";

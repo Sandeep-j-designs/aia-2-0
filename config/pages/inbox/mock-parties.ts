@@ -207,6 +207,15 @@ Object.assign(MOCK_PARTIES, {
     gstin: gstinFor("29", "AAACR7342J"),
     address: "Whitefield, Bengaluru, Karnataka 560066",
   },
+  // Neo voucher entry: the Harihar batch's two vendors not yet in masters.
+  "VRL Logistics Ltd": {
+    gstin: gstinFor("29", "AABCV3609C"),
+    address: "Giriraj Annexe, Circuit House Road, Hubballi, Karnataka 580029",
+  },
+  "KPR Cargo Movers": {
+    gstin: gstinFor("29", "AAKFK2231M"),
+    address: "No. 42, Lorry Stand Road, Harihar, Karnataka 577601",
+  },
 });
 /** The tenant's own registration, keyed by the prototype's company id. */
 export const MOCK_OWN_REGISTRATION: Record<

@@ -183,7 +183,7 @@ export const runPlaybook = async (
     }
     logActivity({
       company,
-      actor: { kind: "ai", name: "AI · Playbook" },
+      actor: { kind: "ai", name: "Neo · Routine" },
       kind: "predicted",
       module: "Automation",
       action: paused ? "Paused playbook" : "Ran playbook",

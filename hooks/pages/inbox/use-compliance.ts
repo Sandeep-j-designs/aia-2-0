@@ -5,7 +5,7 @@ import { getGstState } from "@/hooks/pages/inbox/use-gst";
 import {
   actor,
   getState,
-  neoCreate,
+  personCreate,
   neoDiscard,
   blankForm,
   type Item,
@@ -53,7 +53,7 @@ export const runComplianceChecks = (company: string, documentId?: string) => {
         companyId: company,
         kind: "compliance_issue",
         data: { count: open.length },
-        actor: { kind: "ai", name: "AI · Compliance check" },
+        actor: { kind: "ai", name: "Neo · Compliance check" },
         target: { href: "/inbox?module=CHECKS", label: "Compliance checks" },
         refs: open.map((x) => x.id),
       },
@@ -61,7 +61,7 @@ export const runComplianceChecks = (company: string, documentId?: string) => {
     );
   logActivity({
     company,
-    actor: { kind: "ai", name: "AI · Compliance check" },
+    actor: { kind: "ai", name: "Neo · Compliance check" },
     kind: "predicted",
     module: "GST",
     action: "Checked compliance",
@@ -70,6 +70,17 @@ export const runComplianceChecks = (company: string, documentId?: string) => {
       "Document evidence and GST reconciliation compared with the configured checks",
   });
   emit();
+};
+/** Open and resolved issues for a company, outside React (the firm brief). */
+export const getComplianceIssues = (company: string) => {
+  checkCompany(company);
+  return issues.filter((x) => x.company === company);
+};
+export const subscribeCompliance = (f: () => void) => {
+  listeners.add(f);
+  return () => {
+    listeners.delete(f);
+  };
 };
 export const useCompliance = (company: string) => {
   // DEV: GET /api/compliance/issues?companyUuid=… returns ComplianceIssue[].
@@ -124,7 +135,7 @@ export const resolveCompliance = (
         },
       ],
     };
-    draft = neoCreate(
+    draft = personCreate(
       {
         ...structuredClone(source),
         id: `FIX-${crypto.randomUUID()}`,
