@@ -132,3 +132,33 @@ export function sizeColumns(
     })
   );
 }
+/**
+ * The columns that fit `available` at their minimum widths, in their shown
+ * order. Columns go lowest `priority` first (a column missing from `priority`
+ * goes before any listed one); the most important column always stays. Used
+ * while a record is docked beside the table: a pane that narrow should drop
+ * columns, not scroll sideways under the pinned bookends. `null` (not yet
+ * measured) keeps everything.
+ */
+export function fitColumns(
+  shown: string[],
+  available: number | null,
+  priority: string[],
+  sizes: ColumnSizes = COLUMN_SIZES
+): string[] {
+  if (available === null) return shown;
+  const room = available - SELECT_WIDTH - ACTIONS_WIDTH;
+  const rank = (key: string) => {
+    const i = priority.indexOf(key);
+    return i === -1 ? priority.length : i;
+  };
+  const keep = new Set(shown);
+  let used = shown.reduce((sum, key) => sum + sizes[key].min, 0);
+  const dropOrder = [...shown].sort((a, b) => rank(b) - rank(a));
+  for (const key of dropOrder) {
+    if (used <= room || keep.size <= 1) break;
+    keep.delete(key);
+    used -= sizes[key].min;
+  }
+  return shown.filter((key) => keep.has(key));
+}

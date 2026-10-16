@@ -136,6 +136,7 @@ import {
   clampWidth,
   readWidths,
   sizeColumns,
+  fitColumns,
 } from "./table-sizing";
 import { ApprovedDetails, RecordBanner } from "./record-details";
 import CompliancePage from "@/components/inbox/v2/automation/compliance-page";
@@ -245,6 +246,7 @@ import BillRegister from "./bill-register";
 import { AiMark } from "./ai-mark";
 import SyncResultModal from "./sync/sync-result-modal";
 import SyncCloud from "./sync/sync-cloud";
+import RecordPanel from "./record-panel";
 import SyncChromeButton from "./sync/sync-chrome-button";
 import {
   gridCellId,
@@ -459,6 +461,22 @@ const RESIZABLE = new Set(columns);
 const LOCKED_COLUMNS = new Set(["File", "Status"]);
 /** File leads the grid until someone unpins it. */
 const DEFAULT_PINNED = ["File"];
+/**
+ * Which columns survive when a record is docked and the table's pane is too
+ * narrow for all of them, most important first. What identifies the document
+ * and what it is worth stay; the columns that only refine it go first.
+ */
+const DOCKED_PRIORITY = [
+  "File",
+  "Vendor",
+  "Amount",
+  "Status",
+  "Received",
+  "Voucher type",
+  "GST Registration",
+  "Source",
+  "User",
+];
 /**
  * Motion for the Columns list. One duration and one curve for the rows sliding
  * aside and for the dragged row settling into its slot, so the drop reads as
@@ -1347,11 +1365,20 @@ export default function Workspace() {
    * them. Everything downstream — widths, headers, cells — reads this, so the
    * two pieces of state can never disagree about the shape of the table.
    */
-  const shown = useMemo(
-    () => order.filter((c) => visible.includes(c)),
-    [order, visible]
-  );
-  const colWidths = sizeColumns(shown, avail, widths);
+  /*
+    The table only renders under a record id when that record is docked beside
+    it (Mercury's master-detail; see `splitView`). The pane is then too narrow
+    for every column, and sideways scrolling slid them under the pinned File
+    and Actions bookends, so instead the table drops its least important
+    columns until the rest fit at their minimums, and sizes them automatically.
+    Manual widths and the Columns choice are kept for when the record closes.
+  */
+  const docked = typeof router.query.id === "string" && !!router.query.id;
+  const shown = useMemo(() => {
+    const all = order.filter((c) => visible.includes(c));
+    return docked ? fitColumns(all, avail, DOCKED_PRIORITY) : all;
+  }, [order, visible, docked, avail]);
+  const colWidths = sizeColumns(shown, avail, docked ? {} : widths);
   const colWidth = (c: string) => colWidths[c] ?? DEFAULT_WIDTHS[c];
   // Both fixed bookends count: the checkbox at one end, the kebab at the other.
   /**
@@ -1668,7 +1695,6 @@ export default function Workspace() {
    * the chrome appear and disappear according to status would be worse than
    * either state on its own.
    */
-  const fullScreen = !!id && !!item;
   // The duplicate's match target is a voucher from before the Inbox, not a
   // document in it — see `priorVoucher`. It stays openable by id; it just never
   // counts as one of the queue's rows.
@@ -2149,6 +2175,61 @@ export default function Workspace() {
   const reason = item ? issue(item) : "";
   const approvedEditing =
     !!item && item.status === "Approved" && editingApproved === item.id;
+  /*
+    A posted record docks beside the table it was opened from — Mercury's
+    master-detail. The table stays as it was, narrowed, with the record's row
+    lit, so the next record is a click and closing loses nothing. Editing
+    needs the full window for the sheet, so the table steps aside while it is
+    open; a voucher raised by hand or the duplicate's prior voucher was never
+    in a table, so neither docks.
+  */
+  const splitView =
+    !!item &&
+    item.status === "Approved" &&
+    !item.created &&
+    !item.priorVoucher &&
+    !approvedEditing;
+  const fullScreen = !!id && !!item && !splitView;
+  /** The approved rows of the table the record was opened from, in order. */
+  const postedInList = (x?: Item): x is Item =>
+    !!x &&
+    x.company === state.company &&
+    x.status === "Approved" &&
+    !x.created &&
+    !x.priorVoucher;
+  const fromQueue = state.queue
+    .map((qid) => state.items.find((x) => x.id === qid))
+    .filter(postedInList);
+  // Opened by link rather than from a table: every posted record, newest first.
+  const panelItems = fromQueue.some((x) => x.id === item?.id)
+    ? fromQueue
+    : state.items
+        .filter(postedInList)
+        .sort((a, b) => Date.parse(b.received) - Date.parse(a.received));
+  /** The table the record was opened from — this URL without the record. */
+  const listHref = (() => {
+    const keep = new URLSearchParams();
+    Object.entries(router.query).forEach(([key, value]) => {
+      if (key !== "id" && key !== "voucher" && typeof value === "string")
+        keep.set(key, value);
+    });
+    const query = keep.toString();
+    return query ? `/inbox?${query}` : "/inbox";
+  })();
+  /** Another record, docked beside the same table. */
+  const recordHref = (next: string) =>
+    detailHref(
+      next,
+      moduleRoute ? `module=${moduleRoute}&voucher=1` : undefined
+    );
+  /** The row whose record is docked, lit in whichever table is showing. */
+  const dockedId = splitView ? item?.id : undefined;
+  // Opened by link, the Inbox may be on a tab without this record; show the
+  // one it is in, so the lit row is on screen behind it.
+  useEffect(() => {
+    if (splitView && item && !moduleRoute && !matchesTab(item, tab))
+      setTab("Approved");
+  }, [item?.id, splitView]);
   // Paging to another record closes the one you had open for editing.
   useEffect(() => {
     if (editingApproved && editingApproved !== item?.id)
@@ -3138,9 +3219,10 @@ export default function Workspace() {
     <>
       <div
         className={cn(
-          "flex h-full min-h-0 flex-col",
+          "relative flex h-full min-h-0",
+          splitView ? "flex-row" : "flex-col",
           // the review surface's palette and overscroll guard, on every form
-          item && "payable-review"
+          item && !splitView && "payable-review"
         )}
       >
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -3164,7 +3246,7 @@ export default function Workspace() {
                 Back to Inbox
               </Button>
             </EmptyState>
-          ) : item ? (
+          ) : item && !splitView ? (
             <>
               {/* Document routing and status lead; navigation and actions sit on the right. */}
               <div className="review-toolbar-container shrink-0 border-b border-pi-line bg-background">
@@ -4097,6 +4179,7 @@ export default function Workspace() {
             */
             moduleRoute === "AP" ? (
               <BillRegister
+                activeId={dockedId}
                 key={state.company}
                 items={moduleItems}
                 selected={selected}
@@ -4109,7 +4192,9 @@ export default function Workspace() {
                   void router.push(
                     detailHref(
                       x.id,
-                      x.status === "Approved" ? "voucher=1" : undefined
+                      x.status === "Approved"
+                        ? `module=${moduleRoute}&voucher=1`
+                        : undefined
                     )
                   );
                 }}
@@ -4154,6 +4239,7 @@ export default function Workspace() {
               />
             ) : (
               <Register
+                activeId={dockedId}
                 /*
                 Keyed by route: the three registers are the same element in the
                 tree, so without this the tab and page you left Purchases on
@@ -4174,7 +4260,9 @@ export default function Workspace() {
                   void router.push(
                     detailHref(
                       x.id,
-                      x.status === "Approved" ? "voucher=1" : undefined
+                      x.status === "Approved"
+                        ? `module=${moduleRoute}&voucher=1`
+                        : undefined
                     )
                   );
                 }}
@@ -4539,15 +4627,20 @@ export default function Workspace() {
                       the two that answer a question in place (Figma
                       716:15029). */}
                         <span className="h-6 w-px flex-none bg-neutral-gray" />
-                        {QUICK_FILTERS.map((column) => (
-                          <QuickFilter
-                            key={column}
-                            label={column}
-                            options={optionsFor(column)}
-                            selected={colFilter(column)}
-                            onChange={(next) => setColFilter(column, next)}
-                          />
-                        ))}
+                        {/* Docked, the bar keeps search, the panel and the
+                      date: the quick filters are also in the panel, and the
+                      Columns and shortcut chips act on a table that is fitting
+                      itself to the pane for now. */}
+                        {!docked &&
+                          QUICK_FILTERS.map((column) => (
+                            <QuickFilter
+                              key={column}
+                              label={column}
+                              options={optionsFor(column)}
+                              selected={colFilter(column)}
+                              onChange={(next) => setColFilter(column, next)}
+                            />
+                          ))}
                         <DateFilter
                           label="Received"
                           presetsLabel="Show documents received"
@@ -4608,269 +4701,281 @@ export default function Workspace() {
                             Reset Filters
                           </Button>
                         )}
-                        <Popover
-                          open={columnsOpen}
-                          onOpenChange={(next) => {
-                            setColumnsOpen(next);
-                            if (!next) setColumnSearch("");
-                          }}
-                        >
-                          <PopoverTrigger asChild>
-                            {/* The Bloocks ColumnCustomizer trigger: a 26px chip
+                        {!docked && (
+                          <>
+                            <Popover
+                              open={columnsOpen}
+                              onOpenChange={(next) => {
+                                setColumnsOpen(next);
+                                if (!next) setColumnSearch("");
+                              }}
+                            >
+                              <PopoverTrigger asChild>
+                                {/* The Bloocks ColumnCustomizer trigger: a 26px chip
                               that turns blue while any column is hidden, so a
                               table missing columns says so from the toolbar. */}
-                            <button
-                              type="button"
-                              aria-label="Customize columns"
-                              className={cn(
-                                "inline-flex h-9 items-center gap-2 rounded-sm border bg-background px-3 text-[13px] font-medium shadow-contact transition-[border-color,background-color] duration-150 focus-visible:outline-none",
-                                order.some((c) => !visible.includes(c))
-                                  ? "border-pi-brand-border bg-pi-brand-tint text-pi-brand"
-                                  : "border-pi-line-2 text-pi-ink hover:border-pi-line-strong"
-                              )}
-                            >
-                              <Columns3 className="size-3.5" aria-hidden />
-                              Columns
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            align="end"
-                            className="w-[300px] p-0"
-                            // The grid behind the popover is the preview, so a drag
-                            // that leaves the panel must not read as "dismiss".
-                            onPointerDownOutside={(e) =>
-                              dragging && e.preventDefault()
-                            }
-                          >
-                            {/* Bloocks panel search, without the panel's
-                              "Columns" title: the trigger already names it. */}
-                            <div className="flex items-center gap-2 border-b border-neutral-gray px-4 py-2">
-                              <Search
-                                className="size-4 flex-none text-secondary-foreground"
-                                aria-hidden
-                              />
-                              <input
-                                ref={columnSearchRef}
-                                aria-label="Search columns"
-                                placeholder="Search…"
-                                className="w-full min-w-0 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-secondary-foreground"
-                                value={columnSearch}
-                                onChange={(e) =>
-                                  setColumnSearch(e.target.value)
-                                }
-                              />
-                              {columnSearch && (
                                 <button
                                   type="button"
-                                  aria-label="Clear search"
-                                  onClick={() => {
-                                    setColumnSearch("");
-                                    columnSearchRef.current?.focus();
-                                  }}
-                                  className="flex-none text-secondary-foreground hover:text-foreground"
+                                  aria-label="Customize columns"
+                                  className={cn(
+                                    "inline-flex h-9 items-center gap-2 rounded-sm border bg-background px-3 text-[13px] font-medium shadow-contact transition-[border-color,background-color] duration-150 focus-visible:outline-none",
+                                    order.some((c) => !visible.includes(c))
+                                      ? "border-pi-brand-border bg-pi-brand-tint text-pi-brand"
+                                      : "border-pi-line-2 text-pi-ink hover:border-pi-line-strong"
+                                  )}
                                 >
-                                  <X className="size-4" aria-hidden />
+                                  <Columns3 className="size-3.5" aria-hidden />
+                                  Columns
                                 </button>
-                              )}
-                            </div>
-                            {/*
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="end"
+                                className="w-[300px] p-0"
+                                // The grid behind the popover is the preview, so a drag
+                                // that leaves the panel must not read as "dismiss".
+                                onPointerDownOutside={(e) =>
+                                  dragging && e.preventDefault()
+                                }
+                              >
+                                {/* Bloocks panel search, without the panel's
+                              "Columns" title: the trigger already names it. */}
+                                <div className="flex items-center gap-2 border-b border-neutral-gray px-4 py-2">
+                                  <Search
+                                    className="size-4 flex-none text-secondary-foreground"
+                                    aria-hidden
+                                  />
+                                  <input
+                                    ref={columnSearchRef}
+                                    aria-label="Search columns"
+                                    placeholder="Search…"
+                                    className="w-full min-w-0 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-secondary-foreground"
+                                    value={columnSearch}
+                                    onChange={(e) =>
+                                      setColumnSearch(e.target.value)
+                                    }
+                                  />
+                                  {columnSearch && (
+                                    <button
+                                      type="button"
+                                      aria-label="Clear search"
+                                      onClick={() => {
+                                        setColumnSearch("");
+                                        columnSearchRef.current?.focus();
+                                      }}
+                                      className="flex-none text-secondary-foreground hover:text-foreground"
+                                    >
+                                      <X className="size-4" aria-hidden />
+                                    </button>
+                                  )}
+                                </div>
+                                {/*
                         The list holds every column, hidden ones included: the
                         order is a property of the column and not of the current
                         selection, so unchecking something and checking it again
                         has to put it back where you left it.
                       */}
-                            <div
-                              ref={columnList}
-                              className="max-h-[320px] overflow-y-auto px-3 py-1 [scrollbar-color:hsl(var(--popover-border))_transparent] [scrollbar-width:thin]"
-                            >
-                              {columnMatches.length === 0 ? (
-                                <p
-                                  className={cn(T.sub, "px-3 py-8 text-center")}
+                                <div
+                                  ref={columnList}
+                                  className="max-h-[320px] overflow-y-auto px-3 py-1 [scrollbar-color:hsl(var(--popover-border))_transparent] [scrollbar-width:thin]"
                                 >
-                                  No column matches “{columnSearch.trim()}”.
-                                </p>
-                              ) : (
-                                columnMatches.map((c, i) => {
-                                  const locked = pinned.includes(c);
-                                  // Pinned by the user, or pinned by the screen.
-                                  const fixed = LOCKED_COLUMNS.has(c);
-                                  const checked = visible.includes(c);
-                                  const isDragged = drag?.key === c;
-                                  return (
-                                    <div
-                                      key={c}
-                                      ref={(node) => {
-                                        if (node) rowNodes.current.set(c, node);
-                                        else rowNodes.current.delete(c);
-                                      }}
-                                      style={{
-                                        transform: `translateY(${rowShift(i, isDragged)}px)`,
-                                        // The dragged row is pinned to the pointer, so
-                                        // it must not ease — easing a value that is
-                                        // already being updated every frame just adds
-                                        // lag. Everything else eases, and so does the
-                                        // dragged row once it is settling into place.
-                                        transition:
-                                          isDragged && !drag?.settling
-                                            ? "none"
-                                            : `transform ${SETTLE_MS}ms ${EASE}`,
-                                        willChange: drag
-                                          ? "transform"
-                                          : undefined,
-                                      }}
+                                  {columnMatches.length === 0 ? (
+                                    <p
                                       className={cn(
-                                        // Bloocks: 32px rows, the pin revealed on hover.
-                                        "group/row relative flex h-8 items-center gap-2 rounded-md px-1",
-                                        isDragged &&
-                                          // Lifted off the list: opaque, so the rows
-                                          // sliding under it stay hidden, and above
-                                          // them in the stacking order.
-                                          "z-10 bg-background shadow-lg ring-1 ring-neutral-gray"
+                                        T.sub,
+                                        "px-3 py-8 text-center"
                                       )}
                                     >
-                                      {locked || filteringColumns ? (
-                                        // Holds the grip's place so every label starts
-                                        // on the same x, draggable row or not.
-                                        <span className="size-5 flex-none" />
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          aria-label={`Reorder ${c}`}
-                                          onPointerDown={(e) =>
-                                            startRowDrag(c, e)
-                                          }
-                                          // Arrow keys do the same job for anyone not
-                                          // using a pointer: a drag handle with no
-                                          // keyboard equivalent makes the order
-                                          // unreachable, not just awkward.
-                                          onKeyDown={(e) => {
-                                            if (
-                                              e.key !== "ArrowUp" &&
-                                              e.key !== "ArrowDown"
-                                            )
-                                              return;
-                                            e.preventDefault();
-                                            moveColumn(
-                                              c,
-                                              order.indexOf(c) +
-                                                (e.key === "ArrowDown" ? 1 : -1)
-                                            );
+                                      No column matches “{columnSearch.trim()}”.
+                                    </p>
+                                  ) : (
+                                    columnMatches.map((c, i) => {
+                                      const locked = pinned.includes(c);
+                                      // Pinned by the user, or pinned by the screen.
+                                      const fixed = LOCKED_COLUMNS.has(c);
+                                      const checked = visible.includes(c);
+                                      const isDragged = drag?.key === c;
+                                      return (
+                                        <div
+                                          key={c}
+                                          ref={(node) => {
+                                            if (node)
+                                              rowNodes.current.set(c, node);
+                                            else rowNodes.current.delete(c);
                                           }}
-                                          className="inline-flex size-5 flex-none cursor-grab touch-none items-center justify-center rounded-md text-secondary-foreground hover:text-foreground active:cursor-grabbing"
-                                        >
-                                          <GripVertical className="size-3" />
-                                        </button>
-                                      )}
-                                      {fixed ? (
-                                        // A locked column is always shown, so
-                                        // there is no choice to offer: a padlock
-                                        // in the checkbox's place, not a checkbox
-                                        // that is ticked and cannot be unticked.
-                                        <span
-                                          className="flex size-3 flex-none items-center justify-center text-secondary-foreground"
-                                          title={`${c} is always shown`}
-                                        >
-                                          <Lock
-                                            className="size-3"
-                                            aria-hidden
-                                          />
-                                          <span className="sr-only">
-                                            {c} is locked
-                                          </span>
-                                        </span>
-                                      ) : (
-                                        <Checkbox
-                                          id={`col-${c}`}
-                                          checked={checked}
-                                          disabled={
-                                            checked && visible.length === 1
-                                          }
-                                          onCheckedChange={(next) =>
-                                            toggleColumn(c, !!next)
-                                          }
-                                          // Bloocks sm checkbox: 12px, 4px corners.
-                                          className="size-3 rounded-xs [&_svg]:size-2.5"
-                                        />
-                                      )}
-                                      <Label
-                                        htmlFor={`col-${c}`}
-                                        className={cn(
-                                          "flex-1 truncate text-label-2 font-normal text-foreground",
-                                          !locked && "cursor-pointer"
-                                        )}
-                                      >
-                                        {c}
-                                      </Label>
-                                      {
-                                        <button
-                                          type="button"
-                                          onClick={() => togglePin(c)}
-                                          aria-label={
-                                            locked ? `Unpin ${c}` : `Pin ${c}`
-                                          }
-                                          aria-pressed={locked}
-                                          title={
-                                            locked
-                                              ? "Unpin — lets the column be reordered"
-                                              : "Pin — moves the column to the front"
-                                          }
+                                          style={{
+                                            transform: `translateY(${rowShift(i, isDragged)}px)`,
+                                            // The dragged row is pinned to the pointer, so
+                                            // it must not ease — easing a value that is
+                                            // already being updated every frame just adds
+                                            // lag. Everything else eases, and so does the
+                                            // dragged row once it is settling into place.
+                                            transition:
+                                              isDragged && !drag?.settling
+                                                ? "none"
+                                                : `transform ${SETTLE_MS}ms ${EASE}`,
+                                            willChange: drag
+                                              ? "transform"
+                                              : undefined,
+                                          }}
                                           className={cn(
-                                            "inline-flex size-5 flex-none items-center justify-center rounded-md transition-opacity duration-150 hover:bg-neutral-gray focus-visible:opacity-100",
-                                            locked
-                                              ? "text-primary"
-                                              : "text-secondary-foreground opacity-0 hover:text-foreground group-hover/row:opacity-100"
+                                            // Bloocks: 32px rows, the pin revealed on hover.
+                                            "group/row relative flex h-8 items-center gap-2 rounded-md px-1",
+                                            isDragged &&
+                                              // Lifted off the list: opaque, so the rows
+                                              // sliding under it stay hidden, and above
+                                              // them in the stacking order.
+                                              "z-10 bg-background shadow-lg ring-1 ring-neutral-gray"
                                           )}
                                         >
-                                          {locked ? (
-                                            <PinOff className="size-3" />
+                                          {locked || filteringColumns ? (
+                                            // Holds the grip's place so every label starts
+                                            // on the same x, draggable row or not.
+                                            <span className="size-5 flex-none" />
                                           ) : (
-                                            <Pin className="size-3" />
+                                            <button
+                                              type="button"
+                                              aria-label={`Reorder ${c}`}
+                                              onPointerDown={(e) =>
+                                                startRowDrag(c, e)
+                                              }
+                                              // Arrow keys do the same job for anyone not
+                                              // using a pointer: a drag handle with no
+                                              // keyboard equivalent makes the order
+                                              // unreachable, not just awkward.
+                                              onKeyDown={(e) => {
+                                                if (
+                                                  e.key !== "ArrowUp" &&
+                                                  e.key !== "ArrowDown"
+                                                )
+                                                  return;
+                                                e.preventDefault();
+                                                moveColumn(
+                                                  c,
+                                                  order.indexOf(c) +
+                                                    (e.key === "ArrowDown"
+                                                      ? 1
+                                                      : -1)
+                                                );
+                                              }}
+                                              className="inline-flex size-5 flex-none cursor-grab touch-none items-center justify-center rounded-md text-secondary-foreground hover:text-foreground active:cursor-grabbing"
+                                            >
+                                              <GripVertical className="size-3" />
+                                            </button>
                                           )}
-                                        </button>
-                                      }
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                            {/* Bloocks' footer, in neutral rather than its red:
+                                          {fixed ? (
+                                            // A locked column is always shown, so
+                                            // there is no choice to offer: a padlock
+                                            // in the checkbox's place, not a checkbox
+                                            // that is ticked and cannot be unticked.
+                                            <span
+                                              className="flex size-3 flex-none items-center justify-center text-secondary-foreground"
+                                              title={`${c} is always shown`}
+                                            >
+                                              <Lock
+                                                className="size-3"
+                                                aria-hidden
+                                              />
+                                              <span className="sr-only">
+                                                {c} is locked
+                                              </span>
+                                            </span>
+                                          ) : (
+                                            <Checkbox
+                                              id={`col-${c}`}
+                                              checked={checked}
+                                              disabled={
+                                                checked && visible.length === 1
+                                              }
+                                              onCheckedChange={(next) =>
+                                                toggleColumn(c, !!next)
+                                              }
+                                              // Bloocks sm checkbox: 12px, 4px corners.
+                                              className="size-3 rounded-xs [&_svg]:size-2.5"
+                                            />
+                                          )}
+                                          <Label
+                                            htmlFor={`col-${c}`}
+                                            className={cn(
+                                              "flex-1 truncate text-label-2 font-normal text-foreground",
+                                              !locked && "cursor-pointer"
+                                            )}
+                                          >
+                                            {c}
+                                          </Label>
+                                          {
+                                            <button
+                                              type="button"
+                                              onClick={() => togglePin(c)}
+                                              aria-label={
+                                                locked
+                                                  ? `Unpin ${c}`
+                                                  : `Pin ${c}`
+                                              }
+                                              aria-pressed={locked}
+                                              title={
+                                                locked
+                                                  ? "Unpin — lets the column be reordered"
+                                                  : "Pin — moves the column to the front"
+                                              }
+                                              className={cn(
+                                                "inline-flex size-5 flex-none items-center justify-center rounded-md transition-opacity duration-150 hover:bg-neutral-gray focus-visible:opacity-100",
+                                                locked
+                                                  ? "text-primary"
+                                                  : "text-secondary-foreground opacity-0 hover:text-foreground group-hover/row:opacity-100"
+                                              )}
+                                            >
+                                              {locked ? (
+                                                <PinOff className="size-3" />
+                                              ) : (
+                                                <Pin className="size-3" />
+                                              )}
+                                            </button>
+                                          }
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                                {/* Bloocks' footer, in neutral rather than its red:
                               a reset is an undo, and red is kept for deletes. */}
-                            <div className="flex items-start gap-3 border-t border-neutral-gray px-4 pb-3 pt-2">
-                              {(
-                                [
-                                  ["Reset Width", resetWidths],
-                                  ["Reset Default", resetColumns],
-                                ] as const
-                              ).map(([label, onClick]) => (
-                                <button
-                                  key={label}
-                                  type="button"
-                                  onClick={onClick}
-                                  className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md p-1 text-label-2 font-medium text-secondary-foreground hover:bg-neutral-gray hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                >
-                                  <Undo2 className="size-3" aria-hidden />
-                                  {label}
-                                </button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                        {/*
+                                <div className="flex items-start gap-3 border-t border-neutral-gray px-4 pb-3 pt-2">
+                                  {(
+                                    [
+                                      ["Reset Width", resetWidths],
+                                      ["Reset Default", resetColumns],
+                                    ] as const
+                                  ).map(([label, onClick]) => (
+                                    <button
+                                      key={label}
+                                      type="button"
+                                      onClick={onClick}
+                                      className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md p-1 text-label-2 font-medium text-secondary-foreground hover:bg-neutral-gray hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                      <Undo2 className="size-3" aria-hidden />
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            {/*
                     The shortcuts drawer, opened from its own button at the end
                     of the toolbar (Figma 24156:151931). Controlled, because
                     Shift+/ opens it too and a panel that only its trigger could
                     open would make the shortcut a lie.
                   */}
-                        {/* Same chip as Columns beside it, square: 26px. */}
-                        <button
-                          type="button"
-                          aria-label="Keyboard shortcuts"
-                          title="Keyboard shortcuts"
-                          onClick={() => setShortcutsOpen(true)}
-                          className="inline-flex size-9 items-center justify-center rounded-sm border border-pi-line-2 bg-background text-pi-body shadow-contact transition-[border-color,color] duration-150 hover:border-pi-line-strong hover:text-pi-ink focus-visible:outline-none"
-                        >
-                          <Keyboard className="size-3.5" aria-hidden />
-                        </button>
+                            {/* Same chip as Columns beside it, square: 26px. */}
+                            <button
+                              type="button"
+                              aria-label="Keyboard shortcuts"
+                              title="Keyboard shortcuts"
+                              onClick={() => setShortcutsOpen(true)}
+                              className="inline-flex size-9 items-center justify-center rounded-sm border border-pi-line-2 bg-background text-pi-body shadow-contact transition-[border-color,color] duration-150 hover:border-pi-line-strong hover:text-pi-ink focus-visible:outline-none"
+                            >
+                              <Keyboard className="size-3.5" aria-hidden />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                     {/* The table region. It no longer scrolls: the page scroller
@@ -5094,7 +5199,7 @@ export default function Workspace() {
                                       </Popover>
                                     ) : null}
                                   </div>
-                                  {RESIZABLE.has(c) ? (
+                                  {RESIZABLE.has(c) && !docked ? (
                                     // Sits over the cell's right border. Double-click
                                     // puts the column back to its default width.
                                     <span
@@ -5198,9 +5303,14 @@ export default function Workspace() {
                                 // `group` so the pinned Actions cell can pick the
                                 // row's hover tint back up — it paints its own
                                 // ground and would otherwise stay pale.
+                                aria-current={
+                                  x.id === dockedId ? "true" : undefined
+                                }
                                 className={cn(
                                   "group cursor-pointer hover:bg-transparent",
-                                  selected.includes(x.id) && "bg-pi-brand-tint"
+                                  (selected.includes(x.id) ||
+                                    x.id === dockedId) &&
+                                    "bg-pi-brand-tint"
                                 )}
                               >
                                 <TableCell
@@ -5210,8 +5320,13 @@ export default function Workspace() {
                                     "left-0 h-14 px-3 py-0 align-middle",
                                     STICKY_CELL,
                                     !leftPinEdge && "pin-edge-l",
-                                    cellGround(selected.includes(x.id), true),
-                                    selected.includes(x.id) &&
+                                    cellGround(
+                                      selected.includes(x.id) ||
+                                        x.id === dockedId,
+                                      true
+                                    ),
+                                    (selected.includes(x.id) ||
+                                      x.id === dockedId) &&
                                       "shadow-[inset_2px_0_0_var(--pi-brand)]"
                                   )}
                                 >
@@ -5263,7 +5378,8 @@ export default function Workspace() {
                                       c in stickyLeft && STICKY_CELL,
                                       c === leftPinEdge && "pin-edge-l",
                                       cellGround(
-                                        selected.includes(x.id),
+                                        selected.includes(x.id) ||
+                                          x.id === dockedId,
                                         c in stickyLeft
                                       ),
                                       T.cell,
@@ -5615,7 +5731,11 @@ export default function Workspace() {
                               */
                                   className={cn(
                                     "pin-edge-r sticky right-0 z-[1] h-14 px-4 py-0 text-center align-middle",
-                                    cellGround(selected.includes(x.id), true)
+                                    cellGround(
+                                      selected.includes(x.id) ||
+                                        x.id === dockedId,
+                                      true
+                                    )
                                   )}
                                 >
                                   <RowActions
@@ -6001,6 +6121,49 @@ export default function Workspace() {
             </>
           )}
         </main>
+        {splitView && item && (
+          <>
+            <RecordPanel
+              item={item}
+              company={company.name}
+              items={panelItems}
+              syncState={
+                sync.inFlightIds.has(item.id)
+                  ? "syncing"
+                  : sync.syncedIds.has(item.id)
+                    ? "synced"
+                    : item.resyncNeeded
+                      ? "stale"
+                      : "pending"
+              }
+              canEdit={state.permissions.includes(item.route)}
+              onOpen={(next) => void router.push(recordHref(next))}
+              onEdit={() => setEditingApproved(item.id)}
+              onDelete={() =>
+                askDelete(`“${item.form.voucherNo || item.file.name}”`, () => {
+                  remove(item.id);
+                  notify(`Deleted ${item.form.voucherNo || item.file.name}.`);
+                  void router.push(listHref);
+                })
+              }
+              onHistory={() => setHistoryOpen(true)}
+              onClose={() => void router.push(listHref)}
+            />
+            <HistoryPanel
+              open={historyOpen}
+              onOpenChange={setHistoryOpen}
+              company={item.company}
+              itemId={item.id}
+              subject={
+                [item.form.party, item.form.invoiceNo]
+                  .filter(Boolean)
+                  .join(" · ") || item.file.name
+              }
+              user={actor}
+              notify={notify}
+            />
+          </>
+        )}
       </div>
       <PageDialog
         open={dialog === "intake" || dialog === "whatsapp"}
@@ -7165,6 +7328,8 @@ export default function Workspace() {
     );
   return (
     <SidebarLayout
+      // The docked record asks for the icon rail, to leave the table room.
+      defaultSidebarState={splitView ? false : undefined}
       crumbs={pageCrumbs}
       inboxCount={
         books.filter((x) => !x.created && x.status === "Needs Review").length

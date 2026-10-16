@@ -2,12 +2,14 @@ import React from "react";
 import {
   Check,
   Copy,
+  Eye,
   FileText,
-  ShieldCheck,
   type IconComponent,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { GodownAllocation, Item, routeNames } from "./store";
+import { GodownAllocation, Item } from "./store";
+import { PageDialog, StatusPill } from "./ui";
+import Preview from "./preview";
 import {
   allocationDetail,
   allocationLabel,
@@ -104,68 +106,53 @@ function Detail({ label, value }: { label: string; value?: string }) {
   );
 }
 
-/**
- * A field row, as the cockpit's voucher card draws one: label at 12px, a
- * status dot, the value at 13px. A posted record's values are settled, so a
- * filled field takes the success dot and an empty one a hollow ring.
- */
-function FieldRow({
+/** One fact: a quiet label above its value. */
+function Field({
   label,
-  value,
   title,
+  children,
 }: {
   label: string;
-  value?: string;
   /** Hover detail, e.g. what a cost centre class splits into. */
   title?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div
-      className="flex min-h-[44px] items-center gap-3 border-b border-pi-line px-4 py-3 last:border-b-0"
-      title={title}
-    >
-      <dt className="w-[34%] min-w-[120px] max-w-[200px] shrink-0 text-[12px] text-pi-body">
-        {label}
-      </dt>
-      <dd className="flex min-w-0 flex-1 items-center gap-3 text-[13px] text-pi-ink">
-        <span
-          aria-hidden
-          className={cn(
-            "size-1.5 flex-none rounded-full",
-            value ? "bg-pi-success-dot" : "border border-pi-line-strong"
-          )}
-        />
-        <span className="min-w-0 break-words">{value || "—"}</span>
+    <div className="flex min-w-0 flex-col gap-2" title={title}>
+      <dt className="text-[13px] leading-[18px] text-pi-body">{label}</dt>
+      <dd className="min-w-0 break-words text-[15px] leading-[22px] text-pi-ink">
+        {children}
       </dd>
     </div>
   );
 }
 
-/** Overline above a section card, as the cockpit's "VOUCHER". */
-function SectionTitle({
+/** A block under its own plain label — a table, the document, the narration. */
+function Block({
+  label,
   children,
-  meta,
 }: {
+  label: string;
   children: React.ReactNode;
-  meta?: React.ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-baseline justify-between gap-3">
-      <h2 className="type-overline">{children}</h2>
-      {meta ? <span className="text-[12px] text-pi-faint">{meta}</span> : null}
-    </div>
+    <section aria-label={label} className="flex min-w-0 flex-col gap-3">
+      <h2 className="text-[13px] leading-[18px] text-pi-body">{label}</h2>
+      {children}
+    </section>
   );
 }
 
-const CARD =
-  "overflow-hidden rounded-lg border border-pi-line bg-pi-surface-panel shadow-contact";
-const TABLE_CARD =
-  "overflow-hidden rounded-lg border border-pi-line bg-pi-surface-panel shadow-table";
-const THEAD = "border-b border-pi-line bg-pi-head-bg text-[12px] text-pi-body";
-/** Hairline column rules in the head and body, as on the page tables; the
- *  totals footer is a summary block and stays unruled. */
-const COLUMN_RULES =
-  "[&_:is(thead,tbody)_:is(th,td):not(:last-child)]:border-r [&_:is(thead,tbody)_:is(th,td)]:border-pi-line";
+/* Hairline-bordered tables, ruled on every cell; a narrow panel scrolls them
+   sideways inside their box. */
+const BOX = "overflow-x-auto rounded-lg border border-pi-line";
+const TABLE =
+  "w-full border-collapse text-left text-[14px] text-pi-ink [&_:is(th,td)]:border-pi-line [&_:is(th,td)+:is(th,td)]:border-l [&_tr:not(:last-child)>:is(th,td)]:border-b [&_thead_tr>th]:border-b";
+const TH = "whitespace-nowrap px-4 py-2.5 font-normal text-pi-body";
+const TD = "px-4 py-2.5 align-top font-normal";
+const NUM = "fig whitespace-nowrap text-right";
+const TOTAL_ROW =
+  "bg-pi-head-bg [&>*]:border-t [&>*]:border-pi-line [&>*]:text-[15px] [&>*]:font-medium";
 
 export function ApprovedDetails({
   item,
@@ -174,6 +161,7 @@ export function ApprovedDetails({
   item: Item;
   company: string;
 }) {
+  const [documentOpen, setDocumentOpen] = React.useState(false);
   const f = item.snapshot || item.form;
   // A header class or cost centre answers for every line; null when the lines
   // carry their own. Older drafts predate `costMode`, so infer it.
@@ -223,423 +211,383 @@ export function ApprovedDetails({
         }
       : undefined;
   const total = journal ? f.lines.reduce((s, l) => s + l.dr, 0) : item.amount;
+  const narration = f.narration && f.narration !== "—" ? f.narration : "";
+  // A header class or centre answers for every line, so the column goes.
+  const lineCost = !headerLock;
+  const lead = 2 + (lineCost ? 1 : 0) + (stocked ? 1 : 0);
+
+  /*
+    Mercury's record: the voucher number as the title with its status beside
+    it, then every fact once in a two-column grid. The lines follow in
+    bordered tables, the summary closes on the total, and the document and
+    narration come last. No approver: without an audit trail behind it, the
+    name would be a claim the record cannot back.
+  */
   return (
     <article
       aria-label="Approved voucher details"
-      className="min-w-0 space-y-6"
+      className="flex min-w-0 flex-col gap-8 text-pi-ink"
     >
-      {/* Identity and money block, on the page, as the cockpit heads its
-          editor: eyebrow, 22px party, the voucher ID in mono, then the figure. */}
-      <header>
-        <div className="flex items-center gap-2">
-          <span className="workspace-eyebrow !mb-0 inline-flex items-center gap-2">
-            <FileText className="h-3.5 w-3.5" aria-hidden />
-            Posted · {routeNames[item.route]}
-          </span>
-          <span className="ml-auto rounded-xs bg-pi-brand-tint px-2 py-0.5 text-[12px] font-medium text-pi-brand">
-            {f.voucherType}
-          </span>
-        </div>
-        <h1 className="mt-2 text-[22px] font-medium leading-tight tracking-[-0.02em] text-pi-ink">
-          {f.party || f.voucherType}
+      <header className="flex flex-wrap items-center gap-3">
+        <h1 className="break-words text-[28px] font-normal leading-9 tracking-[-0.02em]">
+          {f.voucherNo || f.party || f.voucherType}
         </h1>
-        <p className="mt-1 text-[12px] text-pi-faint">
-          Voucher <span className="code text-pi-body">{f.voucherNo}</span> ·{" "}
-          {company}
-        </p>
-        <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="fig text-[28px] font-medium leading-none tracking-[-0.02em] text-pi-ink">
-            {money(total)}
-          </span>
-          <span className="type-overline">
-            {journal ? "Total debit" : "Voucher total"} · INR · in books
-          </span>
-        </div>
+        <StatusPill status="Approved" />
       </header>
 
-      <section>
-        <SectionTitle>Voucher</SectionTitle>
-        <dl className={CARD}>
-          <FieldRow
-            label={
-              journal
-                ? "Voucher date"
-                : item.route === "AR"
-                  ? "Invoice date"
-                  : "Bill date"
-            }
-            value={date(f.date)}
-          />
-          <FieldRow
-            label={
-              journal
-                ? "Reference number"
-                : item.route === "AR"
-                  ? "Invoice number"
-                  : "Supplier invoice"
-            }
-            value={f.invoiceNo}
-          />
-          <FieldRow
-            label={journal ? "Reference date" : "Due date"}
-            value={date(f.due)}
-          />
-          <FieldRow label="GST registration" value={f.gst} />
-          {/* The header holds a class or one cost centre, never both, so it
-              is one row named for whichever it holds. */}
-          <FieldRow
-            label={f.costMode === "class" ? "Cost centre class" : "Cost centre"}
-            value={headerLock ? headerLock.label : "Line by line"}
-            title={headerLock?.detail}
-          />
-          {(f.partyCostCentre || f.partyCostAllocation?.length) && (
-            <FieldRow
-              label={
-                item.route === "AR"
-                  ? "Customer cost centre"
-                  : "Vendor cost centre"
-              }
-              value={
-                f.partyCostAllocation?.length
-                  ? allocationLabel(f.partyCostAllocation)
-                  : f.partyCostCentre
-              }
-              title={
-                f.partyCostAllocation?.length
-                  ? allocationDetail(f.partyCostAllocation)
-                  : undefined
-              }
-            />
-          )}
-          {/* The document this voucher was read off, named the way the bills
-              screen names it. */}
-          <FieldRow label="Bill document" value={item.file?.name} />
-          {/*
-            Nothing has been paid against a voucher the moment it posts, so the
-            outstanding balance is the whole of it. Part-payments live in the
-            ledger, which this prototype does not read.
-          */}
-          {!journal && (
-            <FieldRow label="Outstanding amount" value={credit(item.amount)} />
-          )}
-        </dl>
-      </section>
-
-      <section>
-        <SectionTitle
-          meta={`${f.lines.length} ${f.lines.length === 1 ? "entry" : "entries"} posted`}
+      <dl
+        aria-label="Voucher information"
+        className="grid grid-cols-2 gap-x-8 gap-y-6 border-t border-pi-line pt-6"
+      >
+        <Field
+          label={
+            journal ? "Party" : item.route === "AR" ? "Customer" : "Vendor"
+          }
         >
-          {journal ? "Journal entries" : "Line items"}
-        </SectionTitle>
-        <div className={TABLE_CARD}>
-          <div className="overflow-x-auto">
-            <table
-              className={cn(
-                "w-full text-left text-[13px] text-pi-ink",
-                COLUMN_RULES
-              )}
-            >
-              <thead className={THEAD}>
-                <tr>
-                  {/* Description and ledger are two columns, as on the bills
-                      screen — a line's own wording and the account it lands in
-                      are different facts, and stacking them read as one. */}
-                  <th className="px-4 py-3 font-medium">Description</th>
-                  <th className="px-4 py-3 font-medium">
-                    {journal ? "Ledger" : "Ledger name"}
-                  </th>
-                  <th className="px-4 py-3 font-medium">Cost centre</th>
-                  {stocked && <th className="px-4 py-3 font-medium">Godown</th>}
-                  <th className="px-4 py-3 text-right font-medium">
-                    {journal ? "Debit" : "Amount"}
-                  </th>
-                  {journal && (
-                    <th className="px-4 py-3 text-right font-medium">Credit</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-pi-line">
-                {f.lines.map((line, index) => (
-                  <tr key={index} className="hover:bg-pi-row-hover">
-                    <td className="px-4 py-4">{line.description || "—"}</td>
-                    <td className="px-4 py-4 font-medium">
-                      {line.ledger || "—"}
-                    </td>
+          {f.party || "—"}
+        </Field>
+        <Field label={journal ? "Total debit" : "Amount"}>
+          <span className="fig">{money(total)}</span>
+        </Field>
+        <Field
+          label={
+            journal
+              ? "Voucher date"
+              : item.route === "AR"
+                ? "Invoice date"
+                : "Bill date"
+          }
+        >
+          {date(f.date)}
+        </Field>
+        <Field label={journal ? "Reference date" : "Due date"}>
+          {date(f.due)}
+        </Field>
+        <Field
+          label={
+            journal
+              ? "Reference number"
+              : item.route === "AR"
+                ? "Invoice number"
+                : "Supplier invoice"
+          }
+        >
+          {f.invoiceNo || "—"}
+        </Field>
+        <Field label="Voucher type">{f.voucherType || "—"}</Field>
+        <Field label="GST registration">{f.gst || "—"}</Field>
+        {/* The header holds a class or one cost centre, never both, so it is
+            one field named for whichever it holds. */}
+        <Field
+          label={
+            headerLock && f.costMode === "class"
+              ? "Cost centre class"
+              : "Cost centre"
+          }
+          title={headerLock?.detail}
+        >
+          {headerLock ? (
+            headerLock.label
+          ) : (
+            <span className="text-pi-faint">Set per line</span>
+          )}
+        </Field>
+        {(f.partyCostCentre || f.partyCostAllocation?.length) && (
+          <Field
+            label={
+              item.route === "AR"
+                ? "Customer cost centre"
+                : "Vendor cost centre"
+            }
+            title={
+              f.partyCostAllocation?.length
+                ? allocationDetail(f.partyCostAllocation)
+                : undefined
+            }
+          >
+            {f.partyCostAllocation?.length
+              ? allocationLabel(f.partyCostAllocation)
+              : f.partyCostCentre}
+          </Field>
+        )}
+        {/*
+          Nothing has been paid against a voucher the moment it posts, so the
+          outstanding balance is the whole of it. Part-payments live in the
+          ledger, which this prototype does not read.
+        */}
+        {!journal && (
+          <Field label="Outstanding amount">
+            <span className="fig">{credit(item.amount)}</span>
+          </Field>
+        )}
+      </dl>
+
+      <Block label={journal ? "Journal entries" : "Line items"}>
+        <div className={BOX}>
+          <table className={TABLE}>
+            <thead>
+              <tr>
+                {/* Description and ledger are two columns, as on the bills
+                    screen — a line's own wording and the account it lands in
+                    are different facts. */}
+                <th className={TH}>Description</th>
+                <th className={TH}>{journal ? "Ledger" : "Ledger name"}</th>
+                {lineCost && <th className={TH}>Cost centre</th>}
+                {stocked && <th className={TH}>Godown</th>}
+                <th className={cn(TH, "text-right")}>
+                  {journal ? "Debit" : "Amount"}
+                </th>
+                {journal && <th className={cn(TH, "text-right")}>Credit</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {f.lines.map((line, index) => (
+                <tr key={index}>
+                  <td className={TD}>{line.description || "—"}</td>
+                  <td className={TD}>{line.ledger || "—"}</td>
+                  {lineCost && (
                     <td
-                      className="px-4 py-4 text-[12px] text-pi-body"
+                      className={TD}
                       title={
-                        headerLock
-                          ? headerLock.detail
-                          : line.costAllocation?.length
-                            ? allocationDetail(line.costAllocation)
-                            : undefined
+                        line.costAllocation?.length
+                          ? allocationDetail(line.costAllocation)
+                          : undefined
                       }
                     >
-                      {headerLock
-                        ? headerLock.label
-                        : line.costAllocation?.length
-                          ? allocationLabel(line.costAllocation)
-                          : line.costCentre || "—"}
-                    </td>
-                    {stocked && (
-                      <td
-                        className="px-4 py-4 text-[12px] text-pi-body"
-                        title={
-                          line.godownAllocation?.length
-                            ? godownDetail(line.godownAllocation)
-                            : undefined
-                        }
-                      >
-                        {line.godownAllocation?.length
-                          ? `Split · ${line.godownAllocation.length} godowns`
-                          : line.godown || "—"}
-                      </td>
-                    )}
-                    <td className="fig whitespace-nowrap px-4 py-4 text-right">
-                      {money(journal ? line.dr : line.amount)}
-                    </td>
-                    {journal && (
-                      <td className="fig whitespace-nowrap px-4 py-4 text-right">
-                        {money(line.cr)}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="border-t border-pi-line bg-pi-head-bg">
-                {!journal && (adjustments !== 0 || taxHeads.length > 0) && (
-                  <>
-                    <tr>
-                      <th
-                        colSpan={stocked ? 4 : 3}
-                        className="px-4 pt-4 text-[12px] font-normal text-pi-body"
-                      >
-                        Sub total
-                      </th>
-                      <td className="fig px-4 pt-4 text-right text-[13px]">
-                        {money(subtotal)}
-                      </td>
-                    </tr>
-                    {/*
-                      GST by head, as the bills screen states it. It used to be a
-                      single "Taxes & adjustments" figure, which is the one line
-                      of a bill an accountant checks head by head.
-                    */}
-                    {taxHeads.length > 0 ? (
-                      <>
-                        <tr>
-                          <th
-                            colSpan={stocked ? 4 : 3}
-                            className="px-4 pt-3 text-[12px] font-medium text-pi-ink"
-                          >
-                            GST
-                          </th>
-                          <td className="fig px-4 pt-3 text-right text-[13px] font-medium">
-                            {money(taxTotal)}
-                          </td>
-                        </tr>
-                        {taxHeads.map(([head, amount]) => (
-                          <tr key={head}>
-                            <th
-                              colSpan={stocked ? 4 : 3}
-                              className="px-4 pl-8 pt-2 text-left text-[12px] font-normal text-pi-body"
-                            >
-                              {taxSide} {head}
-                            </th>
-                            <td className="fig px-4 pt-2 text-right text-[12px] text-pi-body">
-                              {money(amount || 0)}
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    ) : (
-                      <tr>
-                        <th
-                          colSpan={stocked ? 4 : 3}
-                          className="px-4 pt-3 text-[12px] font-normal text-pi-body"
-                        >
-                          Taxes &amp; adjustments
-                        </th>
-                        <td className="fig px-4 pt-3 text-right text-[13px]">
-                          {money(adjustments)}
-                        </td>
-                      </tr>
-                    )}
-                    {/* the rule the grand total sits under */}
-                    <tr aria-hidden>
-                      <td colSpan={stocked ? 5 : 4} className="px-4 pt-4">
-                        <div className="h-px bg-pi-rule-ledger" />
-                      </td>
-                    </tr>
-                  </>
-                )}
-                <tr>
-                  <th
-                    colSpan={stocked ? 4 : 3}
-                    className="px-4 py-4 text-[13px] font-medium text-pi-ink"
-                  >
-                    {journal ? "Total" : "Grand total"}
-                  </th>
-                  <td className="fig whitespace-nowrap px-4 py-4 text-right text-[16px] font-medium">
-                    {money(
-                      journal
-                        ? f.lines.reduce((s, l) => s + l.dr, 0)
-                        : item.amount
-                    )}
-                  </td>
-                  {journal && (
-                    <td className="fig whitespace-nowrap px-4 py-4 text-right text-[16px] font-medium">
-                      {money(f.lines.reduce((s, l) => s + l.cr, 0))}
+                      {line.costAllocation?.length
+                        ? allocationLabel(line.costAllocation)
+                        : line.costCentre || "—"}
                     </td>
                   )}
+                  {stocked && (
+                    <td
+                      className={TD}
+                      title={
+                        line.godownAllocation?.length
+                          ? godownDetail(line.godownAllocation)
+                          : undefined
+                      }
+                    >
+                      {line.godownAllocation?.length
+                        ? `Split · ${line.godownAllocation.length} godowns`
+                        : line.godown || "—"}
+                    </td>
+                  )}
+                  <td className={cn(TD, NUM)}>
+                    {money(journal ? line.dr : line.amount)}
+                  </td>
+                  {journal && <td className={cn(TD, NUM)}>{money(line.cr)}</td>}
+                </tr>
+              ))}
+            </tbody>
+            {journal && (
+              <tfoot>
+                <tr className={TOTAL_ROW}>
+                  <th scope="row" colSpan={lead} className={TD}>
+                    Total
+                  </th>
+                  <td className={cn(TD, NUM)}>
+                    {money(f.lines.reduce((s, l) => s + l.dr, 0))}
+                  </td>
+                  <td className={cn(TD, NUM)}>
+                    {money(f.lines.reduce((s, l) => s + l.cr, 0))}
+                  </td>
                 </tr>
               </tfoot>
+            )}
+          </table>
+        </div>
+        {ar && (
+          <details className="rounded-lg border border-pi-line px-4 py-3">
+            <summary className="cursor-pointer text-[13px] font-medium text-pi-brand">
+              Item and tax breakdown
+              {ar.salesLedger && (
+                <span className="font-normal text-pi-body">
+                  {" "}
+                  · Sales ledger {ar.salesLedger}
+                </span>
+              )}
+            </summary>
+            <div className="mt-4 space-y-4">
+              {ar.items
+                .filter((row) => row.amount || row.description || row.item)
+                .map((row) => (
+                  <div
+                    key={row.id}
+                    className="rounded-md border border-pi-line bg-pi-head-bg p-4"
+                  >
+                    <p className="text-[13px] font-medium text-pi-ink">
+                      {row.item || row.description || "Item"}
+                    </p>
+                    {row.item && row.description && (
+                      <p className="mt-1 text-[12px] text-pi-body">
+                        {row.description}
+                      </p>
+                    )}
+                    <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                      <Detail label="Quantity" value={String(row.quantity)} />
+                      <Detail label="Unit rate" value={money(row.unitRate)} />
+                      <Detail label="Discount" value={`${row.discount}%`} />
+                      <Detail label="Tax" value={row.tax} />
+                      <Detail label="Godown" value={row.godown} />
+                      {!headerLock && (
+                        <Detail label="Cost centre" value={row.costCentre} />
+                      )}
+                    </dl>
+                  </div>
+                ))}
+              {ar.ledgers
+                .filter((row) => row.amount || row.ledger)
+                .map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap justify-between gap-2 text-[12px] text-pi-body"
+                  >
+                    <span>
+                      {row.ledger || "Ledger"} · {row.description || "—"} ·{" "}
+                      {row.tax || "No tax"}
+                      {!headerLock &&
+                        ` · ${row.costCentre || "No cost centre"}`}
+                    </span>
+                    <span className="fig text-pi-ink">{money(row.amount)}</span>
+                  </div>
+                ))}
+              {ar.taxes
+                .filter((row) => row.amount || row.ledger)
+                .map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap justify-between gap-2 text-[12px] text-pi-body"
+                  >
+                    {/* a tax ledger takes no cost centre, so none is shown */}
+                    <span>{row.ledger || "Tax"}</span>
+                    <span className="fig text-pi-ink">{money(row.amount)}</span>
+                  </div>
+                ))}
+            </div>
+          </details>
+        )}
+      </Block>
+
+      {/*
+        Read top down: what the lines add to, the tax that goes on, and the
+        total. GST is stated head by head, as the bills screen states it.
+      */}
+      {!journal && (
+        <Block label="Summary">
+          <div className={BOX}>
+            <table className={TABLE}>
+              <tbody>
+                {(adjustments !== 0 || taxHeads.length > 0) && (
+                  <tr>
+                    <th scope="row" className={TD}>
+                      Sub total
+                    </th>
+                    <td className={cn(TD, NUM)}>{money(subtotal)}</td>
+                  </tr>
+                )}
+                {taxHeads.length > 0 ? (
+                  <>
+                    <tr>
+                      <th scope="row" className={cn(TD, "font-medium")}>
+                        GST
+                      </th>
+                      <td className={cn(TD, NUM)}>{money(taxTotal)}</td>
+                    </tr>
+                    {taxHeads.map(([head, amount]) => (
+                      <tr key={head}>
+                        <th scope="row" className={cn(TD, "pl-8 text-pi-body")}>
+                          {taxSide} {head}
+                        </th>
+                        <td className={cn(TD, NUM, "text-pi-body")}>
+                          {money(amount || 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                ) : (
+                  adjustments !== 0 && (
+                    <tr>
+                      <th scope="row" className={TD}>
+                        Taxes &amp; adjustments
+                      </th>
+                      <td className={cn(TD, NUM)}>{money(adjustments)}</td>
+                    </tr>
+                  )
+                )}
+                <tr className={TOTAL_ROW}>
+                  <th scope="row" className={TD}>
+                    Total
+                  </th>
+                  <td className={cn(TD, NUM)}>{money(item.amount)}</td>
+                </tr>
+              </tbody>
             </table>
           </div>
-          {ar && (
-            <div className="border-t border-pi-line px-4 py-4 text-[12px] text-pi-body">
-              Sales ledger:{" "}
-              <span className="text-pi-ink">{ar.salesLedger || "—"}</span>
-            </div>
-          )}
-          {ar && (
-            <details className="border-t border-pi-line px-4 py-4">
-              <summary className="cursor-pointer text-[12px] font-medium text-pi-brand">
-                Item and tax breakdown
-              </summary>
-              <div className="mt-4 space-y-4">
-                {ar.items
-                  .filter((row) => row.amount || row.description || row.item)
-                  .map((row) => (
-                    <div
-                      key={row.id}
-                      className="rounded-md border border-pi-line bg-pi-head-bg p-4"
-                    >
-                      <p className="text-[13px] font-medium text-pi-ink">
-                        {row.item || row.description || "Item"}
-                      </p>
-                      {row.item && row.description && (
-                        <p className="mt-1 text-[12px] text-pi-body">
-                          {row.description}
-                        </p>
-                      )}
-                      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-                        <Detail label="Quantity" value={String(row.quantity)} />
-                        <Detail label="Unit rate" value={money(row.unitRate)} />
-                        <Detail label="Discount" value={`${row.discount}%`} />
-                        <Detail label="Tax" value={row.tax} />
-                        <Detail label="Godown" value={row.godown} />
-                        <Detail
-                          label="Cost centre"
-                          value={headerLock?.label || row.costCentre}
-                        />
-                      </dl>
-                    </div>
-                  ))}
-                {ar.ledgers
-                  .filter((row) => row.amount || row.ledger)
-                  .map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex flex-wrap justify-between gap-2 text-[12px] text-pi-body"
-                    >
-                      <span>
-                        {row.ledger || "Ledger"} · {row.description || "—"} ·{" "}
-                        {row.tax || "No tax"} ·{" "}
-                        {headerLock?.label ||
-                          row.costCentre ||
-                          "No cost centre"}
-                      </span>
-                      <span className="fig text-pi-ink">
-                        {money(row.amount)}
-                      </span>
-                    </div>
-                  ))}
-                {ar.taxes
-                  .filter((row) => row.amount || row.ledger)
-                  .map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex flex-wrap justify-between gap-2 text-[12px] text-pi-body"
-                    >
-                      {/* a tax ledger takes no cost centre, so none is shown */}
-                      <span>{row.ledger || "Tax"}</span>
-                      <span className="fig text-pi-ink">
-                        {money(row.amount)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </details>
-          )}
-          {f.narration && f.narration !== "—" && (
-            <div className="border-t border-pi-line px-4 py-4">
-              <h3 className="type-overline">Narration</h3>
-              <p className="mt-2 whitespace-pre-wrap text-[13px] leading-5 text-pi-ink">
-                {f.narration}
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-      {allocation && (
-        <section>
-          <SectionTitle>Bill allocation</SectionTitle>
-          <div className={TABLE_CARD}>
-            <div className="overflow-x-auto">
-              <table
-                className={cn(
-                  "w-full text-left text-[13px] text-pi-ink",
-                  COLUMN_RULES
-                )}
-              >
-                <thead className={THEAD}>
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Ref type</th>
-                    <th className="px-4 py-3 font-medium">Ref name</th>
-                    <th className="px-4 py-3 font-medium">Due date</th>
-                    <th className="px-4 py-3 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="px-4 py-4">{allocation.refType}</td>
-                    <td className="code px-4 py-4">{allocation.refName}</td>
-                    <td className="px-4 py-4">{date(allocation.due)}</td>
-                    <td className="fig whitespace-nowrap px-4 py-4 text-right">
-                      {credit(allocation.amount)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+        </Block>
       )}
-      <div className="flex items-start gap-3 px-1 pb-4 text-[12px] leading-5 text-pi-body">
-        <ShieldCheck
-          className="mt-0.5 h-4 w-4 shrink-0 text-pi-success"
-          aria-hidden
-        />
-        <p>
-          Approved by{" "}
-          <span className="font-medium text-pi-ink">
-            {item.doneBy || "Unknown approver"}
-          </span>
-          {item.doneAt && (
-            <>
-              {" "}
-              on {date(item.doneAt)} at{" "}
-              {new Date(item.doneAt).toLocaleTimeString("en-IN", {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </>
-          )}
-          .<br />
-          This is the posted record. To change it, use Edit entry.
-        </p>
-      </div>
+
+      {allocation && (
+        <Block label="Bill allocation">
+          <div className={BOX}>
+            <table className={TABLE}>
+              <thead>
+                <tr>
+                  <th className={TH}>Ref type</th>
+                  <th className={TH}>Ref name</th>
+                  <th className={TH}>Due date</th>
+                  <th className={cn(TH, "text-right")}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className={TD}>{allocation.refType}</td>
+                  <td className={cn(TD, "code")}>{allocation.refName}</td>
+                  <td className={TD}>{date(allocation.due)}</td>
+                  <td className={cn(TD, NUM)}>{credit(allocation.amount)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Block>
+      )}
+
+      <Block label="Attachment">
+        {item.file?.name ? (
+          <button
+            type="button"
+            onClick={() => setDocumentOpen(true)}
+            className="grid min-h-[44px] w-full grid-cols-[16px_minmax(0,1fr)_16px] items-center gap-3 rounded-lg border border-pi-line px-4 py-2.5 text-left text-[14px] text-pi-ink transition-colors duration-150 hover:bg-pi-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+          >
+            <FileText className="h-4 w-4 text-pi-body" aria-hidden />
+            <span className="truncate">{item.file.name}</span>
+            <Eye className="h-4 w-4 text-pi-body" aria-hidden />
+            <span className="sr-only">Preview</span>
+          </button>
+        ) : (
+          <p className="text-[14px] text-pi-faint">No document attached</p>
+        )}
+      </Block>
+
+      {narration && (
+        <Block label="Narration">
+          <p className="whitespace-pre-wrap break-words text-[14px] leading-6">
+            {narration}
+          </p>
+        </Block>
+      )}
+
+      <PageDialog
+        title={item.route === "AR" ? "Invoice document" : "Bill document"}
+        description={item.file?.name}
+        open={documentOpen}
+        onClose={() => setDocumentOpen(false)}
+        className="w-[calc(100%-32px)] max-w-[900px]"
+      >
+        <div className="h-[65vh] min-h-0">
+          <Preview item={item} />
+        </div>
+      </PageDialog>
     </article>
   );
 }

@@ -70,6 +70,8 @@ export type BillItem = {
   desc: string;
   ledger: string;
   amount: number;
+  /** The line's own cost centre — only when the header carries none. */
+  costCentre?: string;
 } & PrintedLine;
 
 /**
@@ -98,6 +100,11 @@ export type InboxBill = {
   dueDate: string;
   gstReg: string;
   costCentre: string | null;
+  /**
+   * A cost centre class set at the header, by name. Like a header cost
+   * centre it covers every line; the two are never set together.
+   */
+  costCentreClass?: string;
   /** Field names the classifier is unsure about — the UI marks these for review. */
   flagged: string[];
   items: BillItem[];

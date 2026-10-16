@@ -1,0 +1,124 @@
+/*
+  The record panel: a grey ground holding a quiet toolbar, with the voucher on
+  a sheet above it. The table it was opened from keeps the rest of the width.
+  Motion is transform and opacity only; the table's narrowing is not animated.
+*/
+.panel {
+  --enter: 220ms;
+  --exit: 160ms;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: clamp(560px, 52%, 880px);
+  min-height: 0;
+  background: var(--pi-page);
+  border-left: 1px solid var(--pi-line);
+  animation: panel-in var(--enter) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Expanded, the panel covers the table instead of reflowing it, so the table
+   keeps its scroll position and width for when it comes back. */
+.expanded {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  width: auto;
+  border-left: 0;
+}
+.leaving {
+  animation: panel-out var(--exit) cubic-bezier(0.4, 0, 1, 1) both;
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+@keyframes panel-out {
+  to {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .leaving {
+    animation: none;
+  }
+}
+
+/* ----------------------------------------------------------------- toolbar */
+
+.toolbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px 12px;
+}
+.group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--pi-line-2);
+}
+.sync {
+  display: inline-flex;
+  margin-left: 4px;
+}
+.tool {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: var(--pi-fill);
+  color: var(--pi-ink);
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+.tool:hover:not(:disabled) {
+  background: var(--pi-fill-2);
+}
+.tool:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
+}
+.tool:disabled {
+  cursor: not-allowed;
+  color: var(--pi-faint);
+  opacity: 0.5;
+}
+/* Red only on intent — the control is grey until it is reached for. */
+.danger:hover:not(:disabled) {
+  background: var(--pi-danger-bg);
+  color: var(--pi-danger);
+}
+
+/* ------------------------------------------------------------------- sheet */
+
+.scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0 24px 24px;
+  scrollbar-gutter: stable;
+}
+.sheet {
+  min-height: 100%;
+  padding: 32px;
+  border: 1px solid var(--pi-line);
+  border-radius: 12px;
+  background: var(--pi-surface-panel);
+}
+.expanded .sheet {
+  max-width: 1080px;
+  margin: 0 auto;
+}

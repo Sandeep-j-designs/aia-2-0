@@ -232,7 +232,23 @@ const SidebarLayout = ({
   useEffect(() => {
     window.sessionStorage.setItem(COLLAPSE_KEY, desktopCollapsed ? "1" : "0");
   }, [desktopCollapsed]);
-  const collapsed = compact || desktopCollapsed;
+  /*
+    A page can ask for the icon rail while it needs the width — the Inbox does
+    while a record is docked beside its table. An ask, not a write: it is not
+    saved, so the user's own setting comes back when the page stops asking,
+    and pressing the toggle overrides it.
+  */
+  const [asked, setAsked] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    setAsked(
+      defaultSidebarState === undefined ? undefined : !defaultSidebarState
+    );
+  }, [defaultSidebarState]);
+  const choose = (next: boolean) => {
+    setAsked(undefined);
+    setCollapsed(next);
+  };
+  const collapsed = compact || (asked ?? desktopCollapsed);
 
   const company = companies?.find((c) => c.companyUuid === companyId);
   const companyName = company?.companyName ?? "Shakunthalam Oil & Refineries";
@@ -338,7 +354,7 @@ const SidebarLayout = ({
                   type="button"
                   onClick={() => {
                     if (collapsed) {
-                      setCollapsed(false);
+                      choose(false);
                       setOpen((o) => ({ ...o, [node.id]: true }));
                     } else setOpen((o) => ({ ...o, [node.id]: !o[node.id] }));
                   }}
@@ -440,7 +456,7 @@ const SidebarLayout = ({
         >
           <button
             type="button"
-            onClick={() => setCollapsed((c) => !c)}
+            onClick={() => choose(!collapsed)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}

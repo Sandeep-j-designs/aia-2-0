@@ -78,11 +78,7 @@ import {
   TABLE_CLASS,
   UnderlineTabs,
 } from "./banking/table-parts";
-import {
-  RegisterEmpty,
-  tabRows,
-  type RegisterFilters,
-} from "./register";
+import { RegisterEmpty, tabRows, type RegisterFilters } from "./register";
 import type { ActiveFilter } from "./empty-state";
 import { actor, createSplitBills, type Item } from "./store";
 import {
@@ -256,6 +252,8 @@ type Props = {
   onSelectedChange: (ids: string[]) => void;
   /** Open a row, with the list on screen (see Register's onOpen). */
   onOpen: (item: Item, ids: string[], tab: string) => void;
+  /** The row whose record is docked beside the table, lit while it is. */
+  activeId?: string;
   onDelete: (item: Item) => void;
   /** Says a thing is real in the app but not here. */
   onUnbuilt: (what: string) => void;
@@ -289,6 +287,7 @@ const BillRegister = ({
   selected,
   onSelectedChange,
   onOpen,
+  activeId,
   onDelete,
   onUnbuilt,
   search,
@@ -527,9 +526,15 @@ const BillRegister = ({
   const activeFilters: ActiveFilter[] = [
     ...(search.trim() ? [{ label: `Search: “${search.trim()}”` }] : []),
     ...(vendors.length
-      ? [{ label: `Vendor: ${vendors.length === 1 ? vendors[0] : `${vendors.length} selected`}` }]
+      ? [
+          {
+            label: `Vendor: ${vendors.length === 1 ? vendors[0] : `${vendors.length} selected`}`,
+          },
+        ]
       : []),
-    ...(payments.length ? [{ label: `Payment status: ${payments.join(", ")}` }] : []),
+    ...(payments.length
+      ? [{ label: `Payment status: ${payments.join(", ")}` }]
+      : []),
     ...(filters.from || filters.to ? [{ label: "Bill date range" }] : []),
     ...(due.from || due.to ? [{ label: "Due date range" }] : []),
     ...(filters.min || filters.max ? [{ label: "Amount range" }] : []),
@@ -689,667 +694,681 @@ const BillRegister = ({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-    {/* The scroller's own box, so the overlay bars sit over the table and
+      {/* The scroller's own box, so the overlay bars sit over the table and
         end above the pager. */}
-    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-    {/* The page's one scroller, both axes: heading and table scroll as a
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* The page's one scroller, both axes: heading and table scroll as a
         page, and the table header and bookends stick against it. Native
         bars reserve a strip under the last row; the overlay bars float
         over the rows instead. */}
-    <div
-      ref={scroller}
-      className="table-scroller scrollbar-hide flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none"
-    >
-      {/* Heading and toolbar, pinned against the horizontal scroll so a
+        <div
+          ref={scroller}
+          className="table-scroller scrollbar-hide flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-none"
+        >
+          {/* Heading and toolbar, pinned against the horizontal scroll so a
           widened table slides under them alone. */}
-      <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
-      <div className="shrink-0 px-[var(--inset-page)] pt-6">
-        <PageTopBar
-          className="flex-wrap gap-x-4 gap-y-2"
-          eyebrow="Payables"
-          title="Purchases"
-          // The view tabs share the actions' row (8 Oct 2026).
-          leading={
-            <UnderlineTabs
-              inline
-              tabs={TABS.map((entry) => ({
-                ...entry,
-                count:
-                  tabRows(entry.id, items).length +
-                  (entry.id === "uploads" ? packets.length : 0),
-              }))}
-              value={tab}
-              onChange={(next) => {
-                setTab(next);
-                setPage(0);
-                onSelectedChange([]);
-              }}
-            />
-          }
-          leadingActions={
-            <>
-              {/* Entering a bill by hand, beside the upload rather than
+          <div className="sticky left-0 shrink-0 [transform:translateZ(0)]">
+            <div className="shrink-0 px-[var(--inset-page)] pt-6">
+              <PageTopBar
+                className="flex-wrap gap-x-4 gap-y-2"
+                eyebrow="Payables"
+                title="Purchases"
+                // The view tabs share the actions' row (8 Oct 2026).
+                leading={
+                  <UnderlineTabs
+                    inline
+                    tabs={TABS.map((entry) => ({
+                      ...entry,
+                      count:
+                        tabRows(entry.id, items).length +
+                        (entry.id === "uploads" ? packets.length : 0),
+                    }))}
+                    value={tab}
+                    onChange={(next) => {
+                      setTab(next);
+                      setPage(0);
+                      onSelectedChange([]);
+                    }}
+                  />
+                }
+                leadingActions={
+                  <>
+                    {/* Entering a bill by hand, beside the upload rather than
                   behind it — the same pairing the Sales and Journal
                   registers use. */}
-              <Button variant="secondary" onClick={onCreate}>
-                <Plus className="h-4 w-4" />
-                Create Purchase Voucher
-              </Button>
-              {/*
+                    <Button variant="secondary" onClick={onCreate}>
+                      <Plus className="h-4 w-4" />
+                      Create Purchase Voucher
+                    </Button>
+                    {/*
                 A split button: the everyday upload on the face, the
                 multi-bill splitter behind the chevron. A 1px gap stands in
                 for the divider the frame draws between the halves.
               */}
-              <div className="flex gap-px">
-                <Button className="rounded-r-none" onClick={onUpload}>
-                  <Upload className="h-4 w-4" />
-                  Upload Purchases
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      className="rounded-l-none"
-                      aria-label="More ways to add purchases"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {/* The multi-bill path's only entry (PRD). The main
+                    <div className="flex gap-px">
+                      <Button className="rounded-r-none" onClick={onUpload}>
+                        <Upload className="h-4 w-4" />
+                        Upload Purchases
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="icon"
+                            className="rounded-l-none"
+                            aria-label="More ways to add purchases"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {/* The multi-bill path's only entry (PRD). The main
                         button stays the single-bill upload and never enters
                         the splitter. */}
-                    <DropdownMenuItem
-                      onSelect={() => setSplitUploadOpen(true)}
-                      className="items-start gap-2"
-                    >
-                      <Scissors className="mt-0.5 h-4 w-4 flex-none" />
-                      <span className="flex flex-col">
-                        Split Purchases
-                        <span className={T.sub}>
-                          One PDF with several purchases — we’ll split it for
-                          you to check.
-                        </span>
-                      </span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </>
-          }
-        />
-      </div>
+                          <DropdownMenuItem
+                            onSelect={() => setSplitUploadOpen(true)}
+                            className="items-start gap-2"
+                          >
+                            <Scissors className="mt-0.5 h-4 w-4 flex-none" />
+                            <span className="flex flex-col">
+                              Split Purchases
+                              <span className={T.sub}>
+                                One PDF with several purchases — we’ll split it
+                                for you to check.
+                              </span>
+                            </span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </>
+                }
+              />
+            </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 px-[var(--inset-page)] py-4">
-        <div className="relative w-full sm:w-[198px]">
-          <Input
-            ref={searchRef}
-            aria-label="Search purchases"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => {
-              onSearchChange(e.target.value);
-              setPage(0);
-            }}
-            className={cn("h-9 pr-9", T.cell, "text-foreground")}
-          />
-          {!search && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-xs border border-pi-line-2 bg-pi-fill"
-            >
-              <Slash className="h-3 w-3 text-pi-faint" />
-            </span>
-          )}
-        </div>
-        {/* Uploads are files, not bills: the bill filters have nothing
-            to act on there. Search still finds a file by name. */}
-        {!uploadsTab && (
-          <>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label={
-                    panelCount ? `Filters, ${panelCount} applied` : "Filters"
-                  }
-                  title="Filters"
-                  className="relative shrink-0"
-                >
-                  <ListFilter className="h-4 w-4" />
-                  {panelCount ? (
-                    <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-pi-brand px-1 text-[12px] font-medium tabular-nums text-primary-foreground">
-                      {panelCount}
-                    </span>
-                  ) : null}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                className="w-auto overflow-hidden rounded-md border-pi-line p-0 shadow-pi-2"
-              >
-                <FilterPanel
-                  categories={[
-                    {
-                      id: "Vendor",
-                      label: "Vendor",
-                      options: vendorOptions,
-                      selected: vendors,
-                      onChange: (next) => {
-                        setVendors(next);
-                        setPage(0);
-                      },
-                      activeCount: vendors.length,
-                    },
-                    {
-                      id: "Payment Status",
-                      label: "Payment Status",
-                      options: PAYMENT_OPTIONS,
-                      selected: payments,
-                      onChange: (next) => {
-                        setPayments(next);
-                        setPage(0);
-                      },
-                      activeCount: payments.length,
-                    },
-                    {
-                      id: "Total Amount",
-                      label: "Total Amount",
-                      activeCount:
-                        (filters.min ? 1 : 0) + (filters.max ? 1 : 0),
-                      custom: (
-                        <AmountFields
-                          min={filters.min}
-                          max={filters.max}
-                          onChange={setAmount}
-                        />
-                      ),
-                    },
-                  ]}
+            <div className="flex shrink-0 flex-wrap items-center gap-2 px-[var(--inset-page)] py-4">
+              <div className="relative w-full sm:w-[198px]">
+                <Input
+                  ref={searchRef}
+                  aria-label="Search purchases"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => {
+                    onSearchChange(e.target.value);
+                    setPage(0);
+                  }}
+                  className={cn("h-9 pr-9", T.cell, "text-foreground")}
                 />
-              </PopoverContent>
-            </Popover>
-            <span aria-hidden className="h-6 w-px flex-none bg-pi-line" />
-            <QuickFilter
-              label="Payment Status"
-              options={PAYMENT_OPTIONS}
-              selected={payments}
-              onChange={(next) => {
-                setPayments(next);
-                setPage(0);
-              }}
-            />
-            <DateFilter
-              label="Bill Date"
-              value={billDate}
-              onChange={setBillDate}
-            />
-            <DateFilter
-              label="Due Date"
-              value={due}
-              onChange={(next) => {
-                setDue(next);
-                setPage(0);
-              }}
-            />
-          </>
-        )}
-        <span className="flex-1" />
-        {/* Reset, Columns and the shortcuts chip end the bar, as in the
+                {!search && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-xs border border-pi-line-2 bg-pi-fill"
+                  >
+                    <Slash className="h-3 w-3 text-pi-faint" />
+                  </span>
+                )}
+              </div>
+              {/* Uploads are files, not bills: the bill filters have nothing
+            to act on there. Search still finds a file by name. */}
+              {!uploadsTab && (
+                <>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label={
+                          panelCount
+                            ? `Filters, ${panelCount} applied`
+                            : "Filters"
+                        }
+                        title="Filters"
+                        className="relative shrink-0"
+                      >
+                        <ListFilter className="h-4 w-4" />
+                        {panelCount ? (
+                          <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-pi-brand px-1 text-[12px] font-medium tabular-nums text-primary-foreground">
+                            {panelCount}
+                          </span>
+                        ) : null}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="w-auto overflow-hidden rounded-md border-pi-line p-0 shadow-pi-2"
+                    >
+                      <FilterPanel
+                        categories={[
+                          {
+                            id: "Vendor",
+                            label: "Vendor",
+                            options: vendorOptions,
+                            selected: vendors,
+                            onChange: (next) => {
+                              setVendors(next);
+                              setPage(0);
+                            },
+                            activeCount: vendors.length,
+                          },
+                          {
+                            id: "Payment Status",
+                            label: "Payment Status",
+                            options: PAYMENT_OPTIONS,
+                            selected: payments,
+                            onChange: (next) => {
+                              setPayments(next);
+                              setPage(0);
+                            },
+                            activeCount: payments.length,
+                          },
+                          {
+                            id: "Total Amount",
+                            label: "Total Amount",
+                            activeCount:
+                              (filters.min ? 1 : 0) + (filters.max ? 1 : 0),
+                            custom: (
+                              <AmountFields
+                                min={filters.min}
+                                max={filters.max}
+                                onChange={setAmount}
+                              />
+                            ),
+                          },
+                        ]}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <span aria-hidden className="h-6 w-px flex-none bg-pi-line" />
+                  <QuickFilter
+                    label="Payment Status"
+                    options={PAYMENT_OPTIONS}
+                    selected={payments}
+                    onChange={(next) => {
+                      setPayments(next);
+                      setPage(0);
+                    }}
+                  />
+                  <DateFilter
+                    label="Bill Date"
+                    value={billDate}
+                    onChange={setBillDate}
+                  />
+                  <DateFilter
+                    label="Due Date"
+                    value={due}
+                    onChange={(next) => {
+                      setDue(next);
+                      setPage(0);
+                    }}
+                  />
+                </>
+              )}
+              <span className="flex-1" />
+              {/* Reset, Columns and the shortcuts chip end the bar, as in the
             Inbox; Reset only once there is something to undo. */}
-        {(anyFilter || search) && (
-          <Button variant="ghost" onClick={resetAll}>
-            <Undo2 className="h-3 w-3" />
-            Reset Filters
-          </Button>
-        )}
-        {!uploadsTab && (
-          <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
-        )}
-        <button
-          type="button"
-          aria-label="Keyboard shortcuts"
-          title="Keyboard shortcuts"
-          onClick={onOpenShortcuts}
-          className="inline-flex size-9 items-center justify-center rounded-sm border border-pi-line-2 bg-background text-pi-ink shadow-contact transition-[border-color,background-color] duration-150 hover:border-pi-line-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
-        >
-          <Keyboard className="size-3.5" aria-hidden />
-        </button>
-      </div>
-      </div>
+              {(anyFilter || search) && (
+                <Button variant="ghost" onClick={resetAll}>
+                  <Undo2 className="h-3 w-3" />
+                  Reset Filters
+                </Button>
+              )}
+              {!uploadsTab && (
+                <ColumnsButton onClick={() => onUnbuilt("Choosing columns")} />
+              )}
+              <button
+                type="button"
+                aria-label="Keyboard shortcuts"
+                title="Keyboard shortcuts"
+                onClick={onOpenShortcuts}
+                className="inline-flex size-9 items-center justify-center rounded-sm border border-pi-line-2 bg-background text-pi-ink shadow-contact transition-[border-color,background-color] duration-150 hover:border-pi-line-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+              >
+                <Keyboard className="size-3.5" aria-hidden />
+              </button>
+            </div>
+          </div>
 
-      {/* The table, edge to edge: no card and no scroll of its own — the
+          {/* The table, edge to edge: no card and no scroll of its own — the
           page above owns both axes. */}
-      <div className="table-region flex min-w-0 flex-1 flex-col bg-background">
-      {uploadsTab ? (
-        <BillUploadsTable
-          packets={shownPackets}
-          uploads={shownUploads}
-          onOpenUpload={(item) =>
-            onOpen(
-              item,
-              shownUploads.map((x) => x.id),
-              "uploads"
-            )
-          }
-          onRemoveUpload={onDelete}
-          onReview={(packet) => openReview(packet.id)}
-          onRetry={(packet) => splitPackets.retry(packet.id)}
-          onRemove={(packet) => splitPackets.remove(packet.id)}
-          search={search}
-          onClearSearch={() => onSearchChange("")}
-          onUpload={onUpload}
-        />
-      ) : (
-        <>
-          {/*
+          <div className="table-region flex min-w-0 flex-1 flex-col bg-background">
+            {uploadsTab ? (
+              <BillUploadsTable
+                packets={shownPackets}
+                uploads={shownUploads}
+                onOpenUpload={(item) =>
+                  onOpen(
+                    item,
+                    shownUploads.map((x) => x.id),
+                    "uploads"
+                  )
+                }
+                onRemoveUpload={onDelete}
+                onReview={(packet) => openReview(packet.id)}
+                onRetry={(packet) => splitPackets.retry(packet.id)}
+                onRemove={(packet) => splitPackets.remove(packet.id)}
+                search={search}
+                onClearSearch={() => onSearchChange("")}
+                onUpload={onUpload}
+              />
+            ) : (
+              <>
+                {/*
         The Inbox's grid: one tab stop, a cursor moved by the arrow keys,
         table-fixed so a dragged width holds, sticky header and bookends.
       */}
-          <div
-            ref={resize.gridRef}
-            role="grid"
-            aria-label="Purchase bills"
-            {...pinEdges}
-            aria-rowcount={pageRows.length + 1}
-            aria-colcount={SHOWN.length}
-            tabIndex={0}
-            aria-activedescendant={grid.activeDescendant}
-            onKeyDown={grid.onGridKeyDown}
-            className="min-w-0 flex-1 focus-visible:outline-none"
-          >
-            <Table
-              role="none"
-              style={{ width: resize.tableWidth }}
-              className={cn(TABLE_CLASS, "bg-background")}
-            >
-              <TableHeader role="rowgroup" className={HEADER_CLASS}>
-                <TableRow role="row" aria-rowindex={1}>
-                  <TableHead
-                    role="columnheader"
-                    style={{ width: SELECT_WIDTH }}
-                    className="pin-edge-l sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
+                <div
+                  ref={resize.gridRef}
+                  role="grid"
+                  aria-label="Purchase bills"
+                  {...pinEdges}
+                  aria-rowcount={pageRows.length + 1}
+                  aria-colcount={SHOWN.length}
+                  tabIndex={0}
+                  aria-activedescendant={grid.activeDescendant}
+                  onKeyDown={grid.onGridKeyDown}
+                  className="min-w-0 flex-1 focus-visible:outline-none"
+                >
+                  <Table
+                    role="none"
+                    style={{ width: resize.tableWidth }}
+                    className={cn(TABLE_CLASS, "bg-background")}
                   >
-                    <Checkbox
-                      aria-label="Select every bill on this page"
-                      checked={allOnPage}
-                      onCheckedChange={(checked) =>
-                        onSelectedChange(
-                          checked ? pageRows.map((x) => x.id) : []
-                        )
-                      }
-                    />
-                  </TableHead>
-                  {COLUMNS.map(({ key, label }, col) => {
-                    const sortable = !!SORT_VALUE[key];
-                    const width = resize.colWidth(key);
-                    const size = BILL_COLUMN_SIZES[key];
-                    return (
-                      <TableHead
-                        key={key}
-                        role="columnheader"
-                        id={gridCellId(-1, col)}
-                        aria-colindex={col + 1}
-                        aria-sort={
-                          !sortable
-                            ? undefined
-                            : sort?.key !== key
-                              ? "none"
-                              : sort.dir === "asc"
-                                ? "ascending"
-                                : "descending"
-                        }
-                        style={{ width }}
-                        data-grid-row={-1}
-                        data-grid-col={col}
-                        className={cn(
-                          "relative h-11 whitespace-nowrap px-4 py-0 align-middle",
-                          T.head,
-                          grid.isCursor(-1, col) &&
-                            "ring-2 ring-inset ring-primary"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "flex h-4 min-w-0 items-center gap-1",
-                            key === "amount" && "justify-end"
-                          )}
+                    <TableHeader role="rowgroup" className={HEADER_CLASS}>
+                      <TableRow role="row" aria-rowindex={1}>
+                        <TableHead
+                          role="columnheader"
+                          style={{ width: SELECT_WIDTH }}
+                          className="pin-edge-l sticky left-0 z-10 h-11 bg-pi-head-bg px-3 py-0 align-middle"
                         >
-                          <span className="truncate" title={label}>
-                            {label}
-                          </span>
-                          {sortable && (
-                            <button
-                              type="button"
-                              onClick={() => toggleSort(key)}
-                              aria-label={`Sort by ${label}`}
+                          <Checkbox
+                            aria-label="Select every bill on this page"
+                            checked={allOnPage}
+                            onCheckedChange={(checked) =>
+                              onSelectedChange(
+                                checked ? pageRows.map((x) => x.id) : []
+                              )
+                            }
+                          />
+                        </TableHead>
+                        {COLUMNS.map(({ key, label }, col) => {
+                          const sortable = !!SORT_VALUE[key];
+                          const width = resize.colWidth(key);
+                          const size = BILL_COLUMN_SIZES[key];
+                          return (
+                            <TableHead
+                              key={key}
+                              role="columnheader"
+                              id={gridCellId(-1, col)}
+                              aria-colindex={col + 1}
+                              aria-sort={
+                                !sortable
+                                  ? undefined
+                                  : sort?.key !== key
+                                    ? "none"
+                                    : sort.dir === "asc"
+                                      ? "ascending"
+                                      : "descending"
+                              }
+                              style={{ width }}
+                              data-grid-row={-1}
+                              data-grid-col={col}
                               className={cn(
-                                HEAD_ICON_BUTTON,
-                                sort?.key === key
-                                  ? "text-pi-brand"
-                                  : "text-pi-faint"
+                                "relative h-11 whitespace-nowrap px-4 py-0 align-middle",
+                                T.head,
+                                grid.isCursor(-1, col) &&
+                                  "ring-2 ring-inset ring-primary"
                               )}
                             >
-                              {sort?.key === key ? (
-                                sort.dir === "asc" ? (
-                                  <ArrowUp className="h-3 w-3" />
-                                ) : (
-                                  <ArrowDown className="h-3 w-3" />
-                                )
-                              ) : (
-                                <ArrowUpDown className="h-3 w-3" />
-                              )}
-                            </button>
-                          )}
-                          {FILTERABLE.has(key) && (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button
-                                  type="button"
-                                  data-filter-trigger={key}
-                                  aria-label={`Filter ${label}`}
-                                  className={cn(
-                                    HEAD_ICON_BUTTON,
-                                    filterActive(key)
-                                      ? "text-pi-brand"
-                                      : "text-pi-faint"
-                                  )}
-                                >
-                                  <ListFilter className="h-3 w-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                align="start"
-                                className="w-auto overflow-hidden rounded-md border-pi-line p-0 shadow-pi-2"
+                              <div
+                                className={cn(
+                                  "flex h-4 min-w-0 items-center gap-1",
+                                  key === "amount" && "justify-end"
+                                )}
                               >
-                                {columnFilter(key)}
-                              </PopoverContent>
-                            </Popover>
-                          )}
-                        </div>
-                        {/* Over the cell's right border. Double-click or Enter puts
+                                <span className="truncate" title={label}>
+                                  {label}
+                                </span>
+                                {sortable && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSort(key)}
+                                    aria-label={`Sort by ${label}`}
+                                    className={cn(
+                                      HEAD_ICON_BUTTON,
+                                      sort?.key === key
+                                        ? "text-pi-brand"
+                                        : "text-pi-faint"
+                                    )}
+                                  >
+                                    {sort?.key === key ? (
+                                      sort.dir === "asc" ? (
+                                        <ArrowUp className="h-3 w-3" />
+                                      ) : (
+                                        <ArrowDown className="h-3 w-3" />
+                                      )
+                                    ) : (
+                                      <ArrowUpDown className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                )}
+                                {FILTERABLE.has(key) && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        data-filter-trigger={key}
+                                        aria-label={`Filter ${label}`}
+                                        className={cn(
+                                          HEAD_ICON_BUTTON,
+                                          filterActive(key)
+                                            ? "text-pi-brand"
+                                            : "text-pi-faint"
+                                        )}
+                                      >
+                                        <ListFilter className="h-3 w-3" />
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      align="start"
+                                      className="w-auto overflow-hidden rounded-md border-pi-line p-0 shadow-pi-2"
+                                    >
+                                      {columnFilter(key)}
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                              </div>
+                              {/* Over the cell's right border. Double-click or Enter puts
                         the column back to its default width. */}
-                        <span
-                          role="separator"
-                          aria-orientation="vertical"
-                          aria-label={`Resize ${label}`}
-                          tabIndex={0}
-                          aria-valuemin={size.min}
-                          aria-valuemax={size.max}
-                          aria-valuenow={width}
-                          aria-valuetext={`${width} pixels`}
-                          title={`${width} px · Drag or use arrow keys to resize. Double-click or Enter to reset.`}
-                          onPointerDown={(e) => resize.startResize(key, e)}
-                          onDoubleClick={() => {
-                            if (resize.isManual)
-                              resize.resizeColumn(key, size.preferred);
-                          }}
-                          onKeyDown={(e) => {
-                            const step = e.shiftKey ? 40 : 10;
-                            const next =
-                              e.key === "ArrowRight"
-                                ? width + step
-                                : e.key === "ArrowLeft"
-                                  ? width - step
-                                  : e.key === "Home"
-                                    ? size.min
-                                    : e.key === "End"
-                                      ? size.max
-                                      : e.key === "Enter"
-                                        ? size.preferred
-                                        : null;
-                            if (next !== null) {
-                              e.preventDefault();
-                              // The grid would read these as cursor moves.
-                              e.stopPropagation();
-                              resize.resizeColumn(key, next);
-                            }
-                          }}
-                          className="group absolute -right-[5px] top-0 z-20 flex h-full w-[10px] cursor-col-resize touch-none items-stretch justify-center focus-visible:outline-none"
+                              <span
+                                role="separator"
+                                aria-orientation="vertical"
+                                aria-label={`Resize ${label}`}
+                                tabIndex={0}
+                                aria-valuemin={size.min}
+                                aria-valuemax={size.max}
+                                aria-valuenow={width}
+                                aria-valuetext={`${width} pixels`}
+                                title={`${width} px · Drag or use arrow keys to resize. Double-click or Enter to reset.`}
+                                onPointerDown={(e) =>
+                                  resize.startResize(key, e)
+                                }
+                                onDoubleClick={() => {
+                                  if (resize.isManual)
+                                    resize.resizeColumn(key, size.preferred);
+                                }}
+                                onKeyDown={(e) => {
+                                  const step = e.shiftKey ? 40 : 10;
+                                  const next =
+                                    e.key === "ArrowRight"
+                                      ? width + step
+                                      : e.key === "ArrowLeft"
+                                        ? width - step
+                                        : e.key === "Home"
+                                          ? size.min
+                                          : e.key === "End"
+                                            ? size.max
+                                            : e.key === "Enter"
+                                              ? size.preferred
+                                              : null;
+                                  if (next !== null) {
+                                    e.preventDefault();
+                                    // The grid would read these as cursor moves.
+                                    e.stopPropagation();
+                                    resize.resizeColumn(key, next);
+                                  }
+                                }}
+                                className="group absolute -right-[5px] top-0 z-20 flex h-full w-[10px] cursor-col-resize touch-none items-stretch justify-center focus-visible:outline-none"
+                              >
+                                <span
+                                  className={cn(
+                                    "w-[2px] transition-colors group-hover:bg-pi-brand group-focus-visible:bg-pi-brand motion-reduce:transition-none",
+                                    resize.resizing === key
+                                      ? "bg-pi-brand"
+                                      : "bg-transparent"
+                                  )}
+                                />
+                              </span>
+                            </TableHead>
+                          );
+                        })}
+                        {/* Pinned right, so the kebab never scrolls out of reach. */}
+                        <TableHead
+                          role="columnheader"
+                          style={{ width: ACTIONS_WIDTH }}
+                          className="pin-edge-r sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
                         >
                           <span
                             className={cn(
-                              "w-[2px] transition-colors group-hover:bg-pi-brand group-focus-visible:bg-pi-brand motion-reduce:transition-none",
-                              resize.resizing === key
-                                ? "bg-pi-brand"
-                                : "bg-transparent"
+                              T.head,
+                              "flex h-4 items-center truncate"
                             )}
-                          />
-                        </span>
-                      </TableHead>
-                    );
-                  })}
-                  {/* Pinned right, so the kebab never scrolls out of reach. */}
-                  <TableHead
-                    role="columnheader"
-                    style={{ width: ACTIONS_WIDTH }}
-                    className="pin-edge-r sticky right-0 z-10 h-11 bg-pi-head-bg px-4 py-0 align-middle"
-                  >
-                    <span
-                      className={cn(T.head, "flex h-4 items-center truncate")}
-                    >
-                      Actions
-                    </span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody role="rowgroup">
-                {pageRows.map((item, row) => {
-                  const ticked = selected.includes(item.id);
-                  // Precision Indigo rows: a calm row-hover wash, the brand
-                  // tint for a ticked row. Sticky cells paint the same
-                  // grounds opaquely, or the columns scrolling under them
-                  // show through.
-                  const ground = ticked
-                    ? "bg-pi-brand-tint"
-                    : "bg-background transition-colors duration-100 group-hover:bg-pi-row-hover motion-reduce:transition-none";
-                  const flowGround = ticked
-                    ? "bg-pi-brand-tint"
-                    : "transition-colors duration-100 group-hover:bg-pi-row-hover motion-reduce:transition-none";
-                  return (
-                    <TableRow
-                      key={item.id}
-                      role="row"
-                      aria-rowindex={row + 2}
-                      aria-selected={ticked}
-                      onClick={() =>
-                        onOpen(
-                          item,
-                          rows.map((x) => x.id),
-                          tab
-                        )
-                      }
-                      className={cn(
-                        "group cursor-pointer hover:bg-transparent",
-                        ticked && "bg-pi-brand-tint hover:bg-pi-brand-tint"
-                      )}
-                    >
-                      <TableCell
-                        role="gridcell"
-                        onClick={(e) => e.stopPropagation()}
-                        className={cn(
-                          "pin-edge-l sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
-                          ground,
-                          // The selected row's 2px brand edge.
-                          ticked && "shadow-[inset_2px_0_0_var(--pi-brand)]"
-                        )}
-                      >
-                        <Checkbox
-                          aria-label={`Select ${item.form.voucherNo || item.file.name}`}
-                          checked={ticked}
-                          onCheckedChange={(checked) =>
-                            onSelectedChange(
-                              checked
-                                ? [...selected, item.id]
-                                : selected.filter((id) => id !== item.id)
-                            )
-                          }
-                        />
-                      </TableCell>
-                      {SHOWN.map((key, col) => (
-                        <TableCell
-                          key={key}
-                          role="gridcell"
-                          id={gridCellId(row, col)}
-                          aria-colindex={col + 1}
-                          aria-selected={grid.isSelected(row, col)}
-                          data-grid-row={row}
-                          data-grid-col={col}
-                          className={cn(
-                            "h-14 overflow-hidden px-4 py-0 align-middle",
-                            flowGround,
-                            T.cell,
-                            grid.isSelected(row, col) && "bg-accent",
-                            grid.isCursor(row, col) &&
-                              "ring-2 ring-inset ring-primary"
-                          )}
-                        >
-                          <div className="flex h-[55px] min-w-0 flex-col justify-center overflow-hidden [&>.inline-flex]:self-start">
-                            {cell(key, item)}
-                          </div>
-                        </TableCell>
-                      ))}
-                      <TableCell
-                        role="gridcell"
-                        onClick={(e) => e.stopPropagation()}
-                        className={cn(
-                          "pin-edge-r sticky right-0 z-[1] h-14 px-4 py-0 align-middle",
-                          ground
-                        )}
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Actions for ${item.form.voucherNo || item.file.name}`}
+                          >
+                            Actions
+                          </span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody role="rowgroup">
+                      {pageRows.map((item, row) => {
+                        const ticked = selected.includes(item.id);
+                        // Lit: ticked, or the row whose record is docked beside.
+                        const lit = ticked || item.id === activeId;
+                        // Precision Indigo rows: a calm row-hover wash, the brand
+                        // tint for a ticked row. Sticky cells paint the same
+                        // grounds opaquely, or the columns scrolling under them
+                        // show through.
+                        const ground = lit
+                          ? "bg-pi-brand-tint"
+                          : "bg-background transition-colors duration-100 group-hover:bg-pi-row-hover motion-reduce:transition-none";
+                        const flowGround = lit
+                          ? "bg-pi-brand-tint"
+                          : "transition-colors duration-100 group-hover:bg-pi-row-hover motion-reduce:transition-none";
+                        return (
+                          <TableRow
+                            key={item.id}
+                            role="row"
+                            aria-rowindex={row + 2}
+                            aria-selected={ticked}
+                            onClick={() =>
+                              onOpen(
+                                item,
+                                rows.map((x) => x.id),
+                                tab
+                              )
+                            }
+                            aria-current={
+                              item.id === activeId ? "true" : undefined
+                            }
+                            className={cn(
+                              "group cursor-pointer hover:bg-transparent",
+                              lit && "bg-pi-brand-tint hover:bg-pi-brand-tint"
+                            )}
+                          >
+                            <TableCell
+                              role="gridcell"
+                              onClick={(e) => e.stopPropagation()}
+                              className={cn(
+                                "pin-edge-l sticky left-0 z-[1] h-14 px-3 py-0 align-middle",
+                                ground,
+                                // The selected row's 2px brand edge.
+                                lit && "shadow-[inset_2px_0_0_var(--pi-brand)]"
+                              )}
                             >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                onOpen(
-                                  item,
-                                  rows.map((x) => x.id),
-                                  tab
-                                )
-                              }
+                              <Checkbox
+                                aria-label={`Select ${item.form.voucherNo || item.file.name}`}
+                                checked={ticked}
+                                onCheckedChange={(checked) =>
+                                  onSelectedChange(
+                                    checked
+                                      ? [...selected, item.id]
+                                      : selected.filter((id) => id !== item.id)
+                                  )
+                                }
+                              />
+                            </TableCell>
+                            {SHOWN.map((key, col) => (
+                              <TableCell
+                                key={key}
+                                role="gridcell"
+                                id={gridCellId(row, col)}
+                                aria-colindex={col + 1}
+                                aria-selected={grid.isSelected(row, col)}
+                                data-grid-row={row}
+                                data-grid-col={col}
+                                className={cn(
+                                  "h-14 overflow-hidden px-4 py-0 align-middle",
+                                  flowGround,
+                                  T.cell,
+                                  grid.isSelected(row, col) && "bg-accent",
+                                  grid.isCursor(row, col) &&
+                                    "ring-2 ring-inset ring-primary"
+                                )}
+                              >
+                                <div className="flex h-[55px] min-w-0 flex-col justify-center overflow-hidden [&>.inline-flex]:self-start">
+                                  {cell(key, item)}
+                                </div>
+                              </TableCell>
+                            ))}
+                            <TableCell
+                              role="gridcell"
+                              onClick={(e) => e.stopPropagation()}
+                              className={cn(
+                                "pin-edge-r sticky right-0 z-[1] h-14 px-4 py-0 align-middle",
+                                ground
+                              )}
                             >
-                              {item.status === "Approved"
-                                ? "View voucher"
-                                : "Open in Inbox"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => onDelete(item)}>
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            {!pageRows.length && (
-              <RegisterEmpty
-                tab={tab === "review" ? "review" : "all"}
-                route="AP"
-                items={items}
-                filters={activeFilters}
-                onClear={resetAll}
-                onReview={() => {
-                  setTab("review");
-                  changePage(0);
-                }}
-                onViewPosted={() => {
-                  setTab("all");
-                  changePage(0);
-                }}
-                onUpload={onUpload}
-                onCreate={onCreate}
-              />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={`Actions for ${item.form.voucherNo || item.file.name}`}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      onOpen(
+                                        item,
+                                        rows.map((x) => x.id),
+                                        tab
+                                      )
+                                    }
+                                  >
+                                    {item.status === "Approved"
+                                      ? "View voucher"
+                                      : "Open in Inbox"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => onDelete(item)}
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  {!pageRows.length && (
+                    <RegisterEmpty
+                      tab={tab === "review" ? "review" : "all"}
+                      route="AP"
+                      items={items}
+                      filters={activeFilters}
+                      onClear={resetAll}
+                      onReview={() => {
+                        setTab("review");
+                        changePage(0);
+                      }}
+                      onViewPosted={() => {
+                        setTab("all");
+                        changePage(0);
+                      }}
+                      onUpload={onUpload}
+                      onCreate={onCreate}
+                    />
+                  )}
+                </div>
+              </>
             )}
           </div>
-        </>
-      )}
+        </div>
+        <OverlayScrollbars scroller={scroller} />
       </div>
-    </div>
-    <OverlayScrollbars scroller={scroller} />
-    </div>
 
       {/* Below the page scroller, not inside it: the pager stays at the
           bottom of the viewport, and the horizontal bar ends above it. */}
       {!uploadsTab && (
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
-            <div className="flex items-center gap-2">
-              <span className={cn(T.cell, "text-foreground")}>
-                Rows per page:
-              </span>
-              <Select
-                value={String(pageSize)}
-                onValueChange={(value) => {
-                  onPageSizeChange(Number(value));
-                  changePage(0);
-                }}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-pi-line bg-background px-6 py-2">
+          <div className="flex items-center gap-2">
+            <span className={cn(T.cell, "text-foreground")}>
+              Rows per page:
+            </span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                onPageSizeChange(Number(value));
+                changePage(0);
+              }}
+            >
+              <SelectTrigger
+                aria-label="Rows per page"
+                className={cn(
+                  "h-auto w-[72px] rounded-md border-border px-2 py-1",
+                  T.cell,
+                  "text-foreground"
+                )}
               >
-                <SelectTrigger
-                  aria-label="Rows per page"
-                  className={cn(
-                    "h-auto w-[72px] rounded-md border-border px-2 py-1",
-                    T.cell,
-                    "text-foreground"
-                  )}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {pageSizes.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-0 sm:gap-1">
-              <PageButton
-                label="First page"
-                disabled={page === 0}
-                onClick={() => changePage(0)}
-              >
-                <ChevronsLeft />
-              </PageButton>
-              <PageButton
-                label="Previous page"
-                disabled={page === 0}
-                onClick={() => changePage(page - 1)}
-              >
-                <ChevronLeft />
-              </PageButton>
-              <span className={cn(T.cell, "px-2 tabular-nums text-foreground")}>
-                {rows.length
-                  ? `${page * pageSize + 1} - ${Math.min((page + 1) * pageSize, rows.length)} of ${rows.length}`
-                  : "0 of 0"}
-              </span>
-              <PageButton
-                label="Next page"
-                disabled={page >= lastPage}
-                onClick={() => changePage(page + 1)}
-              >
-                <ChevronRight />
-              </PageButton>
-              <PageButton
-                label="Last page"
-                disabled={page >= lastPage}
-                onClick={() => changePage(lastPage)}
-              >
-                <ChevronsRight />
-              </PageButton>
-            </div>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizes.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+          <div className="flex items-center gap-0 sm:gap-1">
+            <PageButton
+              label="First page"
+              disabled={page === 0}
+              onClick={() => changePage(0)}
+            >
+              <ChevronsLeft />
+            </PageButton>
+            <PageButton
+              label="Previous page"
+              disabled={page === 0}
+              onClick={() => changePage(page - 1)}
+            >
+              <ChevronLeft />
+            </PageButton>
+            <span className={cn(T.cell, "px-2 tabular-nums text-foreground")}>
+              {rows.length
+                ? `${page * pageSize + 1} - ${Math.min((page + 1) * pageSize, rows.length)} of ${rows.length}`
+                : "0 of 0"}
+            </span>
+            <PageButton
+              label="Next page"
+              disabled={page >= lastPage}
+              onClick={() => changePage(page + 1)}
+            >
+              <ChevronRight />
+            </PageButton>
+            <PageButton
+              label="Last page"
+              disabled={page >= lastPage}
+              onClick={() => changePage(lastPage)}
+            >
+              <ChevronsRight />
+            </PageButton>
+          </div>
+        </div>
       )}
 
       <SplitUploadDialog

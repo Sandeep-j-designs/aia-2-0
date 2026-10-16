@@ -251,6 +251,8 @@ type RegisterProps = {
    * comes back to it.
    */
   onOpen: (item: Item, ids: string[], tab: string) => void;
+  /** The row whose record is docked beside the table, lit while it is. */
+  activeId?: string;
   onDelete: (item: Item) => void;
   /** Says a thing is real in the app but not here — Create, Columns, exports. */
   onUnbuilt: (what: string) => void;
@@ -391,6 +393,7 @@ const Register = ({
   selected,
   onSelectedChange,
   onOpen,
+  activeId,
   onDelete,
   onUnbuilt,
   onCreate,
@@ -919,14 +922,19 @@ const Register = ({
                   <TableBody>
                     {pageRows.map((item) => {
                       const ticked = selected.includes(item.id);
-                      // Row hover wash, or the brand tint once ticked.
-                      const ground = ticked
+                      // Lit: ticked, or the row whose record is docked beside.
+                      const lit = ticked || item.id === activeId;
+                      // Row hover wash, or the brand tint once lit.
+                      const ground = lit
                         ? "bg-pi-brand-tint"
                         : "transition-colors duration-100 group-hover:bg-pi-row-hover motion-reduce:transition-none";
                       return (
                         <TableRow
                           key={item.id}
                           aria-selected={ticked}
+                          aria-current={
+                            item.id === activeId ? "true" : undefined
+                          }
                           className="group cursor-pointer hover:bg-transparent"
                           onClick={() =>
                             onOpen(
@@ -940,7 +948,7 @@ const Register = ({
                             className={cn(
                               "h-14 px-4 py-0 align-middle",
                               ground,
-                              ticked && "shadow-[inset_2px_0_0_var(--pi-brand)]"
+                              lit && "shadow-[inset_2px_0_0_var(--pi-brand)]"
                             )}
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -972,7 +980,7 @@ const Register = ({
                           <TableCell
                             className={cn(
                               "pin-edge-r sticky right-0 z-[1] h-14 px-4 py-0 align-middle",
-                              !ticked && "bg-background",
+                              !lit && "bg-background",
                               ground
                             )}
                             onClick={(e) => e.stopPropagation()}

@@ -110,6 +110,15 @@ export const AI_DOCUMENTS: AiDocumentSeed[] = [
           "996511"
         );
         item.bill!.billDate = `${String(n + 10).padStart(2, "0")} ${month === 8 ? "Aug" : "Sep"} 2026`;
+        /*
+          One posted bill for each way a cost centre is set: through a class
+          at the header, one centre at the header, and line by line. A header
+          value covers every line; only with none do the lines carry their own.
+        */
+        if (month === 8 && n === 0) item.bill!.costCentreClass = "Operations";
+        if (month === 8 && n === 1) item.bill!.costCentre = "Operations";
+        if (month === 8 && n === 2)
+          item.bill!.items[0].costCentre = "Solvent Plant Expansion";
         return { company, item, approved: month === 8 || n >= 3 };
       })
     )

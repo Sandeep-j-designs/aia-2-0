@@ -406,7 +406,7 @@ export const itemFromMock = (x: InboxItem, n: number): Item => {
     amount: l.amount,
     dr: l.amount,
     cr: 0,
-    costCentre: "",
+    costCentre: l.costCentre || "",
   })) ||
     inv?.items.map((l) => ({
       description: l.desc,
@@ -465,9 +465,14 @@ export const itemFromMock = (x: InboxItem, n: number): Item => {
           ? x.vendor
           : x.customer || "General counterparty",
     // A document's cost centre is the voucher's one cost centre, so the
-    // header holds a centre rather than a class when there is one.
-    costMode: b?.costCentre || inv?.costCentre ? "centre" : "class",
-    costClass: "",
+    // header holds a centre rather than a class when there is one — unless
+    // the bill was booked through a class.
+    costMode: b?.costCentreClass
+      ? "class"
+      : b?.costCentre || inv?.costCentre
+        ? "centre"
+        : "class",
+    costClass: b?.costCentreClass || "",
     costCentre: b?.costCentre || inv?.costCentre || "",
     narration: x.jv?.narration || x.source.subject || "",
     lines,
