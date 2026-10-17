@@ -118,7 +118,688 @@
   border-radius: 12px;
   background: var(--pi-surface-panel);
 }
+/* Expanded, the record is laid out as the review screen lays out its form:
+   full width, three columns. Docked it has two; Edit never changes the
+   count, because the document (below) takes the review screen's share. */
 .expanded .sheet {
-  max-width: 1080px;
-  margin: 0 auto;
+  max-width: none;
+}
+
+/* ------------------------------------------------------------- the form */
+
+/*
+  A record reads through its own entry form — the AP or AR sheet, or the
+  journal, run in the panel without a document pane. Reading, the form is
+  dressed as Mercury's record; Edit gives the controls back in place.
+
+  The rule that keeps the switch smooth: nothing changes height. Every row
+  is the same height in both modes, so no value moves up or down; only paint
+  (borders, fills, colour, opacity) and horizontal insets change.
+*/
+.form {
+  --swap: 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.recordHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  margin-bottom: 20px;
+}
+.recordTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 36px;
+  letter-spacing: -0.02em;
+  color: var(--pi-ink);
+}
+.recordAmount {
+  margin-left: auto;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pi-ink);
+}
+
+.editTitle {
+  padding-left: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+  color: var(--pi-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form,
+  .form * {
+    transition: none !important;
+  }
+}
+
+/* ------------------------------------------------------------ sheet skin */
+
+/*
+  The AP and AR sheets' review form (the Finops layout: .cr-cards rows,
+  .cr-table lines, .cr-totals), read. Every selector below is scoped to the
+  panel, so the review screen's form is untouched.
+*/
+
+/* The panel's sheet is the card; the form inside drops its own inset and
+   ground, in both modes. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(section.form) {
+  padding: 0 !important;
+  background: transparent !important;
+}
+/* The masters banner, the extraction toasts and "Edited by you" stay out of
+   the panel in both modes: each would push the form down when it appeared. */
+.form
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(.sugsum, #dupe-banner, .toasts, .inbox-edited)) {
+  display: none !important;
+}
+
+/* Everything that changes between the modes changes over one curve. */
+.form
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(
+    :is(
+      .control,
+      .cell,
+      .cr-in,
+      .cr-card-title,
+      .cr-row-label,
+      .cr-grid-wrap,
+      .cr-table th,
+      .cr-totals,
+      .cr-totals-cell,
+      .cr-more-toggle,
+      .predtag
+    )
+  ) {
+  transition:
+    padding var(--swap),
+    max-width var(--swap),
+    margin var(--swap),
+    border-color var(--swap),
+    background-color var(--swap),
+    box-shadow var(--swap),
+    color var(--swap),
+    opacity var(--swap);
+}
+.form
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(
+    :is(
+      .ico,
+      .pencil,
+      .fieldplus,
+      .cellcaret,
+      .cr-status,
+      .cr-more,
+      .cr-add,
+      .cr-expand,
+      .cr-items-coded,
+      .cr-section-tools,
+      .cr-party-toggle svg,
+      .cr-totals-cell svg,
+      .optional-tag,
+      .cr-optional
+    )
+  ) {
+  transition: opacity var(--swap);
+}
+
+/* ------------------------------------------------------------- one edge */
+
+/* Each box loses its border, fill and inset: the value sits under its
+   label, on the label's edge. */
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(.control, .control--offer, .cell, .cr-in)) {
+  padding-inline: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+/* With the tags and icons faded, the box's gap would still push the value
+   in. HSN keeps its gap: "HSN" and the code are both read. */
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(.control, .control--offer, .cell:not(.cr-hsn), .cr-in)) {
+  gap: 0 !important;
+}
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(
+    :is(select, input, textarea):not(
+      .control__date,
+      .cr-type select,
+      .jv-lines input
+    )
+  ) {
+  padding-inline: 0 !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  -webkit-text-fill-color: var(--pi-ink);
+  color: var(--pi-ink) !important;
+  opacity: 1 !important;
+}
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(input, textarea))::placeholder {
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+/* A locked field reads at full strength: here it is a fact, not an
+   unavailable control. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.is-disabled) {
+  opacity: 1 !important;
+}
+/* The "New" / AI tag in front of a vendor or ledger folds away, so the name
+   starts on the edge too. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.predtag) {
+  max-width: 0 !important;
+  padding-inline: 0 !important;
+  margin-inline: 0 !important;
+  border-width: 0 !important;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------ type */
+
+/* Section titles in the text colour; labels quiet; values plain. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.cr-card-title) {
+  color: var(--pi-ink) !important;
+}
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(.cr-row-label, .cr-type-label)) {
+  font-weight: 400 !important;
+  color: var(--pi-faint) !important;
+}
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.t-value) {
+  color: var(--pi-ink) !important;
+}
+
+/* ------------------------------------------------------------- read-only */
+
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(input, select, textarea, button, label)) {
+  pointer-events: none;
+}
+/* More details still opens: the accounting fields are part of the record. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.cr-more-toggle) {
+  pointer-events: auto;
+}
+
+/* Everything that only exists to change the record. Faded rather than
+   removed, so it holds its space and Edit brings it back in place. */
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(
+    :is(
+      .ico,
+      .pencil,
+      .fieldplus,
+      .cellcaret,
+      .cr-status,
+      .cr-more,
+      .cr-add,
+      .cr-expand,
+      .cr-items-coded,
+      .cr-section-tools,
+      .cr-party-toggle svg,
+      .cr-totals-cell svg,
+      .optional-tag,
+      .cr-optional
+    )
+  ) {
+  opacity: 0;
+}
+
+/* --------------------------------------------------------------- empties */
+
+/* An empty field says so with a dash where the value would be. */
+.form
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(.control, .cell)) {
+  position: relative;
+}
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(select:has(option:checked[value=""])) {
+  -webkit-text-fill-color: transparent;
+  color: transparent !important;
+}
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(
+    :is(.control, .cell):has(
+      > select option:checked[value=""],
+      > input:is(.control__input, .cell__input):placeholder-shown
+    )
+  )::after {
+  content: "—";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pi-faint);
+}
+
+/* ---------------------------------------------------------------- tables */
+
+/* The line table, read: one hairline outline, headings in the label voice
+   on white, values under them. Heights hold, so no rule is added or lost —
+   only painted. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.cr-table th) {
+  background: var(--pi-surface-panel) !important;
+  font-weight: 400 !important;
+  color: var(--pi-faint) !important;
+}
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.cr-hsn) {
+  opacity: 1;
+}
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(.cr-hsn:has(.cell__input:placeholder-shown)) {
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------- totals */
+
+/* The totals read as the record's summary: white, every figure in the text
+   colour — the grand total leads by weight, not by the form's blue. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.cr-totals) {
+  background: var(--pi-surface-panel) !important;
+}
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.cr-totals-cell) {
+  background: transparent !important;
+  color: var(--pi-ink) !important;
+}
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(.cr-totals-cell b) {
+  color: var(--pi-ink) !important;
+}
+
+/* The voucher type's picker lies invisibly over its value; reading, the
+   value is the only thing drawn. The row's band goes white with the rest. */
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.cr-type select) {
+  -webkit-text-fill-color: transparent;
+  color: transparent !important;
+  background-image: none !important;
+}
+.reading :global(:is(.ap-sheet, .ar-sheet, .jv-form)) :global(.review-record) {
+  background: transparent !important;
+}
+/* Icons the form shows at rest (calendars, carets) hold their opacity with
+   their own !important; the record outranks them. */
+.reading
+  :global(:is(.ap-sheet, .ar-sheet, .jv-form))
+  :global(:is(.ico, .pencil, .cellcaret, .fieldplus)) {
+  opacity: 0 !important;
+}
+/* The sheet's host is a page-grey scroller on the review screen. In the
+   panel the panel scrolls, and the sheet card is the ground. */
+.reading :global(:is(.ap-sheet, .ar-sheet)) {
+  overflow: visible !important;
+  background: transparent !important;
+}
+
+/* ---------------------------------------------------------------- journal */
+
+/*
+  The journal is React (shadcn controls inside the same cr-* skeleton), so
+  its read skin flattens buttons and inputs rather than the engines'
+  .control / .cell boxes. Same rules: no border, fill or inset; chrome
+  faded, not removed; nothing changes height.
+*/
+.reading :global(.jv-form) {
+  padding: 0 !important;
+  background: transparent !important;
+}
+.form
+  :global(.jv-form)
+  :global(
+    :is(
+      .jv-row-control :is(button, input, textarea),
+      .jv-lines td :is(button, input),
+      .jv-lines td span,
+      .jv-lines td svg,
+      .jv-lines th,
+      .jv-row-control svg,
+      .cr-type button
+    )
+  ) {
+  transition:
+    padding var(--swap),
+    border-color var(--swap),
+    background-color var(--swap),
+    box-shadow var(--swap),
+    color var(--swap),
+    opacity var(--swap);
+}
+.reading
+  :global(.jv-form)
+  :global(
+    :is(
+      .jv-row-control :is(button, input, textarea),
+      .jv-lines td :is(button, input),
+      .cr-type button
+    )
+  ) {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  resize: none;
+  opacity: 1 !important;
+  color: var(--pi-ink) !important;
+}
+/* Chevrons, calendars, ₹ prefixes, row menus, Add ledger line. */
+.reading
+  :global(.jv-form)
+  :global(
+    :is(
+      .jv-row-control svg,
+      .cr-type button svg,
+      .jv-lines td svg,
+      .jv-lines td span.pointer-events-none,
+      .jv-lines td:last-child button,
+      .jv-lines tfoot,
+      .jv-lines button:not(td button):not(.cr-expand)
+    )
+  ) {
+  opacity: 0 !important;
+}
+/* Headings on white in the label voice. */
+.reading :global(.jv-form) :global(.jv-lines :is(thead, thead tr, th)) {
+  background: var(--pi-surface-panel) !important;
+}
+.reading :global(.jv-form) :global(.jv-lines th) {
+  font-weight: 400 !important;
+  color: var(--pi-faint) !important;
+}
+/* The unused side of each line (0.00) says nothing. */
+.reading :global(.jv-form) :global(.jv-lines td input[value="0.00"]) {
+  -webkit-text-fill-color: transparent;
+  color: transparent !important;
+}
+
+/* Outside the table, values stand on the label's edge. In the table they
+   keep their inset, so they stay under their column headings. */
+.reading
+  :global(.jv-form)
+  :global(:is(.jv-row-control :is(button, input, textarea), .cr-type button)) {
+  padding-inline: 0 !important;
+}
+/* The narration's box is its wrapper. */
+.form :global(.jv-form) :global(.jv-row-control) {
+  transition:
+    border-color var(--swap),
+    background-color var(--swap);
+}
+.reading :global(.jv-form) :global(.jv-row-control) {
+  padding-inline: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+/* An unset picker reads as a dash, not its prompt. */
+.reading :global(.jv-form) :global(button[data-placeholder]) {
+  position: relative;
+}
+.reading :global(.jv-form) :global(button[data-placeholder] > span) {
+  color: transparent !important;
+}
+.reading :global(.jv-form) :global(button[data-placeholder])::after {
+  content: "—";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pi-faint);
+}
+.reading
+  :global(.jv-form)
+  :global(.jv-row-control button[data-placeholder])::after {
+  left: 0;
+}
+.reading :global(.jv-form) :global(td button[data-placeholder])::after {
+  left: 8px;
+}
+/* Fit, don't scroll, once there is room: from 760px the line table takes
+   the width it is given (narrower, Line narration squeezes to nothing). Both
+   modes, so Edit never reflows its columns. */
+.form :global(.jv-form) :global(.jv-lines) {
+  container-type: inline-size;
+}
+@container (min-width: 760px) {
+  .form :global(.jv-form) :global(.jv-lines table) {
+    min-width: 0 !important;
+  }
+}
+/* The balance reads in the text colour, not as a highlighted tile. */
+.reading :global(.jv-form) :global(.jv-totals > span[data-tone]) {
+  background: transparent !important;
+}
+.reading :global(.jv-form) :global(.jv-totals > span[data-tone] b) {
+  color: var(--pi-ink) !important;
+}
+
+/* ----------------------------------------------------------------- edit */
+
+/*
+  Editing, the panel is the review screen: full width, no card, the source
+  document beside the form behind the review screen's splitter, and the
+  form's own pane scrolling. The record's header folds away (the review
+  screen has none); the card's inset folds with it.
+*/
+.recordHead {
+  overflow: hidden;
+  transition:
+    height var(--swap),
+    margin var(--swap),
+    opacity var(--swap);
+}
+.editingForm .recordHead {
+  height: 0;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.scroll,
+.sheet {
+  transition:
+    padding var(--swap, 200ms),
+    border-color var(--swap, 200ms),
+    border-radius var(--swap, 200ms);
+}
+.scrollEditing {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sheetEditing {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+/* Docked, the edit keeps the record's card on the grey ground, so the form
+   stays a sheet of its own beside the table. Expanded it is the review
+   screen, edge to edge. */
+.expanded .scrollEditing {
+  padding: 0;
+}
+.expanded .sheetEditing {
+  border-color: transparent;
+  border-radius: 0;
+}
+.editingForm {
+  flex: 1;
+  min-height: 0;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+}
+.editingForm .body {
+  flex: 1;
+  min-height: 0;
+}
+/* Reading, the split is one column tall as its form; the collapsed
+   document column and its resizer take no room. */
+.reading .docSplit {
+  height: auto !important;
+  overflow: visible !important;
+}
+.reading .docSplit > :global([data-panel]) {
+  overflow: visible !important;
+}
+.reading .docSplit > :global([data-panel-resize-handle-id]) {
+  display: none;
+}
+.editingForm .docSplit {
+  flex: 1;
+  min-height: 0;
+}
+.editingForm .formScroller {
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
+}
+
+/* ------------------------------------------------------ document column */
+
+/*
+  The source document beside the form, while editing an expanded record.
+  It folds to nothing rather than leaving the DOM, so it can slide: the
+  column grows from the left edge as the form eases right, on the Move
+  curve; closing is quicker than opening. The transitions are only declared
+  while `.docSliding` is on, so a splitter drag still tracks the pointer.
+
+  AP draws its own pane (.doc-pane + .splitter, laid out by
+  styles/bill-form.css); Sales and Journals use the resizable split.
+*/
+.form {
+  --slide-in: 300ms cubic-bezier(0.25, 1, 0.5, 1);
+  --slide-out: 220ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+/* Folded. The splitter's right margin takes back the two workspace gaps and
+   its own width, so the form sits where it would with no pane at all. */
+.form.docClosed :global(.ap-sheet) :global(.doc-pane) {
+  flex-basis: 0;
+  min-width: 0;
+  padding-inline: 0;
+  border-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+}
+.form.docClosed :global(.ap-sheet) :global(.splitter) {
+  margin-right: -44px;
+  opacity: 0;
+  visibility: hidden;
+}
+.form.docClosed .docSplit > :global([data-panel-resize-handle-id]) {
+  opacity: 0;
+  pointer-events: none;
+}
+/* Opening: visibility flips first, the rest eases in. */
+.form.docSliding.docOpen :global(.ap-sheet) :global(.doc-pane) {
+  transition:
+    flex-basis var(--slide-in),
+    min-width var(--slide-in),
+    padding var(--slide-in),
+    border-width var(--slide-in),
+    opacity var(--slide-in),
+    visibility 0s;
+}
+.form.docSliding.docOpen :global(.ap-sheet) :global(.splitter) {
+  transition:
+    margin var(--slide-in),
+    opacity var(--slide-in),
+    visibility 0s;
+}
+.form.docSliding.docOpen :global(.ap-sheet) :global(section.form) {
+  transition: margin var(--slide-in);
+}
+.form.docSliding.docOpen .docSplit > :global([data-panel]) {
+  transition: flex-grow var(--slide-in);
+}
+.form.docSliding.docOpen .docSplit > :global([data-panel-resize-handle-id]) {
+  transition: opacity var(--slide-in);
+}
+/* Closing: everything eases out, then visibility flips at the end. */
+.form.docSliding.docClosed :global(.ap-sheet) :global(.doc-pane) {
+  transition:
+    flex-basis var(--slide-out),
+    min-width var(--slide-out),
+    padding var(--slide-out),
+    border-width var(--slide-out),
+    opacity var(--slide-out),
+    visibility 0s linear 220ms;
+}
+.form.docSliding.docClosed :global(.ap-sheet) :global(.splitter) {
+  transition:
+    margin var(--slide-out),
+    opacity var(--slide-out),
+    visibility 0s linear 220ms;
+}
+.form.docSliding.docClosed :global(.ap-sheet) :global(section.form) {
+  transition: margin var(--slide-out);
+}
+.form.docSliding.docClosed .docSplit > :global([data-panel]) {
+  transition: flex-grow var(--slide-out);
+}
+.form.docSliding.docClosed .docSplit > :global([data-panel-resize-handle-id]) {
+  transition: opacity var(--slide-out);
+}
+/* The page inside keeps its width while the column opens around it, so the
+   document is revealed rather than squeezed. */
+.form.docSliding :global(.ap-sheet) :global(.doc-pane) > *,
+.form.docSliding .docSplit > :global([data-panel]:first-child) > * {
+  min-width: 380px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .form.docSliding :is(:global(.doc-pane), :global(.splitter), :global(section.form)),
+  .form.docSliding .docSplit > * {
+    transition: none !important;
+  }
+}
+
+/* Docked and editing: the way to the document, in words. */
+.docHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: 9999px;
+  background: var(--pi-fill);
+  color: var(--pi-ink);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 150ms ease-out;
+}
+.docHint:hover {
+  background: var(--pi-fill-2);
+}
+.docHint:focus-visible {
+  outline: 2px solid var(--pi-brand);
+  outline-offset: 2px;
 }

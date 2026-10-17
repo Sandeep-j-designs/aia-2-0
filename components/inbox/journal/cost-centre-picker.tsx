@@ -127,6 +127,8 @@ const CostCentrePicker = ({ mode, value, disabled, onChange }: Props) => {
           <button
             type="button"
             id="jv-cost-header"
+            // Radix's convention: the posted record reads an unset value as a dash.
+            data-placeholder={value ? undefined : ""}
             disabled={disabled}
             aria-label="Cost centre for every line of the voucher"
             className={cn(

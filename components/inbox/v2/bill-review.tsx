@@ -680,7 +680,19 @@ export function BillReview({
   useEffect(() => {
     const ro = new ResizeObserver(() => seatCreate(root));
     ro.observe(root);
-    return () => ro.disconnect();
+    // …and when its field's inset changes: the record panel slides the
+    // insets open and shut between reading and editing.
+    let frame = 0;
+    const settle = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => seatCreate(root));
+    };
+    root.addEventListener("transitionend", settle);
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(frame);
+      root.removeEventListener("transitionend", settle);
+    };
   }, [root]);
 
   // the create button's tooltip: what a press does, above the button

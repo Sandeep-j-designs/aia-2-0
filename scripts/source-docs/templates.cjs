@@ -9,6 +9,8 @@
  *   utility    the electricity board's HT bill
  *   fuel       a filling station's monthly credit bill (a bill of supply)
  *   memo       an internal journal note — depreciation run, re-bill
+ *   po         a customer's purchase order, the paper a sales invoice is
+ *              raised from: the customer prints it, so they are the header
  *
  * Every value the extraction reads is wrapped in `data-src="<key>"`. The
  * generator measures those boxes after layout and writes them out as the
@@ -512,4 +514,72 @@ const memo = (doc) => {
   return shell(MEMO_CSS, body);
 };
 
-module.exports = { tally, corporate, utility, fuel, memo };
+/* --------------------------------------------------------------------- po */
+
+/**
+ * A customer's purchase order, from a large retailer's procurement system.
+ * The roles are the invoice's turned round: the customer (the sale's buyer)
+ * is the issuer at the top, and we are the vendor it is addressed to. The
+ * keys stay the sale's — buyer.* is the customer wherever it prints.
+ */
+const po = (doc) => {
+  const b = doc.buyer,
+    us = doc.seller;
+  const intra = !doc.igst;
+  const body = `
+<div class="k" style="--accent:${doc.accent || "#1f3a5f"}">
+  <div class="top">
+    <div class="mark">${src("buyer.name", esc(b.name))}<small>${src("buyer.address", esc(b.address))}<br>GSTIN ${src("buyer.gstin", esc(b.gstin))} · PAN ${esc(b.pan)}${b.cin ? `<br>CIN ${esc(b.cin)}` : ""}</small></div>
+    <div class="ttl"><h1>Purchase Order</h1><div>Quote this PO number on your invoice</div></div>
+  </div>
+  <div class="meta">
+    <div><span>PO number</span><b>${src("doc.poNo", esc(doc.poNo))}</b></div>
+    <div><span>PO date</span><b>${src("doc.date", longDate(doc.date))}</b></div>
+    <div><span>Payment due</span><b>${src("doc.dueDate", longDate(doc.dueDate))}</b></div>
+    <div><span>${esc(doc.refLabel || "Buyer")}</span><b>${esc(doc.reference || "—")}</b></div>
+  </div>
+  <div class="parties">
+    <div><h4>Vendor</h4>${src("seller.name", esc(us.name), 'div class="nm"')}${src("seller.address", esc(us.address), "div")}<div>GSTIN ${src("seller.gstin", esc(us.gstin))}</div></div>
+    <div><h4>Deliver to</h4><div class="nm">${esc((doc.shipTo || b).name)}</div><div>${esc((doc.shipTo || b).address)}</div></div>
+    <div><h4>Place of supply</h4><div>${src("doc.placeOfSupply", esc(doc.placeOfSupply))}</div><h4 style="margin-top:10px">Vendor code</h4><div>${esc(doc.account || "")}</div></div>
+  </div>
+  <table class="li">
+    <thead><tr><th style="width:24px">#</th><th>Description</th><th style="width:66px">HSN/SAC</th><th class="r" style="width:70px">Qty</th><th class="r" style="width:84px">Unit price</th><th class="r" style="width:100px">Value</th></tr></thead>
+    <tbody>
+      ${doc.lines
+        .map(
+          (l, i) => `<tr data-src="line.${i}">
+        <td>${i + 1}</td>
+        <td>${src(`line.${i}.desc`, esc(l.desc))}</td>
+        <td>${l.hsn ? src(`line.${i}.hsn`, esc(l.hsn)) : "—"}</td>
+        <td class="r">${l.qty != null ? src(`line.${i}.qty`, `${qty(l.qty)} ${esc(l.unit || "")}`) : "—"}</td>
+        <td class="r">${l.rate != null ? src(`line.${i}.rate`, inr(l.rate)) : "—"}</td>
+        <td class="r">${src(`line.${i}.amount`, inr(l.amount))}</td>
+      </tr>`
+        )
+        .join("")}
+    </tbody>
+  </table>
+  <div class="sum">
+    <div class="notes">${doc.notes || ""}</div>
+    <table>
+      <tr><td>Order value</td><td class="r">${src("totals.taxable", inr(doc.taxable))}</td></tr>
+      ${
+        intra
+          ? `<tr><td>CGST @ ${doc.rate / 2}%</td><td class="r">${src("totals.cgst", inr(doc.cgst))}</td></tr><tr><td>SGST @ ${doc.rate / 2}%</td><td class="r">${src("totals.sgst", inr(doc.sgst))}</td></tr>`
+          : `<tr><td>IGST @ ${doc.rate}%</td><td class="r">${src("totals.igst", inr(doc.igst))}</td></tr>`
+      }
+      <tr class="g"><td>PO total (INR)</td><td class="r">${src("totals.grand", inr(doc.grand))}</td></tr>
+    </table>
+  </div>
+  <div class="words">Amount in words: <b>${words(doc.grand)}</b></div>
+  <div class="pay">
+    <div><h4>Terms</h4>${esc(doc.terms)} from receipt of a GST invoice quoting this PO. Goods to be delivered within 7 days, packed for transit.</div>
+    <div><h4>Authorised by</h4>Category Buyer, Staples<br>${esc(b.name)}</div>
+  </div>
+  <div class="legal">This is a system-generated purchase order and does not require a signature. Partial deliveries only with the buyer's written consent.</div>
+</div>`;
+  return shell(CORP_CSS, body);
+};
+
+module.exports = { tally, corporate, utility, fuel, memo, po };

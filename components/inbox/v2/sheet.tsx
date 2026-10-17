@@ -15,12 +15,23 @@ export default function Sheet({
   item,
   onApproved,
   allowEdits = false,
+  noDocument,
+  slideDocument,
+  documentMounted,
   onReady,
 }: {
   item: Item;
   onApproved: () => void;
   /** Lets a posted voucher take drafts while it is deliberately open for edit. */
   allowEdits?: boolean;
+  /** Drop the sheet's document pane — the record panel shows the form alone. */
+  noDocument?: boolean;
+  /**
+   * The record panel's document column: folded away rather than removed, so
+   * it can slide in and out. Its viewer is mounted while `documentMounted`.
+   */
+  slideDocument?: boolean;
+  documentMounted?: boolean;
   onReady: (send: (type: string) => void) => void;
 }) {
   const seeded = useRef(false),
@@ -112,7 +123,13 @@ export default function Sheet({
         // A hand-raised bill has nothing read off a document: without a seed
         // the sheet stays the blank form it is standalone, and raises no
         // "Bill data extracted" toast.
-        if (!i.created) send("seed", apDocumentFor(original));
+        if (!i.created)
+          send("seed", {
+            ...apDocumentFor(original),
+            // The record panel reads a ledger-only bill in Accounting Mode,
+            // with no blank item row standing in for items it never had.
+            accountingIfNoItems: !!noDocument,
+          });
         /*
           Real uploaded bytes, as their own message rather than a field on
           `context`. Resolving the blob URL is async and `seed` has to follow
@@ -159,8 +176,14 @@ export default function Sheet({
       // engine — it boots against the DOM and holds the bill in closure state.
       key={`${item.company}-${item.id}-${item.route}`}
       itemId={`${item.company}-${item.id}-${item.route}`}
-      noDocument={item.created}
-      preview={item.created ? undefined : <Preview item={item} embedded />}
+      noDocument={noDocument || item.created}
+      slideDocument={slideDocument}
+      preview={
+        item.created ||
+        (slideDocument ? !documentMounted : noDocument) ? undefined : (
+          <Preview item={item} embedded />
+        )
+      }
     />
   );
 }

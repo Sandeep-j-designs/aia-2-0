@@ -42,6 +42,8 @@ type Props = {
    * document pane and splitter go and the form has the width to itself.
    */
   noDocument?: boolean;
+  /** Fold the document pane away (animatable) instead of removing it. */
+  slideDocument?: boolean;
   /**
    * The inbox's own document viewer, drawn into the sheet's document pane in
    * place of the sheet's. It is the one AR and JV use, so all three routes
@@ -52,7 +54,13 @@ type Props = {
 
 const CSS_ID = "ap-sheet-css";
 
-const ApSheet = ({ itemId, status, noDocument, preview }: Props) => {
+const ApSheet = ({
+  itemId,
+  status,
+  noDocument,
+  slideDocument,
+  preview,
+}: Props) => {
   const host = useRef<HTMLDivElement>(null);
   // Sizes the document pane to the sheet, not the window.
   useSheetHeight(host);
@@ -176,8 +184,10 @@ const ApSheet = ({ itemId, status, noDocument, preview }: Props) => {
         ref={host}
         className={cn(
           "ap-sheet min-h-0 flex-1 overflow-auto",
+          noDocument && "ap-sheet--no-doc",
           noDocument &&
-            "ap-sheet--no-doc [&_.doc-pane]:!hidden [&_.splitter]:!hidden"
+            !slideDocument &&
+            "[&_.doc-pane]:!hidden [&_.splitter]:!hidden"
         )}
         // The sheet's own markup, verbatim. It is generated from a file in this
         // repo, never from user or network content.

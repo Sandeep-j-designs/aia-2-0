@@ -3,7 +3,10 @@
  * Prints the inbox's demo source documents and measures where every extracted
  * value sits on them.
  *
- *   node scripts/source-docs/generate.cjs
+ *   node scripts/source-docs/generate.cjs             every document
+ *   node scripts/source-docs/generate.cjs --missing   only the ones not yet
+ *                                                     printed; the rest are
+ *                                                     kept byte for byte
  *
  * For each seeded inbox item that has an extraction (a bill, a sales invoice
  * or a journal), it builds the document from the mock data — so the paper and
@@ -28,8 +31,19 @@ const jiti = require(path.join(ROOT, "node_modules/jiti"))(__filename, {
   alias: { "@": ROOT },
   interopDefault: true,
 });
-const { MOCK_INBOX_ITEMS } = jiti(
+const { MOCK_INBOX_ITEMS, SAHYADRI_FIRST_BILL } = jiti(
   path.join(ROOT, "config/pages/inbox/mock-inbox.ts")
+);
+// The rest of what the store seeds: Neo's AI documents (both companies), the
+// auto-approval bills and the customer PO. See seed() in store.ts.
+const { AI_DOCUMENTS } = jiti(
+  path.join(ROOT, "config/pages/inbox/mock-ai-documents.ts")
+);
+const { mockAutoApprovalBills } = jiti(
+  path.join(ROOT, "config/pages/inbox/mock-trust.ts")
+);
+const { MOCK_CUSTOMER_PO } = jiti(
+  path.join(ROOT, "config/pages/inbox/mock-purchase-order.ts")
 );
 // Neo voucher entry's sample batch: uploads, not seeded Inbox items.
 const { MOCK_BATCH_DOCUMENTS } = jiti(
@@ -72,6 +86,20 @@ const US = {
   email: "accounts@shakunthalam.co.in",
   bank: { ...bankFor(own.legalName), branch: "Davanagere Main" },
 };
+/** Sahyadri Precision Works, the second company: its own bills and sales. */
+const acme = MOCK_OWN_REGISTRATION.acme;
+const SAHYADRI = {
+  name: acme.legalName,
+  address: acme.address,
+  gstin: acme.gstin,
+  pan: acme.gstin.slice(2, 12),
+  state: acme.state,
+  stateCode: acme.gstin.slice(0, 2),
+  cin: "",
+  email: "accounts@sahyadriprecision.in",
+  bank: { ...bankFor(acme.legalName), branch: "Pune Main" },
+};
+const usFor = (company) => (company === "acme" ? SAHYADRI : US);
 const PLANT = {
   name: `${own.legalName} (Harihar Plant)`,
   address: "Sy. No. 118/2, Harihar–Davanagere Road, Harihar 577601",
@@ -353,6 +381,111 @@ const JOURNALS = {
   },
 };
 
+/**
+ * The seeds the STYLE table does not name — Neo's AI documents, the
+ * auto-approval bills, the customer PO, Sahyadri's first bill — styled by
+ * who sent them, since the freight bills alone are forty. Anything else with
+ * an extraction falls back to a plain corporate invoice, so no document in
+ * the prototype goes without its regions.
+ */
+const seedStyle = (item, company) => {
+  // Nothing was read off a failed or unrouted document: no regions to print.
+  if (!item.bill && !item.invoice) return null;
+  const id = item.id;
+  const ref = (n) => digits(`ref:${id}`, n);
+  const customerCode =
+    company === "acme" ? "Customer code SPW-MH" : "Customer code SORPL-KA";
+  if (id === MOCK_CUSTOMER_PO.id)
+    return {
+      t: "po",
+      accent: "#123a6b",
+      reference: "Staples — Edible oils",
+      refLabel: "Category",
+      account: "V-29-118204",
+      terms: "30 Days",
+      notes:
+        "Deliver to the Yeshwanthpur DC, receiving bay 4, between 7 am and 2 pm. Quote the PO number on the invoice and the delivery challan.",
+    };
+  if (/^AR-SPW-/.test(id))
+    return {
+      t: "tally",
+      irn: true,
+      terms: "45 Days",
+      dispatchedThrough: `Own vehicle MH-14-KQ-${ref(4)}`,
+      destination: "Pune",
+    };
+  switch (item.vendor) {
+    case "Mahindra Logistics Ltd":
+      return {
+        t: "corporate",
+        accent: "#b3121f",
+        irn: true,
+        reference: `LR MLL/${company === "acme" ? "PNQ" : "HRH"}/${ref(5)}`,
+        refLabel: "Consignment",
+        account: customerCode,
+        notes: "Consignment note and proof of delivery attached.",
+      };
+    case "Blue Dart Express Ltd":
+      return {
+        t: "corporate",
+        accent: "#5a1f2b",
+        irn: true,
+        reference: `AC ${ref(6)}`,
+        refLabel: "Account code",
+        account: "Credit customer",
+        dueText: "15 days from invoice",
+      };
+    case "Bharti Airtel Ltd":
+      return {
+        t: "corporate",
+        accent: "#9b1b30",
+        irn: true,
+        reference: item.file.name.split("_")[2] || ref(9),
+        refLabel: "Account no.",
+        account: `Relationship no. ${ref(10)}`,
+        dueText: "Auto-debit on the due date",
+      };
+    case "Zoho Corporation Pvt Ltd":
+      return { ...STYLE["INB-2053"], reference: `ZB-${ref(6)}` };
+    case "Annapurna Caterers":
+      return STYLE["BULK-007"];
+    case "Adani Wilmar Ltd":
+      return {
+        t: "corporate",
+        accent: "#1c4e80",
+        irn: true,
+        reference: `SO ${ref(8)}`,
+        refLabel: "Sales order",
+        account: customerCode,
+      };
+    case "Kirloskar Brothers Ltd":
+      return {
+        t: "corporate",
+        accent: "#0b4a8b",
+        irn: true,
+        reference: `SO KBL/${ref(6)}`,
+        refLabel: "Sales order",
+        account: customerCode,
+      };
+    case "Tata Steel Ltd":
+      return {
+        t: "corporate",
+        accent: "#1f3f7a",
+        irn: true,
+        reference: `SO ${ref(9)}`,
+        refLabel: "Sales order",
+        account: "Customer code SPW-PUNE",
+        notes: "Mill test certificate sent with the consignment.",
+      };
+    case "Sri Balaji Packaging":
+    case "Harihar Transport Co":
+      return { t: "tally", terms: "30 Days", destination: "Davanagere" };
+  }
+  return { t: "corporate", irn: true };
+};
+const styleFor = (item, company) =>
+  STYLE[item.id] || seedStyle(item, company);
+
 /* --------------------------------------------------------------- the model */
 
 const rateOf = (sub, taxes) => {
@@ -362,22 +495,23 @@ const rateOf = (sub, taxes) => {
 
 const irnFor = (id) => hex(`irn:${id}`, 64);
 
-const modelFor = (item) => {
-  const style = STYLE[item.id];
+const modelFor = (item, company = "shakun") => {
+  const style = styleFor(item, company);
   if (!style) return null;
   if (style.same) {
     const base = [...MOCK_INBOX_ITEMS, ...MOCK_BATCH_DOCUMENTS].find(
       (x) => x.id === style.same
     );
-    return { ...modelFor(base), id: item.id };
+    return { ...modelFor(base, company), id: item.id };
   }
+  const us = usFor(company);
 
   if (item.jv) {
     const j = JOURNALS[item.id];
     return {
       id: item.id,
       template: style.t,
-      seller: US,
+      seller: us,
       ...j,
       number: item.jv.referenceNo,
       date: item.jv.date,
@@ -390,10 +524,10 @@ const modelFor = (item) => {
   const doc = item.bill || item.invoice;
   const vendor = sale ? null : printedSupplier(item);
   const seller = {
-    ...(sale ? US : partyOf(item.vendor, vendor)),
+    ...(sale ? us : partyOf(item.vendor, vendor)),
     ...(style.phone && { phone: style.phone }),
   };
-  const buyer = sale ? partyOf(item.customer || doc.customer) : US;
+  const buyer = sale ? partyOf(item.customer || doc.customer) : us;
   const rate = rateOf(doc.subTotal, doc.taxes);
   const number = sale ? doc.invoiceNo : doc.supplierInvoiceNo;
   const date = sale ? doc.invoiceDate : doc.billDate;
@@ -408,12 +542,12 @@ const modelFor = (item) => {
     title: style.t === "utility" ? "Bill" : "Tax Invoice",
     seller,
     buyer,
-    shipTo: sale ? { ...buyer } : goods ? PLANT : null,
+    shipTo: sale ? { ...buyer } : goods && us === US ? PLANT : null,
     number,
     date,
     dueDate: doc.dueDate,
     terms: style.terms || "30 Days",
-    poNo: style.poNo,
+    poNo: style.poNo || doc.customerPoNo,
     poDate: style.poDate,
     reference: style.reference,
     refLabel: style.refLabel,
@@ -602,9 +736,25 @@ const regionsOf = (dom) => {
 };
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
-const out = {};
-for (const item of [...MOCK_INBOX_ITEMS, ...MOCK_BATCH_DOCUMENTS]) {
-  const model = modelFor(item);
+const MISSING = process.argv.includes("--missing");
+const { MOCK_SOURCE_DOCUMENTS: printed } = MISSING
+  ? jiti(TS_OUT)
+  : { MOCK_SOURCE_DOCUMENTS: {} };
+const out = { ...printed };
+const seeds = [
+  ...MOCK_INBOX_ITEMS.map((item) => ({ item, company: "shakun" })),
+  ...MOCK_BATCH_DOCUMENTS.map((item) => ({ item, company: "shakun" })),
+  { item: SAHYADRI_FIRST_BILL, company: "acme" },
+  ...mockAutoApprovalBills().map(({ bill }) => ({
+    item: bill,
+    company: "shakun",
+  })),
+  ...AI_DOCUMENTS.map(({ item, company }) => ({ item, company })),
+  { item: MOCK_CUSTOMER_PO, company: "shakun" },
+];
+for (const { item, company } of seeds) {
+  if (out[item.id]) continue;
+  const model = modelFor(item, company);
   if (!model) continue;
   const html = render(model).replace("</body>", `${STAMP}</body>`);
   const page = path.join(WORK, `${item.id}.html`);

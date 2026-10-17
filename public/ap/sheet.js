@@ -12791,6 +12791,13 @@ function boot(){
        says so in words, which the treatment cannot; a Neo batch draft carries
        it as a flag, and the line rate it carries is the GTA rate. */
     if(doc.reverseCharge){ state.reverseCharge = true; syncRcmLedger(); patched = true; }
+    /* A bill with nothing in stock is an accounting invoice. Opened that way
+       on request, so a posted bill read in the record panel carries no blank
+       item row for its Item Details to hold open. */
+    if(doc.accountingIfNoItems && state.mode==='item' &&
+       state.items.every(r=>!r.description && !r.item && !Number(r.amountOverride||r.amount||0))){
+      state.mode='accounting'; state.items=[]; patched = true;
+    }
     if(patched){ syncLedgerToSupply(); render(); }
   }
 
@@ -12850,7 +12857,7 @@ function boot(){
     bridge must stop writing snapshots most of all: it would keep pushing the
     previous bill's form onto whichever item is open now. */
  const current = apLive;
- let context=null, sent='', readyForSnapshots=false;
+ let context=null, sent='', readyForSnapshots=false, checkpoint=null;
  const post=(type,payload)=>parent.postMessage({source:'aia-ap-v2',type,payload},location.origin);
  const snapshot=()=>{
   if(!current())return;
@@ -12927,6 +12934,17 @@ function boot(){
   if(!current())return;
   if(ev.source!==parent||ev.origin!==location.origin||ev.data?.source!=='aia-inbox-v2')return;
   const {type,payload}=ev.data;
+  /* The record panel edits a posted bill in place. It marks the state when
+     Edit is pressed and, on Cancel, asks for it back — restored where it
+     stands rather than by reloading the sheet, so the form can turn back
+     into the record without a flash. */
+  if(type==='checkpoint'){ checkpoint=JSON.parse(JSON.stringify(state)); }
+  if(type==='restore'&&checkpoint){
+   state=JSON.parse(JSON.stringify(checkpoint)); state.allocated=false;
+   refreshVendorList();
+   document.querySelectorAll('.inbox-edited').forEach(n=>n.remove());
+   render();
+  }
   if(type==='context'){
    context=payload;
    MASTERS.branches.forEach(b=>{b.name=b.name.replace('Karbon Business',context.company);});

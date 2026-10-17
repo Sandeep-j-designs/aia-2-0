@@ -2139,6 +2139,16 @@ export default function Workspace() {
       notify("No changes made. Tally is already up to date.");
       return;
     }
+    afterPostedEdit(current.id);
+  };
+  /**
+   * A posted voucher has changed — by the full editor or in place on the
+   * record panel. Tally either gets it on the first run, or falls behind and
+   * is told so.
+   */
+  const afterPostedEdit = (id: string) => {
+    const current = getState().items.find((x) => x.id === id);
+    if (!current) return;
     /*
       Only a voucher Tally already has can fall behind it. Approved-but-never-
       synced is not "edited after syncing" — it is still just waiting for its
@@ -6139,6 +6149,7 @@ export default function Workspace() {
               canEdit={state.permissions.includes(item.route)}
               onOpen={(next) => void router.push(recordHref(next))}
               onEdit={() => setEditingApproved(item.id)}
+              onEdited={afterPostedEdit}
               onDelete={() =>
                 askDelete(`“${item.form.voucherNo || item.file.name}”`, () => {
                   remove(item.id);

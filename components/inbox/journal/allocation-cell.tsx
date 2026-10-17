@@ -148,6 +148,7 @@ const AllocationCell = ({
             type="button"
             title={hover}
             aria-expanded={splitting || undefined}
+            data-placeholder={shown ? undefined : ""}
             className={cn(
               "inline-flex h-8 w-full min-w-0 items-center gap-2 rounded-sm border border-transparent px-2 text-left text-[13px] hover:border-pi-line-2 hover:bg-pi-surface-panel",
               shown ? "text-pi-ink" : "text-pi-faint",

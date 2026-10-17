@@ -14804,7 +14804,7 @@ function boot(){
     bridge must stop writing snapshots most of all: it would keep pushing the
     previous invoice's form onto whichever item is open now. */
  const current = arLive;
- let context=null, sent='', readyForSnapshots=false;
+ let context=null, sent='', readyForSnapshots=false, checkpoint=null;
  const post=(type,payload)=>parent.postMessage({source:'aia-ar-v2',type,payload},location.origin);
  /* The invoice's lines, as the inbox's flat `form.lines` — one row per thing
     billed, whichever table it is sitting in. Sales credits, so `cr` carries
@@ -14912,6 +14912,16 @@ function boot(){
      listener above. */
   if(ev.source!==parent||ev.origin!==location.origin||ev.data?.source!=='aia-inbox-ar-v2')return;
   const {type,payload}=ev.data;
+  /* The record panel edits a posted invoice in place: Edit marks the state,
+     Cancel asks for it back where it stands — no reload, so the form can
+     turn back into the record without a flash. As the bills sheet does. */
+  if(type==='checkpoint'){ checkpoint=JSON.parse(JSON.stringify(state)); }
+  if(type==='restore'&&checkpoint){
+   state=JSON.parse(JSON.stringify(checkpoint)); state.allocated=false;
+   refreshCustomerList(); refreshItemsList(); refreshSalesLedgerList();
+   document.querySelectorAll('.inbox-edited').forEach(n=>n.remove());
+   render();
+  }
   if(type==='context'){
    context=payload;
    MASTERS.branches.forEach(b=>{b.name=b.name.replace('Karbon Business',context.company);});
