@@ -8,6 +8,8 @@ import { TONE } from "./tone";
 type Props = {
   card: Extract<NeoCard, { kind: "list" }>;
   onRef: (ref: NeoRef) => void;
+  /** Beside the chat there is room for every row. */
+  all?: boolean;
 };
 
 /** Rows shown per group before "and N more" — the panel is a summary, the
@@ -18,7 +20,9 @@ const VISIBLE = 5;
  * Documents grouped by what they need, each group with its count and rupee
  * total, each row a way into the document.
  */
-const ListCard = ({ card, onRef }: Props) => (
+const ListCard = ({ card, onRef, all }: Props) => {
+  const visible = all ? Infinity : VISIBLE;
+  return (
   <div className="overflow-hidden rounded-lg border border-border bg-background text-foreground">
     <p className="bg-accent px-3 py-2 text-label-3 font-semibold text-foreground">
       {card.title}
@@ -43,7 +47,7 @@ const ListCard = ({ card, onRef }: Props) => (
             )}
           </header>
           <ul className="pb-1">
-            {g.rows.slice(0, VISIBLE).map((r) => (
+            {g.rows.slice(0, visible).map((r) => (
               <li key={r.itemId}>
                 <button
                   type="button"
@@ -69,9 +73,9 @@ const ListCard = ({ card, onRef }: Props) => (
                 </button>
               </li>
             ))}
-            {g.rows.length > VISIBLE && (
+            {g.rows.length > visible && (
               <li className="px-3 py-1 text-caption-1 text-muted-foreground">
-                and {g.rows.length - VISIBLE} more in the Inbox
+                and {g.rows.length - visible} more in the Inbox
               </li>
             )}
           </ul>
@@ -80,5 +84,6 @@ const ListCard = ({ card, onRef }: Props) => (
     })}
   </div>
 );
+};
 
 export default ListCard;

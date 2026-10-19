@@ -24,7 +24,7 @@ const BatchStrip = ({ id, onClear }: Props) => {
   ).length;
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-pi-line bg-background px-4 py-3 shadow-contact">
-      <NeoMark className="h-7 w-7 text-label-3" />
+      <NeoMark className="h-7 w-7" />
       <div className="min-w-0 flex-1">
         <p className="text-[13px] leading-5 text-pi-ink">
           <span className="font-medium">Batch {id}</span>{" "}
@@ -42,14 +42,7 @@ const BatchStrip = ({ id, onClear }: Props) => {
         <Button variant="ghost" size="sm" onClick={onClear}>
           Show all documents
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            neo.setTab("chat");
-            neo.setOpen(true);
-          }}
-        >
+        <Button variant="outline" size="sm" onClick={() => neo.setOpen(true)}>
           Open in Neo
         </Button>
       </div>

@@ -1,69 +1,60 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/router";
 import {
   ArrowRight,
   History,
-  MessageSquare,
+  Maximize,
   SquarePen,
   X,
 } from "@/components/icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { suggestionsFor } from "@/config/pages/neo/suggestions";
-import { actor, companyOf, useStore } from "@/components/inbox/v2/store";
+import { companyOf, useStore } from "@/components/inbox/v2/store";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
-import { sampleFor } from "@/hooks/pages/neo/use-batches";
-import { MOCK_BATCH_DOCUMENTS } from "@/config/pages/neo/mock-batch-documents";
-import type { NeoAttachment } from "@/types/pages/neo";
-import { money } from "@/utils/pages/neo";
-import { cn } from "@/lib/utils";
+import { useComposer } from "@/hooks/pages/neo/use-composer";
+import { onNeoPage } from "@/utils/pages/neo/route";
+import Shortcuts from "./common/shortcuts";
+import Canvas from "./common/canvas";
 import Composer from "./common/composer";
 import ContextChip from "./common/context-chip";
-import Message from "./common/message";
+import DropZone from "./common/drop-zone";
 import NeoMark from "./common/neo-mark";
-import RunList from "./common/run-list";
-import ChaseList from "./common/chase-list";
+import Thread, { useLiveMessage } from "./common/thread";
+import ChatTitle from "./page/chat-title";
 import { demoNote } from "@/config/pages/neo/demo";
 
-const greeting = () => {
-  const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-};
+const ICON_BUTTON =
+  "grid h-8 w-8 shrink-0 place-items-center rounded-md text-pi-body hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border disabled:opacity-40";
 
 /**
- * Neo's panel: the agent layer, docked right, above every route.
+ * Neo, docked: the same chat as Neo's page, made small and set beside the
+ * work (19 Oct 2026, "one Neo, two sizes"). It is for asking about what is
+ * on screen — this bill, these rows — so its empty state offers only that;
+ * the greeting, agents, findings and the task history live on Neo's page.
+ * Expand opens the page on this chat, carrying its "this".
  *
- * It sits on the top bar's navy rather than the workspace's white, so the
- * agent reads as its own layer beside the books — and anything Neo hands you
- * that is a document (a voucher, a list of bills, a message to send) is drawn
- * as white paper on that layer. One accent, no ornament: the difference is the
- * ground, not decoration.
+ * Its left edge drags it wider (384–560px). A document Neo makes opens to
+ * its left, over the work, so the sign-off in the chat stays in view.
+ *
+ * It is never drawn on Neo's own pages: Neo does not dock beside Neo.
  *
  * The panel owns its keys while focus is inside it — digits answer the open
  * question, Ctrl+Enter takes the card's main action, Esc stops a run or closes
  * — so none of them reach the queue's shortcuts behind it.
  */
 const NeoPanel = () => {
+  const router = useRouter();
   const neo = useNeo();
   const state = useStore();
-  const [draft, setDraft] = useState("");
-  const [attachments, setAttachments] = useState<NeoAttachment[]>([]);
-  const attach = (list: NeoAttachment[]) =>
-    setAttachments((as) => [
-      ...as,
-      ...list.filter((a) => !as.some((x) => x.name === a.name)),
-    ]);
+  const box = useComposer(neo);
+  const live = useLiveMessage(neo);
   const input = useRef<HTMLTextAreaElement>(null);
-  const scroller = useRef<HTMLDivElement>(null);
-
-  // The message the running task is waiting on, if any.
-  const live = useMemo(() => {
-    if (!neo.busy) return undefined;
-    return [...neo.messages]
-      .reverse()
-      .find(
-        (m) =>
-          m.runId === neo.busy &&
-          ((m.ask && !m.ask.answer) || (m.actions?.length && !m.chosen))
-      );
-  }, [neo.busy, neo.messages]);
 
   const suggestions = useMemo(
     () => suggestionsFor(neo.context),
@@ -71,35 +62,9 @@ const NeoPanel = () => {
     [neo.context, state]
   );
 
-  const waiting = useMemo(() => {
-    const open = state.items.filter(
-      (x) =>
-        x.company === state.company &&
-        !x.priorVoucher &&
-        ["Needs Review", "Duplicate"].includes(x.status)
-    );
-    return {
-      count: open.length,
-      total: open.reduce((s, x) => s + x.amount, 0),
-    };
-  }, [state]);
-
   useEffect(() => {
     if (neo.open) window.setTimeout(() => input.current?.focus(), 60);
   }, [neo.open]);
-
-  useEffect(() => {
-    const el = scroller.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [neo.messages, neo.tab]);
-
-  const send = (text = draft) => {
-    if ((!text.trim() && !attachments.length) || neo.busy) return;
-    setDraft("");
-    const files = attachments;
-    setAttachments([]);
-    void neo.startRun(text, files);
-  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing || e.defaultPrevented) return;
@@ -110,22 +75,22 @@ const NeoPanel = () => {
       e.preventDefault();
       e.stopPropagation();
       if (neo.busy) neo.stop();
+      else if (neo.canvas) neo.setCanvas(null);
       else neo.setOpen(false);
       return;
     }
     if (
-      neo.tab === "chat" &&
       !neo.messages.length &&
-      !draft &&
+      !box.draft &&
       !typing &&
       /^[1-4]$/.test(e.key) &&
       suggestions[Number(e.key) - 1]
     ) {
       e.preventDefault();
-      send(suggestions[Number(e.key) - 1]);
+      box.send(suggestions[Number(e.key) - 1]);
       return;
     }
-    if (live?.ask && !typing && !draft && /^[1-9]$/.test(e.key)) {
+    if (live?.ask && !typing && !box.draft && /^[1-9]$/.test(e.key)) {
       const option = live.ask.options[Number(e.key) - 1];
       if (option) {
         e.preventDefault();
@@ -148,6 +113,27 @@ const NeoPanel = () => {
     e.stopPropagation();
   };
 
+  // Dragging the left edge sets the width; double-click resets it.
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = neo.panelWidth;
+    const move = (ev: PointerEvent) =>
+      neo.setPanelWidth(startW + (startX - ev.clientX));
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  if (onNeoPage(router.query)) return null;
+
   if (!neo.open)
     return neo.hasLauncher ? null : (
       <button
@@ -156,224 +142,168 @@ const NeoPanel = () => {
         title="Ask Neo (Ctrl J)"
         className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-xl bg-background px-1.5 py-3 text-pi-ink shadow-popover-shadow hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
       >
-        <NeoMark className="h-6 w-6 text-label-3" live={!!neo.busy} />
+        <NeoMark className="h-6 w-6" live={!!neo.busy} />
         <span className="text-caption-1 font-semibold [writing-mode:vertical-rl]">
           Ask Neo
         </span>
       </button>
     );
 
-  const firstName = actor.split(" ")[0];
-  const company = companyOf(state.company)?.name;
+  const recent = neo.chats.filter((c) => c.id !== neo.chatId).slice(0, 8);
+  const company = companyOf(neo.runContext?.company || state.company)?.name;
+  const ctx = neo.runContext || neo.context;
 
   return (
-    <aside
-      aria-label="Neo"
-      onKeyDown={onKeyDown}
-      className="neo-panel fixed right-0 top-0 z-40 flex h-dvh w-full max-w-full flex-col border-l border-pi-line bg-background text-pi-ink shadow-popover-shadow duration-200 animate-in slide-in-from-right-8 fade-in-0 motion-reduce:animate-none sm:w-96"
-    >
-      <header className="relative flex min-h-[112px] flex-none items-start gap-3 border-b border-pi-line px-5 pb-14 pt-4">
-        <NeoMark live={!!neo.busy && !neo.paused} />
-        <div className="min-w-0 leading-tight">
-          <h2 className="text-base font-semibold leading-6">Neo</h2>
-          <p
-            className="truncate text-caption-1 text-pi-body"
-            aria-live="polite"
-          >
-            {neo.busy
-              ? neo.paused
-                ? "Paused"
-                : "Working"
-              : "Accounting agent"}
-          </p>
-        </div>
-        <div
-          role="tablist"
-          aria-label="Neo views"
-          className="absolute bottom-3 left-5 right-5 flex gap-1 rounded-lg bg-pi-fill p-1"
-        >
-          {(
-            [
-              { id: "chat", label: "Chat", icon: MessageSquare },
-              {
-                id: "runs",
-                label: `Tasks${neo.runs.length ? ` ${neo.runs.length}` : ""}`,
-                icon: History,
-              },
-            ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={neo.tab === t.id}
-              onClick={() => neo.setTab(t.id)}
-              className={cn(
-                "flex h-8 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
-                neo.tab === t.id
-                  ? "bg-background text-primary shadow-sm"
-                  : "text-pi-body hover:text-pi-ink"
-              )}
-            >
-              <t.icon className="h-3.5 w-3.5" />
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          aria-label="New chat"
-          title="New chat"
-          disabled={!!neo.busy || !neo.messages.length}
-          onClick={neo.reset}
-          className="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-md text-pi-body hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border disabled:opacity-40"
-        >
-          <SquarePen className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          aria-label="Close Neo"
-          title="Close (Esc)"
-          onClick={() => neo.setOpen(false)}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-pi-body hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </header>
-
-      <p className="px-5 pb-1 pt-3 text-xs leading-5 text-pi-body">
-        {companyOf(neo.runContext?.company || state.company)?.name}
-        {neo.runContext
-          ? " · Run scope is fixed"
-          : demoNote(" · Scripted prototype")}
-      </p>
-      <ContextChip
-        context={neo.runContext || neo.context}
-        onClear={neo.detach}
-        locked={!!neo.runContext}
-      />
-
-      <div
-        ref={scroller}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain [overflow-wrap:anywhere]"
+    <>
+      <aside
+        aria-label="Neo"
+        onKeyDown={onKeyDown}
+        style={{ width: `min(100vw, ${neo.panelWidth}px)` }}
+        className="neo-panel fixed right-0 top-0 z-40 flex h-dvh max-w-full flex-col border-l border-pi-line bg-background text-pi-ink shadow-popover-shadow duration-200 animate-in slide-in-from-right-8 fade-in-0 motion-reduce:animate-none"
       >
-        {neo.tab === "runs" ? (
-          <div className="flex flex-col">
-            <section className="flex flex-col gap-2 px-5 pt-5">
-              <h3 className="text-caption-1 font-semibold uppercase tracking-wide text-pi-body">
-                Chases
-              </h3>
-              <ChaseList
-                compact
-                onOpen={(_, href) => neo.goTo({ label: "", href })}
-              />
-            </section>
-            <RunList
-              runs={neo.runs}
-              onUndo={neo.undo}
-              onRef={neo.goTo}
-              busy={!!neo.busy}
-            />
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize Neo"
+          title="Drag to resize · double-click to reset"
+          onPointerDown={startResize}
+          onDoubleClick={() => neo.setPanelWidth(0)}
+          className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize after:absolute after:inset-y-0 after:left-[3px] after:w-0.5 after:bg-transparent after:transition-colors hover:after:bg-pi-brand-border sm:block"
+        />
+        <header className="flex h-14 flex-none items-center gap-1 border-b border-pi-line pl-3 pr-2">
+          <NeoMark className="mr-1" live={!!neo.busy && !neo.paused} />
+          <div className="flex min-w-0 flex-1 items-center">
+            <ChatTitle compact />
           </div>
-        ) : neo.messages.length ? (
-          <div className="flex flex-col gap-6 px-5 py-6">
-            {neo.messages.map((m) => (
-              <Message
-                key={m.id}
-                message={m}
-                live={live?.id === m.id}
-                running={!!m.runId && m.runId === neo.busy}
-                paused={neo.paused}
-                onAnswer={(v) => neo.answer(m.id, v)}
-                onEditCard={(card) => neo.editCard(m.id, card)}
-                onRef={neo.goTo}
-                onPrompt={send}
-                onPause={neo.pause}
-                onResume={neo.resume}
-                onStop={neo.stop}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-7 px-5 py-7">
-            <div>
-              <p className="text-xl font-semibold tracking-tight text-pi-ink">
-                {greeting()}, {firstName}.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-pi-body">
-                {waiting.count
-                  ? `${waiting.count} document${waiting.count === 1 ? "" : "s"} worth ${money(waiting.total)} are waiting in ${company}.`
-                  : `${company}'s queue is clear.`}{" "}
-                I answer from the books, change bills by rule, and chase vendors
-                and customers. You see exactly what changes; nothing is approved
-                or sent until you say so.
-              </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                onClick={() =>
-                  neo.goTo({ label: "", href: "/inbox?module=NEO" })
-                }
-                className="mt-3 inline-flex items-center gap-1 rounded-sm text-label-3 font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                aria-label="Recent chats"
+                title="Recent chats"
+                disabled={!!neo.busy || !recent.length}
+                className={ICON_BUTTON}
               >
-                Open today across your clients
-                <ArrowRight className="h-3.5 w-3.5" />
+                <History className="h-4 w-4" />
               </button>
-            </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="text-caption-1 font-semibold text-pi-faint">
+                Recent chats
+              </DropdownMenuLabel>
+              {recent.map((c) => (
+                <DropdownMenuItem
+                  key={c.id}
+                  onSelect={() => neo.openChat(c.id)}
+                  className="truncate text-[13px]"
+                >
+                  <span className="truncate">{c.title}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            type="button"
+            aria-label="New chat"
+            title="New chat (Ctrl Shift O)"
+            disabled={!!neo.busy || !neo.messages.length}
+            onClick={neo.reset}
+            className={ICON_BUTTON}
+          >
+            <SquarePen className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Expand to Neo"
+            title="Expand to Neo"
+            onClick={neo.expand}
+            className={ICON_BUTTON}
+          >
+            <Maximize className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Close Neo"
+            title="Close (Esc)"
+            onClick={() => neo.setOpen(false)}
+            className={ICON_BUTTON}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
 
-            <div>
-              <p className="mb-2 text-caption-1 font-semibold uppercase tracking-wide text-pi-body">
-                Ask for something
+        <DropZone
+          onFiles={box.attachFiles}
+          disabled={!!neo.busy}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          {neo.messages.length ? (
+            <Thread variant="panel" onPrompt={(t) => box.send(t)} />
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
+              <p className="neo-reading text-[22px] leading-8 text-pi-ink">
+                What would you like to know about this screen?
               </p>
-              <ul className="flex flex-col gap-2">
+              <ul className="mt-5 flex flex-col">
                 {suggestions.map((s, i) => (
-                  <li key={s}>
+                  <li key={s} className="border-t border-pi-line last:border-b">
                     <button
                       type="button"
-                      onClick={() => send(s)}
-                      className="group flex w-full items-center gap-3 rounded-lg border border-pi-line px-3 py-3 text-left text-[13px] leading-5 text-pi-ink hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                      onClick={() => box.send(s)}
+                      className="group flex w-full items-center gap-3 py-3 text-left text-[14px] leading-5 text-pi-ink-2 transition-colors hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
                     >
-                      <kbd className="grid h-5 min-w-5 flex-none place-items-center rounded-sm bg-pi-fill px-1 font-sans text-caption-1 font-semibold text-primary group-hover:bg-primary group-hover:text-primary-foreground">
+                      <kbd className="grid h-5 min-w-5 flex-none place-items-center rounded-xs border border-pi-line font-sans text-[11px] font-medium text-pi-body group-hover:border-pi-brand-border group-hover:text-pi-brand">
                         {i + 1}
                       </kbd>
-                      {s}
+                      <span className="flex-1">{s}</span>
+                      <ArrowRight className="h-3.5 w-3.5 flex-none text-pi-faint opacity-0 transition-opacity group-hover:opacity-100" />
                     </button>
                   </li>
                 ))}
               </ul>
+              <button
+                type="button"
+                onClick={() => neo.goTo({ label: "", href: "/inbox?module=NEO" })}
+                className="mt-5 inline-flex items-center gap-1 rounded-sm text-[13px] font-medium text-pi-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              >
+                Open Neo for agents, findings and history
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      <Composer
-        ref={input}
-        value={draft}
-        busy={!!neo.busy}
-        attachments={attachments}
-        onChange={setDraft}
-        onSend={() => send()}
-        onStop={neo.stop}
-        onAttachFiles={(files) =>
-          attach(
-            Array.from(files).map((f) => ({
-              name: f.name,
-              docId: sampleFor(f.name)?.id,
-            }))
-          )
-        }
-        onAttachSample={() =>
-          attach(
-            MOCK_BATCH_DOCUMENTS.map((d) => ({
-              name: d.file.name,
-              docId: d.id,
-            }))
-          )
-        }
-        onRemoveAttachment={(name) =>
-          setAttachments((as) => as.filter((a) => a.name !== name))
-        }
-      />
-    </aside>
+          <Composer
+            ref={input}
+            value={box.draft}
+            busy={!!neo.busy}
+            attachments={box.attachments}
+            onChange={box.setDraft}
+            onSend={() => box.send()}
+            onStop={neo.stop}
+            onAttachFiles={box.attachFiles}
+            onAttachSample={box.attachSample}
+            onRemoveAttachment={box.removeAttachment}
+            placeholder={`Ask about ${company || "this company"}`}
+            context={
+              <ContextChip
+                variant="pill"
+                context={ctx}
+                onClear={neo.detach}
+                locked={!!neo.runContext}
+              />
+            }
+          />
+          <p className="flex-none px-4 pb-2.5 text-center text-[11px] leading-4 text-pi-faint">
+            {company}
+            {neo.runContext
+              ? " · Run scope is fixed"
+              : demoNote(" · Scripted prototype") || " · Neo prepares, you approve"}
+          </p>
+        </DropZone>
+      </aside>
+      <Canvas variant="panel" />
+      <Shortcuts />
+    </>
   );
 };
 

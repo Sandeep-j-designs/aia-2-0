@@ -1,4 +1,6 @@
 import React, { useEffect } from "react";
+import { useRouter } from "next/router";
+import { onNeoChatPage } from "@/utils/pages/neo/route";
 import { Pause, Play } from "@/components/icons";
 import { useStore } from "@/components/inbox/v2/store";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
@@ -22,6 +24,7 @@ import NeoMark from "./common/neo-mark";
 const NeoPresence = () => {
   const neo = useNeo();
   const state = useStore();
+  const router = useRouter();
 
   useEffect(() => {
     const apply = () =>
@@ -38,7 +41,8 @@ const NeoPresence = () => {
   }, [neo.presence, state]);
 
   const live = neo.liveStatus;
-  if (!live) return null;
+  // Neo's chat page shows the run in the thread itself; no strip over it.
+  if (!live || onNeoChatPage(router.query)) return null;
   const pct = live.progress
     ? Math.min(
         100,
@@ -52,9 +56,11 @@ const NeoPresence = () => {
       aria-live="polite"
       className="fixed bottom-5 z-40 flex w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 overflow-hidden rounded-xl border border-surface-stroke bg-surface py-2 pl-2 pr-2 text-topnav-avatar-text shadow-popover-shadow duration-300 animate-in fade-in-0 slide-in-from-bottom-4 motion-reduce:animate-none"
       // Centred in the space the panel leaves, not under it.
-      style={{ left: neo.open ? "calc((100vw - 24rem) / 2)" : "50%" }}
+      style={{
+        left: neo.open ? `calc((100vw - ${neo.panelWidth}px) / 2)` : "50%",
+      }}
     >
-      <NeoMark className="h-6 w-6 text-label-3" live={!neo.paused} />
+      <NeoMark className="h-6 w-6" live={!neo.paused} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-label-3 font-semibold">
           {neo.paused ? "Paused · " : ""}

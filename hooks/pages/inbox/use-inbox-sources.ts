@@ -4,7 +4,6 @@ import {
   itemFromMock,
   neoCreate,
   neoLog,
-  update,
   sourceFailure,
   neoReplaceFailed,
 } from "@/components/inbox/v2/store";
@@ -19,15 +18,23 @@ import {
 } from "@/config/pages/inbox/mock-sources";
 import type {
   InboxSource,
+  SourceCandidate,
   SourceProvider,
   SourceReceipt,
   SourceRequest,
   CollectionAgent,
+  CollectionBackfill,
+  CollectionChannel,
+  CollectionDryRunRow,
   CollectionRun,
+  CollectionSetup,
   AgentRunMode,
 } from "@/types/pages/inbox/sources";
+import { DEMO_TODAY } from "@/utils/pages/inbox/ai-calculations";
 
 type State = {
+  /** Setups being made in Neo's chat, one per company, until saved. */
+  drafts: { company: string; setup: CollectionSetup }[];
   agents: CollectionAgent[];
   runs: CollectionRun[];
   sources: InboxSource[];
@@ -36,6 +43,7 @@ type State = {
   requests: SourceRequest[];
 };
 const empty: State = {
+  drafts: [],
   sources: [],
   receipts: [],
   busy: [],
@@ -83,6 +91,7 @@ export const configureCollectionAgent = (
   if (!["continuous", "on-demand"].includes(runMode))
     throw new Error("Choose a valid run mode.");
   const agent: CollectionAgent = {
+    ...collectionAgent(company),
     company,
     configured: true,
     runMode,
@@ -176,7 +185,8 @@ export const connectSource = (
     since,
     status: "connected",
     account:
-      options?.account || (provider === "WhatsApp Business"
+      options?.account ||
+      (provider === "WhatsApp Business"
         ? "Registered business number · demo"
         : `accounts@${getState().companies.find((c) => c.id === company)?.slug}.example`),
   };
@@ -314,6 +324,11 @@ export const collectSources = async (
             x.file.hash === candidate.hash &&
             x.status !== "Failed"
         );
+        const verdict = classify(
+          candidate,
+          collectionAgent(company).setup || OPEN_RULES,
+          !!existing
+        );
         const receipt: SourceReceipt = {
           company,
           sourceId: source.id,
@@ -321,21 +336,17 @@ export const collectSources = async (
           hash: candidate.hash,
           location: candidate.location,
           collectedAt: new Date().toISOString(),
-          outcome: existing
-            ? "linked"
-            : candidate.problem === "unreadable"
-              ? "failed"
-              : candidate.problem
-                ? "needs-decision"
-                : "prepared",
-          reason: existing
-            ? "Identical content already in Inbox; kept the second source without creating another voucher."
-            : candidate.problem === "unreadable"
-              ? "Attachment is unreadable. A clearer copy is required; no amount or voucher was invented."
-              : candidate.problem
-                ? "Missing supplier invoice number. Draft retained for your decision."
-                : "Invoice inside your delegated source scope; prepared for review, not approved.",
+          outcome: verdict.outcome,
+          reason: verdict.reason,
         };
+        // Skipped, and anything that isn't a bill, is recorded and never
+        // drafted.
+        if (verdict.outcome === "skipped" || candidate.kind !== "bill") {
+          set({ ...state, receipts: [...state.receipts, receipt] });
+          results.push(receipt);
+          onReceipt(receipt);
+          continue;
+        }
         if (existing) {
           receipt.itemId = existing.id;
           neoLog("Linked another collection source", runId, existing, {
@@ -389,7 +400,7 @@ export const collectSources = async (
         ? "partial"
         : "completed",
       results.length
-        ? `${results.filter((r) => r.outcome === "prepared").length} prepared · ${results.filter((r) => r.outcome === "linked").length} duplicates linked · ${results.filter((r) => r.outcome === "needs-decision" || r.outcome === "failed").length} need attention`
+        ? `${results.filter((r) => r.outcome === "prepared").length} prepared · ${results.filter((r) => r.outcome === "linked").length} duplicates linked · ${results.filter((r) => r.outcome === "needs-decision" || r.outcome === "failed").length} need attention · ${results.filter((r) => r.outcome === "skipped").length} skipped`
         : "No new documents found"
     );
     return results;
@@ -496,46 +507,275 @@ export const receiveSourceReply = (runId: string) => {
   return true;
 };
 
-export const resolveSourceReference = (itemId: string, reference: string) => {
-  const item = getState().items.find(
-    (x) => x.id === itemId && x.company === getState().company
-  );
+/* ------------------------------------------------- setup in Neo's chat */
+
+const KIND_WORD: Record<SourceCandidate["kind"], string> = {
+  bill: "Bill",
+  statement: "Bank statement",
+  advice: "Payment advice",
+  quote: "Quotation",
+  newsletter: "Newsletter",
+};
+
+/** What collection did before setup had rules: every sender, bills only. */
+const OPEN_RULES: CollectionSetup = {
+  channels: [],
+  senders: "anyone",
+  files: "bills",
+  backfill: "period",
+  schedule: "manual",
+  notify: "off",
+  allowed: [],
+  blocked: [],
+  edited: [],
+};
+
+/**
+ * One rule set for the dry run and the real collection, so what the dry run
+ * promised is what a run does. Order: an excluded sender, then what the file
+ * is, then who sent it, then duplicates, then what the bill is missing.
+ */
+const classify = (
+  c: SourceCandidate,
+  setup: CollectionSetup,
+  duplicate: boolean
+): Pick<CollectionDryRunRow, "outcome" | "reason" | "senderRule"> => {
+  if (setup.blocked.includes(c.sender))
+    return {
+      outcome: "skipped",
+      reason: "You excluded this sender",
+      senderRule: "blocked",
+    };
+  if (c.kind !== "bill")
+    return setup.files === "bills"
+      ? { outcome: "skipped", reason: `${KIND_WORD[c.kind]}, not a bill` }
+      : {
+          outcome: "needs-decision",
+          reason: `${KIND_WORD[c.kind]}, not a bill; held for you to file`,
+        };
   if (
-    !item ||
-    item.status !== "Needs Review" ||
-    !reference.trim() ||
-    item.form.invoiceNo
+    !c.knownSender &&
+    setup.senders === "known" &&
+    !setup.allowed.includes(c.sender)
   )
-    return false;
-  update(itemId, {
-    form: { ...item.form, invoiceNo: reference.trim() },
-    edited: [...new Set([...item.edited, "invoiceNo"])],
-    preparedBy: undefined,
-    reason:
-      "Collected from your delegated source; invoice number supplied by the user. Awaiting review.",
-  });
+    return {
+      outcome: "skipped",
+      reason: "Sender isn't one of your vendors or staff",
+      senderRule: "unknown",
+    };
+  if (duplicate)
+    return {
+      outcome: "linked",
+      reason: "Same file is already in your Inbox; linked, not drafted again",
+    };
+  if (c.problem === "unreadable")
+    return {
+      outcome: "failed",
+      reason: "Attachment can't be read; a clearer copy is needed",
+    };
+  if (c.problem)
+    return {
+      outcome: "needs-decision",
+      reason: "No supplier invoice number on the bill; add it before approving",
+    };
+  return { outcome: "prepared", reason: "Supplier bill; drafted for review" };
+};
+
+const isoDay = (d: Date) =>
+  new Date(d.getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
+
+/** The first day a backfill collects from, relative to the demo's today. */
+export const sinceFor = (backfill: CollectionBackfill) =>
+  backfill === "period"
+    ? "2026-09-01"
+    : backfill === "30d"
+      ? isoDay(new Date(DEMO_TODAY.getTime() - 30 * 86400000))
+      : backfill === "fy"
+        ? "2026-04-01"
+        : isoDay(DEMO_TODAY);
+
+export const BACKFILL_LABEL: Record<CollectionBackfill, string> = {
+  period: "Start of this return period",
+  "30d": "Last 30 days",
+  fy: "Start of the financial year",
+  new: "Only new from now",
+};
+
+const defaultSetup = (): CollectionSetup => ({
+  ...OPEN_RULES,
+  senders: "known",
+  schedule: "15m",
+  notify: "daily",
+});
+
+export const collectionDraft = (company: string) =>
+  state.drafts.find((d) => d.company === company)?.setup;
+
+/** Start setting up (or editing): from the saved setup, else defaults. */
+export const startCollectionDraft = (company: string) => {
+  const setup = structuredClone(
+    collectionAgent(company).setup || defaultSetup()
+  );
+  setup.edited = [];
   set({
     ...state,
-    receipts: state.receipts.map((r) =>
-      r.itemId === itemId && r.outcome === "needs-decision"
-        ? {
-            ...r,
-            outcome: "prepared",
-            reason:
-              "Supplier invoice number provided by the user. Still awaiting review.",
-          }
-        : r
+    drafts: [
+      ...state.drafts.filter((d) => d.company !== company),
+      { company, setup },
+    ],
+  });
+  return setup;
+};
+
+/**
+ * Change the draft. Neo's answers never overwrite a field the person edited
+ * on the card (`edited`); the person's own edits always land.
+ */
+export const patchCollectionDraft = (
+  company: string,
+  patch: Partial<CollectionSetup>,
+  byHand = false
+) => {
+  const draft = collectionDraft(company);
+  if (!draft) return;
+  const keys = Object.keys(patch) as (keyof CollectionSetup)[];
+  const allowed = byHand
+    ? patch
+    : Object.fromEntries(
+        keys.filter((k) => !draft.edited.includes(k)).map((k) => [k, patch[k]])
+      );
+  const setup: CollectionSetup = {
+    ...draft,
+    ...allowed,
+    edited: byHand ? [...new Set([...draft.edited, ...keys])] : draft.edited,
+  };
+  set({
+    ...state,
+    drafts: state.drafts.map((d) =>
+      d.company === company ? { company, setup } : d
     ),
   });
-  logActivity({
-    company: item.company,
-    actor: { kind: "person", name: "You" },
-    kind: "predicted",
-    module: "Inbox",
-    action: "Provided missing invoice number",
-    subject: reference.trim(),
-    ref: { kind: "document", id: itemId },
-    reason: "User supplied the value; Neo did not infer it.",
+};
+
+/** Add or update one channel on the draft. */
+export const setDraftChannel = (
+  company: string,
+  channel: CollectionChannel
+) => {
+  const draft = collectionDraft(company);
+  if (!draft) return;
+  patchCollectionDraft(company, {
+    // Keeps its place on the card when a channel goes pending → connected.
+    channels: draft.channels.some((c) => c.provider === channel.provider)
+      ? draft.channels.map((c) =>
+          c.provider === channel.provider ? channel : c
+        )
+      : [...draft.channels, channel],
   });
-  return true;
+};
+
+export const discardCollectionDraft = (company: string) =>
+  set({
+    ...state,
+    drafts: state.drafts.filter((d) => d.company !== company),
+  });
+
+/**
+ * What collecting would do over the backfill, with nothing written: every
+ * connected channel's files through the same rules a run uses. A file seen
+ * on an earlier channel in the same pass counts as a duplicate.
+ * DEV: POST /api/collection/dry-run
+ */
+export const dryRunCollection = (
+  company: string,
+  setup: CollectionSetup
+): CollectionDryRunRow[] => {
+  const since = sinceFor(setup.backfill);
+  const seen = new Set<string>();
+  const items = getState().items;
+  return setup.channels
+    .filter((ch) => ch.status === "connected")
+    .flatMap((ch) => previewSource(company, ch.provider, ch.scope, since))
+    .map((c) => {
+      const duplicate =
+        seen.has(c.hash) ||
+        items.some(
+          (x) =>
+            x.company === company &&
+            x.file.hash === c.hash &&
+            x.status !== "Failed"
+        );
+      const verdict = classify(c, setup, duplicate);
+      if (c.kind === "bill" && verdict.outcome !== "skipped") seen.add(c.hash);
+      return {
+        key: c.key,
+        provider: c.provider,
+        sender: c.sender,
+        file: c.document.file.name,
+        vendor: c.document.vendor || c.sender,
+        amount: c.document.amount ?? 0,
+        received: c.received,
+        ...verdict,
+      };
+    });
+};
+
+/**
+ * Save the draft: connect its channels, then either turn the agent on or
+ * keep it as a draft that doesn't run.
+ * DEV: POST /api/collection/setup
+ */
+export const commitCollectionSetup = (
+  company: string,
+  mode: "on" | "draft"
+) => {
+  guard(company);
+  const setup = collectionDraft(company);
+  if (!setup) throw new Error("Nothing to save; start the setup again.");
+  const since = sinceFor(setup.backfill);
+  const connected = setup.channels.filter((c) => c.status === "connected");
+  if (mode === "on" && !connected.length)
+    throw new Error("Connect at least one channel first.");
+  connected.forEach((c) =>
+    connectSource(company, c.provider, c.scope, since, {
+      account: c.account,
+      id: state.sources.find(
+        (s) => s.company === company && s.provider === c.provider
+      )?.id,
+    })
+  );
+  const runMode: AgentRunMode =
+    setup.schedule === "15m" ? "continuous" : "on-demand";
+  const saved = { ...setup, edited: [] };
+  set({
+    ...state,
+    drafts: state.drafts.filter((d) => d.company !== company),
+    sources: state.sources.map((s) =>
+      s.company === company && !connected.some((c) => c.provider === s.provider)
+        ? { ...s, status: "disconnected" }
+        : s
+    ),
+    agents: [
+      ...state.agents.filter((a) => a.company !== company),
+      {
+        company,
+        configured: mode === "on" || collectionAgent(company).configured,
+        runMode,
+        paused: false,
+        setup: saved,
+      },
+    ],
+  });
+  logActivity({
+    company,
+    actor: { kind: "person", name: "You" },
+    kind: "rule",
+    module: "Inbox",
+    action:
+      mode === "on"
+        ? "Turned on Document Collection"
+        : "Saved Document Collection as a draft",
+    subject: connected.map((c) => c.provider).join(", "),
+    reason: `From ${since} · ${setup.senders === "known" ? "known senders" : "any sender"} · ${setup.files === "bills" ? "bills only" : "non-bills held"} · prepares drafts, never approves`,
+  });
 };

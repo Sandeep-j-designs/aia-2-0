@@ -72,7 +72,7 @@ const askBooks: NeoTask = {
   match: (p) =>
     has(
       p,
-      /how much|spend|spent|total|top vendors?|biggest vendors?|largest vendors?|not in (my )?masters|missing gstin|without (a )?gstin|who owes|overdue|outstanding/i
+      /how much|spend|spent|total|top vendors?|biggest vendors?|largest vendors?|(not|n['’]t) in (my )?masters|missing gstin|without (a )?gstin|who owes|overdue|outstanding|unpaid/i
     ) && !has(p, /freight/i)
       ? 5
       : 0,
@@ -80,13 +80,28 @@ const askBooks: NeoTask = {
     const p = api.prompt;
 
     // Who owes us
-    if (has(p, /who owes|overdue|outstanding|receivable/i)) {
+    if (has(p, /who owes|overdue|outstanding|unpaid|receivable/i)) {
       const company = api.context.company || getState().company;
       const rows = overdueInvoices(getState().items, company).sort(
         (a, b) => b.outstanding - a.outstanding
       );
       if (!rows.length) {
-        await api.say("Nobody is overdue. Every approved invoice is in date.");
+        // Say where the money is owed, if it is owed to another client.
+        const elsewhere = getState()
+          .companies.filter((c) => c.id !== company)
+          .map((c) => ({
+            name: c.name,
+            rows: overdueInvoices(getState().items, c.id),
+          }))
+          .filter((c) => c.rows.length);
+        await api.say(
+          `Nobody is overdue here. Every approved invoice is in date.${elsewhere
+            .map(
+              (c) =>
+                ` ${c.name} has ${c.rows.length} overdue invoice${c.rows.length === 1 ? "" : "s"} worth ${money(c.rows.reduce((s, r) => s + r.outstanding, 0))}; switch to it to see them.`
+            )
+            .join("")}`
+        );
         return "Nothing overdue";
       }
       const sum = rows.reduce((s, r) => s + r.outstanding, 0);
@@ -123,7 +138,9 @@ const askBooks: NeoTask = {
     }
 
     // Vendors not in masters
-    if (has(p, /not in (my )?masters|missing gstin|without (a )?gstin/i)) {
+    if (
+      has(p, /(not|n['’]t) in (my )?masters|missing gstin|without (a )?gstin/i)
+    ) {
       const rows = purchases().filter(
         (x) => x.status !== "Approved" && x.original.bill?.vendorMissing
       );
@@ -225,7 +242,7 @@ const askBooks: NeoTask = {
     const waiting = rows.filter((x) => x.status !== "Approved");
     scan(`${rows.length} bill${rows.length === 1 ? "" : "s"} · ${money(sum)}`);
     await api.say(
-      `${money(sum)} ${vendor ? `with ${vendor}` : `on ${ledger}`}${period}, before tax, from ${rows.length} bill${rows.length === 1 ? "" : "s"}.${waiting.length ? ` ${waiting.length} of them ${waiting.length === 1 ? "is" : "are"} still waiting for review, so the booked figure is ${money(sum - waiting.reduce((s, x) => s + amountOf(x), 0))}.` : ""}`
+      `**${money(sum)}** ${vendor ? `with ${vendor}` : `on ${ledger}`}${period}, before tax, from ${rows.length} bill${rows.length === 1 ? "" : "s"}.${waiting.length ? `\n\n${waiting.length} of them ${waiting.length === 1 ? "is" : "are"} still waiting for review, so the booked figure is **${money(sum - waiting.reduce((s, x) => s + amountOf(x), 0))}**.` : ""}`
     );
     api.show(
       sourceList(

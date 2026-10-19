@@ -1051,7 +1051,7 @@ html {
 /* Neo retains the reference panel's docked placement and row presence. */
 @media (min-width: 1440px) {
   html[data-neo-open] [data-sonner-toaster][data-x-position="right"] {
-    right: calc(24rem + var(--offset-right, 24px)) !important;
+    right: calc(var(--neo-w, 24rem) + var(--offset-right, 24px)) !important;
   }
 }
 [data-item-id][data-neo="working"] > td {

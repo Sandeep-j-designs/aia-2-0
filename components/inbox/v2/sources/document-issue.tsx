@@ -1,30 +1,27 @@
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
 import {
   receiveSourceReply,
-  resolveSourceReference,
   useInboxSources,
 } from "@/hooks/pages/inbox/use-inbox-sources";
 import type { Item } from "@/components/inbox/v2/store";
 
+/**
+ * A collected attachment that couldn't be read: retry, or ask the supplier
+ * for a clearer copy. A missing supplier invoice number has no strip here
+ * (19 Oct 2026): the form's own Supplier invoice no. field marks it open.
+ */
 const CollectionDocumentIssue = ({ item }: { item: Item }) => {
   const state = useInboxSources();
   const neo = useNeo();
-  const [reference, setReference] = useState("");
   const receipt = state.receipts.find(
     (r) =>
       r.company === item.company &&
       r.itemId === item.id &&
-      ["failed", "needs-decision"].includes(r.outcome)
+      r.outcome === "failed"
   );
-  if (
-    !receipt ||
-    (receipt.outcome === "failed" && item.status !== "Failed") ||
-    (receipt.outcome === "needs-decision" && item.form.invoiceNo)
-  )
-    return null;
+  if (!receipt || item.status !== "Failed") return null;
   const request = state.requests.find(
     (r) =>
       r.company === item.company &&
@@ -38,29 +35,11 @@ const CollectionDocumentIssue = ({ item }: { item: Item }) => {
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-pi-line bg-background px-6 py-3 text-sm">
       <p className="text-pi-body">
-        {receipt.outcome === "failed"
-          ? request
-            ? "Waiting for a clearer copy from the supplier."
-            : "This attachment is unreadable. No voucher has been prepared."
-          : "Supplier invoice number is missing."}
+        {request
+          ? "Waiting for a clearer copy from the supplier."
+          : "This attachment is unreadable. No voucher has been prepared."}
       </p>
-      {receipt.outcome === "needs-decision" ? (
-        <>
-          <Input
-            className="w-56"
-            aria-label="Supplier invoice number"
-            value={reference}
-            onChange={(e) => setReference(e.target.value)}
-          />
-          <Button
-            disabled={!reference.trim() || !!neo.busy}
-            variant="outline"
-            onClick={() => resolveSourceReference(item.id, reference)}
-          >
-            Save invoice number
-          </Button>
-        </>
-      ) : request ? (
+      {request ? (
         <Button
           disabled={!!neo.busy}
           variant="outline"

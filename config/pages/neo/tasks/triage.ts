@@ -38,31 +38,30 @@ const triage: NeoTask = {
       return "Nothing needs you";
     }
     const top = needing[0];
-    await api.say(
-      `${needing.length} of your ${brief.total} clients need you. Start with ${top.name}: ${top.signals
-        .slice(0, 3)
-        .map((s) => s.text)
-        .join(
-          ", "
-        )} — ${lakhs(top.impact)} to decide, ${top.deadline.toLowerCase()}.`
-    );
+    // Markdown: the verdict in bold, then each client with its signals as a
+    // short list, so the reader can scan it rather than parse a sentence.
+    const block = (c: (typeof needing)[number], lead: boolean) =>
+      [
+        `**${c.name}**${lead ? ` — ${lakhs(c.impact)} to decide, ${c.deadline}` : ""}`,
+        ...c.signals.slice(0, 3).map((s) => `- ${s.text}`),
+      ].join("\n");
+    const body = [
+      `**${needing.length} of your ${brief.total} clients need you.** Start with ${top.name}.`,
+      ...needing.map((c, i) => block(c, i === 0)),
+    ].join("\n\n");
     if (needing.length > 1)
-      await api.say(
-        needing
-          .slice(1)
-          .map(
-            (c) =>
-              `${c.name}: ${c.signals
-                .slice(0, 3)
-                .map((s) => s.text)
-                .join(", ")}.`
-          )
-          .join(" "),
-        [{ label: "Open today's brief", href: "/inbox?module=NEO" }]
-      );
+      await api.say(body, [
+        {
+          label: "Open Needs attention",
+          href: "/inbox?module=NEO&page=attention",
+        },
+      ]);
     else
-      await api.say("The rest are clear.", [
-        { label: "Open today's brief", href: "/inbox?module=NEO" },
+      await api.say(`${body}\n\nThe rest are clear.`, [
+        {
+          label: "Open Needs attention",
+          href: "/inbox?module=NEO&page=attention",
+        },
       ]);
     return `${needing.length} clients need you`;
   },

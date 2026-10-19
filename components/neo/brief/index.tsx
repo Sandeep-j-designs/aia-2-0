@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import FeaturePage from "@/components/inbox/v2/automation/common/feature-page";
 import { actor } from "@/components/inbox/v2/store";
 import { useFirmBrief, lakhs } from "@/hooks/pages/neo/use-firm-brief";
-import { useNeo } from "@/hooks/pages/neo/use-neo";
 import { BRIEF_DEADLINE } from "@/config/pages/neo/mock-firm";
 import { DEMO_TODAY } from "@/utils/pages/inbox/ai-calculations";
 import type { BriefTone } from "@/types/pages/neo/brief";
@@ -37,21 +36,13 @@ const greeting = () => {
  */
 const Brief = ({ onOpen }: Props) => {
   const brief = useFirmBrief();
-  const neo = useNeo();
   const first = actor.split(" ")[0];
   const due = new Date(
     `${BRIEF_DEADLINE.due}T00:00:00+05:30`
   ).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
   return (
-    <FeaturePage
-      title="Today"
-      actions={
-        <Button variant="outline" onClick={() => neo.setOpen(true)}>
-          Ask Neo
-        </Button>
-      }
-    >
+    <FeaturePage title="Needs attention">
       <section className="max-w-[72ch]">
         <p className="text-caption-1 text-pi-faint">
           {DEMO_TODAY.toLocaleDateString("en-IN", {

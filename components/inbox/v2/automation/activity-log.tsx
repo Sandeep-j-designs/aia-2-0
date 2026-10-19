@@ -35,9 +35,14 @@ type Props = {
   user: string;
   onOpenDocument: (id: string) => void;
   notify: (message: string, kind?: "success" | "info") => void;
+  /**
+   * Neo › Activity adds Neo's tasks as a tab: each run with its outcome and
+   * its Undo (moved here from the docked panel, 19 Oct 2026).
+   */
+  tasks?: { label: string; count: number; content: React.ReactNode };
 };
 
-type Tab = "all" | "ai" | "people";
+type Tab = "all" | "ai" | "people" | "tasks";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "all", label: "All" },
@@ -82,7 +87,9 @@ const FilterOption = ({
     onClick={onToggle}
     className={cn(
       "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-      on ? "bg-pi-brand-tint font-medium text-pi-brand" : "text-pi-ink hover:bg-pi-fill"
+      on
+        ? "bg-pi-brand-tint font-medium text-pi-brand"
+        : "text-pi-ink hover:bg-pi-fill"
     )}
   >
     <span className="flex-1 truncate">{label}</span>
@@ -94,7 +101,10 @@ const FilterOption = ({
   </button>
 );
 
-const counted = <K extends string>(rows: ActivityEntry[], key: (e: ActivityEntry) => K) => {
+const counted = <K extends string>(
+  rows: ActivityEntry[],
+  key: (e: ActivityEntry) => K
+) => {
   const counts = new Map<K, number>();
   rows.forEach((e) => counts.set(key(e), (counts.get(key(e)) ?? 0) + 1));
   return counts;
@@ -109,7 +119,13 @@ const counted = <K extends string>(rows: ActivityEntry[], key: (e: ActivityEntry
  * auto-approvals and overrides here; an auditor's "why is this in Rent?" is
  * answered by a search. Anything not yet in Tally can be undone in place.
  */
-const ActivityLog = ({ company, user, onOpenDocument, notify }: Props) => {
+const ActivityLog = ({
+  company,
+  user,
+  onOpenDocument,
+  notify,
+  tasks,
+}: Props) => {
   const entries = useActivity(company);
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
@@ -155,15 +171,20 @@ const ActivityLog = ({ company, user, onOpenDocument, notify }: Props) => {
   }, [shown]);
 
   const kindCounts = counted(base, (e) => e.kind);
-  const moduleCounts = Array.from(counted(base, (e) => e.module).entries()).sort(
-    (a, b) => b[1] - a[1]
-  );
+  const moduleCounts = Array.from(
+    counted(base, (e) => e.module).entries()
+  ).sort((a, b) => b[1] - a[1]);
+  const tabs = tasks
+    ? [...TABS, { id: "tasks" as const, label: tasks.label }]
+    : TABS;
   const tabCount = (id: Tab) =>
-    id === "ai"
-      ? entries.filter((e) => e.actor.kind === "ai").length
-      : id === "people"
-        ? entries.filter((e) => e.actor.kind === "person").length
-        : entries.length;
+    id === "tasks"
+      ? (tasks?.count ?? 0)
+      : id === "ai"
+        ? entries.filter((e) => e.actor.kind === "ai").length
+        : id === "people"
+          ? entries.filter((e) => e.actor.kind === "person").length
+          : entries.length;
   const filtersOn = !!search.trim() || kinds.length > 0 || modules.length > 0;
   const clearFilters = () => {
     setSearch("");
@@ -194,7 +215,7 @@ const ActivityLog = ({ company, user, onOpenDocument, notify }: Props) => {
                     aria-label="Who acted"
                     className="flex shrink-0 gap-6 overflow-x-auto overflow-y-hidden border-b border-pi-line"
                   >
-                    {TABS.map((entry) => (
+                    {tabs.map((entry) => (
                       <button
                         key={entry.id}
                         role="tab"
@@ -219,7 +240,12 @@ const ActivityLog = ({ company, user, onOpenDocument, notify }: Props) => {
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 px-[var(--inset-page)] py-4">
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-2 px-[var(--inset-page)] py-4",
+                tab === "tasks" && "hidden"
+              )}
+            >
               <SearchBox
                 label="Search the activity log"
                 placeholder="Search vendor, ledger, reason…"
@@ -301,7 +327,11 @@ const ActivityLog = ({ company, user, onOpenDocument, notify }: Props) => {
             </div>
           </div>
 
-          {days.length ? (
+          {tab === "tasks" && tasks ? (
+            <div className="flex-1 border-t border-pi-line bg-background [&>ul]:max-w-[1040px]">
+              {tasks.content}
+            </div>
+          ) : days.length ? (
             <div className="border-t border-pi-line bg-background">
               {days.map((day) => (
                 <section key={day.label} aria-label={day.label}>
@@ -348,7 +378,7 @@ const ActivityLog = ({ company, user, onOpenDocument, notify }: Props) => {
         </div>
         <OverlayScrollbars scroller={scroller} />
       </div>
-      {rows.length > pageSize ? (
+      {tab !== "tasks" && rows.length > pageSize ? (
         <Pager
           page={page}
           pageSize={pageSize}

@@ -14,8 +14,8 @@ import {
   PanelLeftOpen,
   Percent,
   RefreshCw,
+  NeoStar,
   Wallet,
-  Workflow,
 } from "@/components/icons";
 import AppTopBar, { type Crumb } from "@/components/top-bar-layout";
 import { basePath } from "@/lib/base-path";
@@ -84,16 +84,14 @@ const NAV: NavNode[] = [
     icon: <Inbox />,
   },
   {
-    // Neo, as one thing (Neo proposition, 14 Oct 2026): today's brief across
-    // clients, and the sources it may collect from — formerly "Agents".
-    kind: "group",
+    // Neo is one place (19 Oct 2026): its own column carries Chat, Agents,
+    // Needs attention (was Today) and Activity. Sources became the Document
+    // collection agent.
+    kind: "item",
     id: "neo",
     label: "Neo",
-    icon: <Workflow />,
-    children: [
-      { id: "neo-today", label: "Today", path: "/inbox?module=NEO" },
-      { id: "agents", label: "Sources", path: "/inbox?module=AGENTS" },
-    ],
+    path: "/inbox?module=NEO",
+    icon: <NeoStar />,
   },
   {
     kind: "group",
@@ -162,8 +160,7 @@ const NAV: NavNode[] = [
 
 /** Breadcrumb trail shown in the top bar for each nav id. */
 export const NAV_TRAIL: Record<string, Crumb[]> = {
-  "neo-today": ["Neo", "Today"],
-  agents: ["Neo", "Sources"],
+  neo: ["Neo"],
   dashboard: ["Dashboard"],
   inbox: ["Workspace", "Inbox"],
   purchases: ["Payables", "Purchases"],

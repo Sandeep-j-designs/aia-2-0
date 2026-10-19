@@ -133,7 +133,8 @@ const salesFromPurchase: NeoTask = {
       p,
       /sales invoice/i,
       /(raise|create|make|generate).*(invoice|bill).*(customer|from|based)/i,
-      /(re-?sell|on-?bill|pass on|bill (it|this) to)/i
+      /(re-?sell|on-?bill|pass on|bill (it|this) to)/i,
+      /^(create|raise|make) an? (sales )?invoice\b/i
     )
       ? 3
       : 0,

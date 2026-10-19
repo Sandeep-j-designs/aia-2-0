@@ -129,6 +129,14 @@ export const Sparkle = make(
   </>
 );
 export const Sparkles = Sparkle;
+/**
+ * Neo's mark (19 Oct 2026): the sparkle's star, solid, without its accents.
+ * Neo only — the duotone Sparkle stays the mark for a value the AI decided.
+ */
+export const NeoStar = make(
+  "NeoStar",
+  <path d={SPARKLE_PATH} fill="currentColor" stroke="none" />
+);
 export const AiMark = Sparkle;
 
 /* Navigation -------------------------------------------------------------- */
@@ -852,4 +860,24 @@ export const SquarePen = make(
   <>
     <path d="M10 4H4v16h16v-6M10 14l1-5 8-8 4 4-8 8-5 1Z" />
   </>
+);
+
+/* Neo chat (19 Oct 2026): rating an answer and starring a chat. */
+export const ThumbsUp = make(
+  "ThumbsUp",
+  <>
+    <path d="M7 10v11" />
+    <path d="M15 5.9 14 10h5.8a2 2 0 0 1 1.9 2.6l-2.3 7A2 2 0 0 1 17.5 21H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h2.8a2 2 0 0 0 1.8-1.1L12 3a3 3 0 0 1 3 2.9Z" />
+  </>
+);
+export const ThumbsDown = make(
+  "ThumbsDown",
+  <>
+    <path d="M17 14V3" />
+    <path d="M9 18.1 10 14H4.2a2 2 0 0 1-1.9-2.6l2.3-7A2 2 0 0 1 6.5 3H20a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2.8a2 2 0 0 0-1.8 1.1L12 21a3 3 0 0 1-3-2.9Z" />
+  </>
+);
+export const Star = make(
+  "Star",
+  <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z" />
 );

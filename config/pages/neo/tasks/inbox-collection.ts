@@ -23,16 +23,10 @@ const inboxCollection: NeoTask = {
     );
     if (!sources.length || !collectionAgent(company).configured) {
       await api.say(
-        "Set up Document Collection in Agents first. Choose the accounts, scope and run mode for this organisation. I can then run a collection task without changing that mode.",
-        [
-          {
-            label: "Set up agent",
-            href: "/inbox?module=AGENTS&page=document-collection&tab=configuration",
-          },
-        ]
+        `Document collection isn't on for ${companyOf(company)?.name} yet. Let's set it up first.`
       );
-      api.outcome("needs-you");
-      return "A source connection is required";
+      await api.chain("Set up document collection");
+      return "Set up Document collection";
     }
     await api.say(
       `I’ll check the delegated sources for ${companyOf(company)?.name}: ${sources.map((s) => `${s.provider} · ${s.scope} · from ${s.since}`).join("; ")}. This demo uses sample files. I’ll prepare drafts, link exact duplicates and leave exceptions for you. Nothing will be approved, sent or synced.`
@@ -60,8 +54,9 @@ const inboxCollection: NeoTask = {
     const linked = results.filter((r) => r.outcome === "linked").length;
     const held = results.filter((r) => r.outcome === "needs-decision").length;
     const failed = results.filter((r) => r.outcome === "failed").length;
+    const skipped = results.filter((r) => r.outcome === "skipped").length;
     const summary = results.length
-      ? `${prepared} prepared · ${linked} duplicates linked · ${held} need a decision · ${failed} unreadable`
+      ? `${prepared} prepared · ${linked} duplicates linked · ${held} need a decision · ${failed} unreadable · ${skipped} skipped`
       : "No new documents; previously collected files were not duplicated";
     if (held || failed) api.outcome("partial");
     api.show({
@@ -95,7 +90,7 @@ const inboxCollection: NeoTask = {
       ],
     });
     await api.say(
-      `${summary}. Drafts remain in Needs Review. ${failed ? "The unreadable attachment is in Inbox; open it to retry or request a clearer copy." : ""} Your agent’s run mode is unchanged.`,
+      `${summary}. Drafts remain in Needs Review. ${failed ? "The unreadable attachment is in Inbox; open it to retry or request a clearer copy." : ""} ${skipped ? "The dry run lists each skipped file and why." : ""}`,
       [
         {
           label: "Agent activity",

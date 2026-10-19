@@ -29,7 +29,7 @@ const NeoOffers = ({ company }: Props) => {
       role="status"
       className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-pi-brand-border bg-pi-brand-tint px-4 py-3"
     >
-      <NeoMark className="h-7 w-7 text-label-3" />
+      <NeoMark className="h-7 w-7" />
       <p className="min-w-0 flex-1 text-[13px] leading-5 text-pi-body">
         <span className="font-medium text-pi-ink">{offer.title}</span>{" "}
         {offer.detail}

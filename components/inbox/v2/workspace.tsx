@@ -151,6 +151,10 @@ import {
 } from "@/hooks/pages/inbox/use-client-policy";
 import PreparedTag from "@/components/neo/common/prepared-tag";
 import Brief from "@/components/neo/brief";
+import NeoPage, { NEO_PAGES, type NeoPageId } from "@/components/neo/page";
+import NeoChat from "@/components/neo/page/chat";
+import NeoAgents from "@/components/neo/page/agents";
+import NeoActivity from "@/components/neo/page/activity";
 import NeoOffers from "@/components/neo/offers";
 import BatchStrip from "@/components/neo/batch-strip";
 import ChaseBanner from "@/components/neo/chase-banner";
@@ -1437,6 +1441,15 @@ export default function Workspace() {
   const dashboardModule = router.query.module === "DASH";
   const agentsModule = router.query.module === "AGENTS";
   const neoModule = router.query.module === "NEO";
+  // Neo is one place (19 Oct 2026): Chat, Agents, Needs attention, Activity.
+  // Document collection's own screens (?module=AGENTS&page=…) sit under Agents.
+  const neoPage: NeoPageId | undefined = agentsModule
+    ? "agents"
+    : neoModule
+      ? NEO_PAGES.includes(router.query.page as NeoPageId)
+        ? (router.query.page as NeoPageId)
+        : "chat"
+      : undefined;
   const batchFilter =
     typeof router.query.batch === "string" ? router.query.batch : "";
   useEffect(() => {
@@ -1507,23 +1520,35 @@ export default function Workspace() {
      repetitive with the path already mentioned in the topbar"). */
   // The module crumb goes back to its list; the group crumb before it is a
   // sidebar heading, not a page, so it stays a label.
-  const pageCrumbs: Crumb[] | undefined = notificationsPage
-    ? ["Notifications"]
-    : coaModule && coaView.ledger
-      ? [
-          "Accounting",
-          { label: "Chart of Accounts", onClick: () => goCoa({}) },
-          coaView.ledger === "new" ? "New Ledger" : "Edit Ledger",
-        ]
-      : inventoryModule && inventoryView.item
+  const pageCrumbs: Crumb[] | undefined = neoPage
+    ? [
+        "Neo",
+        router.query.page === "document-collection"
+          ? "Document collection"
+          : {
+              chat: "Chat",
+              agents: "Agents",
+              attention: "Needs attention",
+              activity: "Activity",
+            }[neoPage],
+      ]
+    : notificationsPage
+      ? ["Notifications"]
+      : coaModule && coaView.ledger
         ? [
-            "Inventory",
-            { label: "Stock items", onClick: () => goInventory({}) },
-            inventoryView.item === "new"
-              ? "Create Stock Item"
-              : "Edit Stock Item",
+            "Accounting",
+            { label: "Chart of Accounts", onClick: () => goCoa({}) },
+            coaView.ledger === "new" ? "New Ledger" : "Edit Ledger",
           ]
-        : undefined;
+        : inventoryModule && inventoryView.item
+          ? [
+              "Inventory",
+              { label: "Stock items", onClick: () => goInventory({}) },
+              inventoryView.item === "new"
+                ? "Create Stock Item"
+                : "Edit Stock Item",
+            ]
+          : undefined;
   const goCoa = (view: CoaView) =>
     void router.push(
       view.ledger
@@ -2308,36 +2333,30 @@ export default function Workspace() {
     // as current is the child, not the parent.
     JV: "journal-vouchers",
   };
-  const navId = neoModule
-    ? "neo-today"
-    : agentsModule
-      ? "agents"
-      : notificationsPage
-        ? "notifications"
-        : dashboardModule
-          ? "dashboard"
-          : checksModule
-            ? "checks"
-            : autoModule
-              ? autoView.page
-              : gstModule
-                ? "gst"
-                : coaModule
-                  ? "chart-of-accounts"
-                  : inventoryModule
-                    ? "inventory"
-                    : bankModule
-                      ? "banking"
-                      : moduleRoute
-                        ? ROUTE_TO_NAV[moduleRoute]
-                        : "inbox";
+  const navId = neoPage
+    ? "neo"
+    : notificationsPage
+      ? "notifications"
+      : dashboardModule
+        ? "dashboard"
+        : checksModule
+          ? "checks"
+          : autoModule
+            ? autoView.page
+            : gstModule
+              ? "gst"
+              : coaModule
+                ? "chart-of-accounts"
+                : inventoryModule
+                  ? "inventory"
+                  : bankModule
+                    ? "banking"
+                    : moduleRoute
+                      ? ROUTE_TO_NAV[moduleRoute]
+                      : "inbox";
   const selectNav = (navItemId: string) => {
-    if (navItemId === "neo-today") {
+    if (navItemId === "neo") {
       void router.push("/inbox?module=NEO");
-      return;
-    }
-    if (navItemId === "agents") {
-      void router.push("/inbox?module=AGENTS");
       return;
     }
     if (navItemId === "checks") {
@@ -4082,10 +4101,29 @@ export default function Workspace() {
               companyId={state.company}
               companyIds={state.companies.map((c) => c.id)}
             />
-          ) : neoModule ? (
-            <Brief onOpen={openIn} />
-          ) : agentsModule ? (
-            <Agents key={state.company} company={state.company} />
+          ) : neoPage ? (
+            <NeoPage page={neoPage}>
+              {neoPage === "chat" ? (
+                <NeoChat />
+              ) : neoPage === "attention" ? (
+                <Brief onOpen={openIn} />
+              ) : neoPage === "activity" ? (
+                <NeoActivity
+                  key={state.company}
+                  company={state.company}
+                  user={actor}
+                  onOpenDocument={(docId) =>
+                    void router.push(detailHref(docId))
+                  }
+                  notify={notify}
+                />
+              ) : agentsModule &&
+                router.query.page === "document-collection" ? (
+                <Agents key={state.company} company={state.company} />
+              ) : (
+                <NeoAgents key={state.company} company={state.company} />
+              )}
+            </NeoPage>
           ) : dashboardModule ? (
             <Dashboard key={state.company} company={state.company} />
           ) : checksModule ? (
@@ -7340,7 +7378,8 @@ export default function Workspace() {
   return (
     <SidebarLayout
       // The docked record asks for the icon rail, to leave the table room.
-      defaultSidebarState={splitView ? false : undefined}
+      // Neo asks for it too: its own column takes the rail's place.
+      defaultSidebarState={splitView || neoPage ? false : undefined}
       crumbs={pageCrumbs}
       inboxCount={
         books.filter((x) => !x.created && x.status === "Needs Review").length

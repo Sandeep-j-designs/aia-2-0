@@ -40,7 +40,7 @@ const batchEntry: NeoTask = {
     (has(p, /\b(bills|invoices|vouchers)\b/i) &&
       has(
         p,
-        /\b(book|enter|post|these|freight goes|deduct|cost cent|plant)\b/i
+        /\b(book|enter|post|upload|these|freight goes|deduct|cost cent|plant)\b/i
       ) &&
       !has(p, /sales invoice|how much|spend|which vendors|approve|undo|polic/i))
       ? 9

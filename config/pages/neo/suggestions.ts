@@ -72,3 +72,37 @@ export const suggestionsFor = (context: NeoContext): string[] => {
 
   return [...new Set(out)].slice(0, 4);
 };
+
+/**
+ * The four starting points on Neo's home, one per kind of work: ask the
+ * books, enter a batch, draft a document, set up an agent. Each one is a
+ * request the planner already handles; the icon is named, not imported, so
+ * this stays config.
+ */
+export const HOME_PROMPTS: {
+  label: string;
+  icon: "search" | "upload" | "invoice" | "agent";
+}[] = [
+  { label: "Find unpaid invoices", icon: "search" },
+  { label: "Upload purchase bills", icon: "upload" },
+  { label: "Create an invoice", icon: "invoice" },
+  { label: "Create an agent", icon: "agent" },
+];
+
+/**
+ * Slash commands in Neo's prompt box: one per kind of work, each filling in
+ * the start of a request the planner already handles. Picking one leaves the
+ * caret at the end, so "/spend" becomes "How much did we spend with ▍".
+ */
+export const NEO_COMMANDS: { cmd: string; label: string; prompt: string }[] = [
+  { cmd: "spend", label: "Spend with a vendor", prompt: "How much did we spend with " },
+  { cmd: "move", label: "Move bills to another ledger", prompt: "Move all " },
+  { cmd: "batch", label: "Enter a batch of bills", prompt: "Enter a batch of bills with an instruction" },
+  { cmd: "owes", label: "Who owes us money", prompt: "Who owes us money?" },
+  { cmd: "chase", label: "Chase a vendor for a document", prompt: "Ask the vendor for their GSTIN" },
+  { cmd: "remind", label: "Draft collection reminders", prompt: "Draft collection reminders" },
+  { cmd: "masters", label: "Vendors not in masters", prompt: "Which vendors aren't in my masters?" },
+  { cmd: "brief", label: "What needs me today", prompt: "What needs me across my clients today?" },
+  { cmd: "agent", label: "Create an agent", prompt: "Create an agent that " },
+  { cmd: "collect", label: "Set up document collection", prompt: "Set up document collection" },
+];

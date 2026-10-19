@@ -1,3 +1,5 @@
+import type { CollectionDryRunRow } from "@/types/pages/inbox/sources";
+
 /**
  * Neo — the in-app agent.
  *
@@ -41,6 +43,9 @@ export type NeoStep = {
   label: string;
   status: NeoStepStatus;
   cite?: NeoRef;
+  /** Epoch ms the step started and landed, for "Worked for 1.4s". */
+  startedAt?: number;
+  endedAt?: number;
 };
 
 export type NeoOption = {
@@ -138,6 +143,39 @@ export type NeoCard =
       view: "settings" | "register" | "drafts";
     }
   | {
+      /**
+       * Document Collection's setup card. It reads the setup live from the
+       * collection store (the draft while setting up, the saved one after),
+       * so a field edited on the card and an answer in the chat land in the
+       * same place.
+       */
+      kind: "collection-setup";
+      company: string;
+    }
+  | {
+      /**
+       * What collecting would do over the backfill, with nothing created.
+       * Live while setting up; `rows` freezes it once the setup is saved.
+       */
+      kind: "collection-dry-run";
+      company: string;
+      rows?: CollectionDryRunRow[];
+    }
+  | {
+      /**
+       * An agent Neo set up with the person (Neo › Agents). What it watches,
+       * when it runs and how far it may go — never further than a draft.
+       */
+      kind: "agent";
+      agentId: string;
+      name: string;
+      description: string;
+      trigger: string;
+      permission: "flag" | "draft";
+      checks: string[];
+      state: "Preview" | "Saved as draft" | "Scheduled";
+    }
+  | {
       kind: "message";
       channel: "WhatsApp" | "Email";
       to: string;
@@ -203,6 +241,8 @@ export type NeoMessage = {
   role: "user" | "neo";
   /** Files the user sent with this message. */
   attachments?: NeoAttachment[];
+  /** Inbox documents picked for this message (+ › Pick from Inbox). */
+  records?: string[];
   runId?: string;
   text?: string;
   steps?: NeoStep[];
@@ -214,6 +254,29 @@ export type NeoMessage = {
   links?: NeoRef[];
   /** Prompts offered as one-tap follow-ups; picking one sends it. */
   suggestions?: string[];
+  /**
+   * The run ended here because it was stopped: why, and how many records it
+   * had already changed. Continue is offered only when that is none.
+   */
+  stopped?: { reason: string; touched: number; company: string };
+  /** Neo is still writing this text; the reader shows it arriving. */
+  streaming?: boolean;
+  /** The person's rating of this answer, and what they said was wrong. */
+  feedback?: { value: "up" | "down"; note?: string };
+  /**
+   * A user message that has been edited or retried keeps every version of
+   * itself with the conversation that followed it; `version` is the one on
+   * screen. The live version's `after` is the messages below it, not this.
+   */
+  versions?: NeoVersion[];
+  version?: number;
+};
+
+/** One version of a user turn: what was asked and what followed. */
+export type NeoVersion = {
+  text: string;
+  attachments?: NeoAttachment[];
+  after: NeoMessage[];
 };
 
 export type NeoRunStatus =
@@ -300,4 +363,20 @@ export type NeoTask = {
     attachments?: NeoAttachment[]
   ) => number;
   run: (api: NeoTaskApi) => Promise<string | void>;
+};
+
+/**
+ * One conversation in Neo's Recent chats. The page and the docked panel show
+ * the same current chat; New chat files it here.
+ *
+ * DEV: GET /api/neo/chats (titles), GET /api/neo/chats/:id (messages).
+ */
+export type NeoChat = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: NeoMessage[];
+  starred?: boolean;
+  /** Renamed by the person: the automatic title never overwrites it. */
+  named?: boolean;
 };

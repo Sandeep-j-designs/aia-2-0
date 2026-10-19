@@ -42,6 +42,30 @@ const plexMono = localFont({
   ],
   display: "swap",
 });
+// Source Serif 4 is Neo's reading voice (19 Oct 2026): its answers are set
+// apart from the UI the way a chat assistant's are, in a text face built for
+// long reading. The latin-ext cut is a second family only for ₹, which the
+// latin cut lacks.
+const sourceSerif = localFont({
+  src: [
+    {
+      path: "../public/fonts/source-serif-4-latin-wght-normal.woff2",
+      weight: "200 900",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/source-serif-4-latin-wght-italic.woff2",
+      weight: "200 900",
+      style: "italic",
+    },
+  ],
+  display: "swap",
+});
+const sourceSerifExt = localFont({
+  src: "../public/fonts/source-serif-4-latin-ext-wght-normal.woff2",
+  weight: "200 900",
+  display: "swap",
+});
 
 /**
  * PROTOTYPE STUB — mirrors pages/_app.tsx in aiaccountant-app.
@@ -65,6 +89,9 @@ export default function App({ Component, pageProps }: AppProps) {
             sans-serif;
           --font-family-display: ${openSans.style.fontFamily};
           --font-family-mono: ${plexMono.style.fontFamily};
+          --font-family-reading:
+            ${sourceSerif.style.fontFamily}, ${sourceSerifExt.style.fontFamily},
+            Georgia, serif;
         }
       `}</style>
       {/* GuideProvider is mounted in production's _app.tsx too — a journey

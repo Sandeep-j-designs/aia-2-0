@@ -5,6 +5,7 @@ import type {
   NeoAction,
   NeoAttachment,
   NeoCard,
+  NeoChat,
   NeoContext,
   NeoMessage,
   NeoOption,
@@ -14,6 +15,9 @@ import type {
   NeoRunStatus,
   NeoTaskApi,
 } from "@/types/pages/neo";
+import { MOCK_NEO_CHATS } from "@/config/pages/neo/mock-chats";
+import { opensInCanvas } from "@/utils/pages/neo/canvas";
+import { isNeoHref, onNeoChatPage, onNeoPage } from "@/utils/pages/neo/route";
 import { subscribeNeoSelection } from "@/utils/pages/neo/selection";
 import { logActivity } from "@/hooks/pages/inbox/use-activity";
 import {
@@ -39,6 +43,11 @@ import {
  * back on POST /api/neo/runs/:id/replies.
  */
 
+/** One answer given in a run: a pick on a question, or a card's action. */
+type NeoDecision =
+  | { kind: "ask"; value: string }
+  | { kind: "card"; value: string; card: NeoCard };
+
 const uid = (p: string) =>
   `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -47,6 +56,22 @@ class Stopped extends Error {
     super("Task stopped");
   }
 }
+
+/**
+ * A chat's title, from its first request: the first sentence, at most
+ * eight words, without the question mark — "How much did we spend with Blue
+ * Dart".
+ */
+const titleFrom = (text: string) => {
+  const first = text.replace(/\s+/g, " ").trim().split(/(?<=[.?!])\s/)[0];
+  const words = first.replace(/[?.!]+$/, "").split(" ");
+  const title = words.slice(0, 8).join(" ") + (words.length > 8 ? "…" : "");
+  return title.charAt(0).toUpperCase() + title.slice(1) || "New chat";
+};
+
+const PANEL_WIDTH_KEY = "aia.neo.panelWidth";
+export const PANEL_MIN = 384;
+export const PANEL_MAX = 560;
 
 const reducedMotion = () =>
   typeof window !== "undefined" &&
@@ -89,10 +114,43 @@ const flashRow = (id: string, tries = 24): Promise<boolean> =>
 
 export const useNeoRuntime = () => {
   const router = useRouter();
+  // The key handler is bound once; it reads the route through this.
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const { company } = useStore();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "runs">("chat");
   const [messages, setMessages] = useState<NeoMessage[]>([]);
+  // Edits and retries read the conversation outside a render.
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  // The document open beside the chat (a message id), page and panel alike.
+  const [canvas, setCanvas] = useState<string | null>(null);
+  // The docked panel's width, dragged from its left edge. Per viewer.
+  const [panelWidth, setPanelWidthState] = useState(PANEL_MIN);
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem(PANEL_WIDTH_KEY));
+      if (saved >= PANEL_MIN && saved <= PANEL_MAX) setPanelWidthState(saved);
+    } catch {
+      /* storage blocked: the default width stands */
+    }
+  }, []);
+  const setPanelWidth = useCallback((w: number) => {
+    const next = Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, w)));
+    setPanelWidthState(next);
+    try {
+      window.localStorage.setItem(PANEL_WIDTH_KEY, String(next));
+    } catch {
+      /* storage blocked: the width holds for this visit */
+    }
+  }, []);
+  // Recent chats. The current conversation is filed under `chatId` as soon
+  // as it has a message, so the page's list shows it while it runs.
+  // DEV: replace the seed with GET /api/neo/chats
+  const [chats, setChats] = useState<NeoChat[]>(() =>
+    structuredClone(MOCK_NEO_CHATS)
+  );
+  const [chatId, setChatId] = useState(() => uid("chat"));
   const [runs, setRuns] = useState<NeoRun[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -116,6 +174,22 @@ export const useNeoRuntime = () => {
     new Map<string, (() => { reversed: string[]; skipped: string[] })[]>()
   );
   const editableCards = useRef(new Map<string, NeoCard>());
+  /**
+   * What each run was asked and every decision the person made in it, in
+   * order — so a stopped run can be continued: replayed to where it stood,
+   * then carried on live.
+   */
+  const runMeta = useRef(
+    new Map<
+      string,
+      {
+        prompt: string;
+        attachments: NeoAttachment[];
+        context: NeoContext;
+        decisions: NeoDecision[];
+      }
+    >()
+  );
 
   useEffect(() => subscribeNeoSelection(setSelectedIds), []);
 
@@ -127,13 +201,48 @@ export const useNeoRuntime = () => {
   // A new screen is a new "this": whatever was detached re-attaches.
   useEffect(() => setDetached(false), [itemId, module]);
 
+  /*
+    Neo's own pages show no record, so "this" there is nothing — unless the
+    chat was expanded from the panel, which carries the panel's "this" along
+    (`carried`) until a new chat or ×.
+  */
+  const onNeo = onNeoPage(router.query);
+  const [carried, setCarried] = useState<NeoContext | null>(null);
+  // Documents picked from the Inbox in the prompt box (+ › Pick from Inbox).
+  // They are "this" — on the page and in the panel — until ×, a new chat or
+  // another company.
+  const [picked, setPicked] = useState<{ company: string; ids: string[] } | null>(
+    null
+  );
+  useEffect(() => {
+    if (!onNeo) setCarried(null);
+    // Neo never docks beside Neo: entering its pages folds the panel.
+    else setOpen(false);
+  }, [onNeo]);
+
   const context: NeoContext = useMemo(
     () =>
-      detached
+      picked?.company === company && picked.ids.length
+        ? picked.ids.length === 1
+          ? { company, itemId: picked.ids[0], selectedIds: [] }
+          : { company, selectedIds: picked.ids }
+        : detached
         ? { company, selectedIds: [] }
-        : { company, itemId, selectedIds: itemId ? [] : selectedIds, module },
-    [detached, itemId, selectedIds, module, company]
+        : onNeo
+          ? carried?.company === company
+            ? carried
+            : { company, selectedIds: [] }
+          : { company, itemId, selectedIds: itemId ? [] : selectedIds, module },
+    [picked, detached, onNeo, carried, itemId, selectedIds, module, company]
   );
+
+  /*
+    Leaving Neo's chat page for a record keeps the conversation on screen:
+    the panel docks beside where you landed. Panel-to-record keeps its old
+    behaviour (the panel closes), and Neo's own pages never dock.
+  */
+  const dockAfter = (fromChat: boolean, href: string) =>
+    setOpen(fromChat && !isNeoHref(href));
 
   /* ---------------------------------------------------- conversation ops */
 
@@ -145,9 +254,10 @@ export const useNeoRuntime = () => {
 
   const goTo = useCallback(
     async (ref: NeoRef) => {
+      const fromChat = onNeoChatPage(router.query);
       if (ref.href) {
         await router.push(ref.href);
-        setOpen(false);
+        dockAfter(fromChat, ref.href);
         return;
       }
       if (!ref.itemId) return;
@@ -165,11 +275,12 @@ export const useNeoRuntime = () => {
       }
       if (ref.target === "inbox") {
         if (router.asPath !== "/inbox") await router.push("/inbox");
+        dockAfter(fromChat, "/inbox");
         const found = await flashRow(ref.itemId);
         if (found) return;
       }
       await router.push(`/inbox?id=${encodeURIComponent(ref.itemId)}`);
-      setOpen(false);
+      dockAfter(fromChat, "/inbox?id=");
     },
     [router]
   );
@@ -177,16 +288,25 @@ export const useNeoRuntime = () => {
   /* ------------------------------------------------------------- runs */
 
   const startRun = useCallback(
-    async (prompt: string, attachments: NeoAttachment[] = []) => {
+    async (
+      prompt: string,
+      attachments: NeoAttachment[] = [],
+      // An edit or retry has already put the user's message on screen.
+      // Continue also brings the stopped run's "this" and its decisions.
+      opts: {
+        userId?: string;
+        context?: NeoContext;
+        replay?: NeoDecision[];
+      } = {}
+    ) => {
       const text =
         prompt.trim() ||
         (attachments.length
           ? `${attachments.length} file${attachments.length === 1 ? "" : "s"} attached`
           : "");
       if (!text || controller.current) return;
-      setTab("chat");
       const runId = uid("run");
-      const ctx = structuredClone(context);
+      const ctx = structuredClone(opts.context || context);
       logActivity({
         company: ctx.company || getState().company,
         actor: { kind: "ai", name: "Neo" },
@@ -196,15 +316,20 @@ export const useNeoRuntime = () => {
         subject: text,
         reason: "User request; calculations read from company records",
       });
-      setMessages((ms) => [
-        ...ms,
-        {
-          id: uid("m"),
-          role: "user",
-          text,
-          attachments: attachments.length ? attachments : undefined,
-        },
-      ]);
+      if (!opts.userId)
+        setMessages((ms) => [
+          ...ms,
+          {
+            id: uid("m"),
+            role: "user",
+            text,
+            attachments: attachments.length ? attachments : undefined,
+            records:
+              picked && picked.company === ctx.company && picked.ids.length
+                ? picked.ids
+                : undefined,
+          },
+        ]);
 
       const task = pickTask(text, ctx, attachments);
       if (!task) {
@@ -222,6 +347,16 @@ export const useNeoRuntime = () => {
 
       const abort = new AbortController();
       controller.current = abort;
+      // Continuing: the decisions already made are answered again at once,
+      // and nothing waits until they run out.
+      const replay = [...(opts.replay || [])];
+      const decisions: NeoDecision[] = [];
+      runMeta.current.set(runId, {
+        prompt: text,
+        attachments,
+        context: structuredClone(ctx),
+        decisions,
+      });
       let stopReason = "Stopped by you";
       const touched = new Set<string>();
       const unsubscribe = subscribeStore(() => {
@@ -258,6 +393,7 @@ export const useNeoRuntime = () => {
       const wait = (ms: number) =>
         new Promise<void>((resolve, reject) => {
           guard();
+          if (replay.length) ms = 0;
           const onAbort = () => {
             window.clearTimeout(t);
             reject(new Stopped());
@@ -321,15 +457,22 @@ export const useNeoRuntime = () => {
             push({ text: said, links });
             return;
           }
-          const id = push({ text: "", links: undefined });
-          const words = said.split(/(\s+)/);
-          const chunk = Math.max(1, Math.ceil(words.length / 24));
-          for (let i = 0; i < words.length; i += chunk) {
-            const shown = words.slice(0, i + chunk).join("");
-            patch(id, (m) => ({ ...m, text: shown }));
-            if (!reducedMotion()) await wait(16);
+          // Written out word by word, as a model streams: about 30ms a
+          // word, never more than 2.4s for the whole answer.
+          if (reducedMotion() || replay.length) {
+            push({ text: said, links });
+            return;
           }
-          patch(id, (m) => ({ ...m, text: said, links }));
+          const id = push({ text: "", links: undefined, streaming: true });
+          const words = said.split(/(\s+)/);
+          const perTick = Math.max(2, Math.ceil(words.length / 80));
+          const tick = Math.min(60, 2400 / Math.ceil(words.length / perTick));
+          for (let i = 0; i < words.length; i += perTick) {
+            const shown = words.slice(0, i + perTick).join("");
+            patch(id, (m) => ({ ...m, text: shown }));
+            await wait(tick);
+          }
+          patch(id, (m) => ({ ...m, text: said, links, streaming: false }));
         },
         step: async (label, cite) => {
           guard();
@@ -343,7 +486,15 @@ export const useNeoRuntime = () => {
                 id,
                 role: "neo",
                 runId,
-                steps: [{ id: stepId, label, status: "running", cite }],
+                steps: [
+                  {
+                    id: stepId,
+                    label,
+                    status: "running",
+                    cite,
+                    startedAt: Date.now(),
+                  },
+                ],
               },
             ]);
           } else {
@@ -352,7 +503,13 @@ export const useNeoRuntime = () => {
               ...m,
               steps: [
                 ...(m.steps || []),
-                { id: stepId, label, status: "running", cite },
+                {
+                  id: stepId,
+                  label,
+                  status: "running",
+                  cite,
+                  startedAt: Date.now(),
+                },
               ],
             }));
           }
@@ -363,7 +520,12 @@ export const useNeoRuntime = () => {
               ...m,
               steps: m.steps?.map((s) =>
                 s.id === stepId
-                  ? { ...s, status: "done", label: done || s.label }
+                  ? {
+                      ...s,
+                      status: "done",
+                      label: done || s.label,
+                      endedAt: Date.now(),
+                    }
                   : s
               ),
             }));
@@ -379,16 +541,39 @@ export const useNeoRuntime = () => {
         },
         ask: async (question: string, options: NeoOption[]) => {
           guard();
+          if (replay[0]?.kind === "ask") {
+            const { value } = replay.shift()!;
+            push({ ask: { question, options, answer: value } });
+            decisions.push({ kind: "ask", value });
+            return value;
+          }
+          // The run went a different way this time: stop replaying.
+          replay.length = 0;
           const id = push({ ask: { question, options } });
           const answer = await waitFor(id);
           guard();
           patch(id, (m) => ({ ...m, ask: { ...m.ask!, answer } }));
+          decisions.push({ kind: "ask", value: answer });
           return answer;
         },
         card: async (card: NeoCard, actions: NeoAction[]) => {
           guard();
+          if (replay[0]?.kind === "card" && replay[0].card.kind === card.kind) {
+            const d = replay.shift() as Extract<NeoDecision, { kind: "card" }>;
+            // The person's edits to the card come back with it.
+            if (card.kind === "message" && d.card.kind === "message")
+              card.body = d.card.body;
+            if (card.kind === "changeset" && d.card.kind === "changeset")
+              card.rows = d.card.rows;
+            const id = push({ card, actions, chosen: d.value });
+            lastCard = id;
+            decisions.push({ kind: "card", value: d.value, card });
+            return d.value;
+          }
+          replay.length = 0;
           const id = push({ card, actions });
           lastCard = id;
+          if (opensInCanvas(card)) setCanvas(id);
           editableCards.current.set(id, card);
           const choice = await waitFor(id);
           guard();
@@ -399,11 +584,13 @@ export const useNeoRuntime = () => {
             card.rows = edited.rows;
           editableCards.current.delete(id);
           patch(id, (m) => ({ ...m, chosen: choice }));
+          decisions.push({ kind: "card", value: choice, card });
           return choice;
         },
         show: (card) => {
           guard();
           const id = push({ card });
+          if (opensInCanvas(card)) setCanvas(id);
           return (next) => patch(id, (m) => ({ ...m, card: next }));
         },
         updateCard: (card, actions) => {
@@ -470,8 +657,10 @@ export const useNeoRuntime = () => {
           setLiveStatus(said ? { text: said, progress } : null),
         navigate: async (path) => {
           guard();
+          const fromChat = onNeoChatPage(router.query);
           if (path.includes("neoReview=") || path.includes("neoSync="))
             setOpen(false);
+          else if (fromChat && !isNeoHref(path)) setOpen(true);
           if (router.asPath !== path) await router.push(path);
         },
         chain: async (next) => {
@@ -500,7 +689,11 @@ export const useNeoRuntime = () => {
               id: uid("m"),
               role: "neo",
               runId,
-              text: `${stopReason}. ${touched.size} records were created, linked or changed; completed changes remain. Tasks lists them. Eligible draft changes can be undone from document History.`,
+              stopped: {
+                reason: stopReason,
+                touched: touched.size,
+                company: ctx.company || getState().company,
+              },
             },
           ]);
         } else {
@@ -527,6 +720,10 @@ export const useNeoRuntime = () => {
         }
       } finally {
         unsubscribe();
+        // A stopped answer stops arriving where it stood.
+        setMessages((ms) =>
+          ms.map((m) => (m.streaming ? { ...m, streaming: false } : m))
+        );
         editableCards.current.clear();
         // Any question still open on screen belongs to a run that has ended.
         resolvers.current.clear();
@@ -541,7 +738,7 @@ export const useNeoRuntime = () => {
         setBusy(null);
       }
     },
-    [busy, context, router]
+    [busy, context, router, picked]
   );
 
   /** Answer the open question or card. */
@@ -594,7 +791,6 @@ export const useNeoRuntime = () => {
             text: "Switch to the run's company before undoing it. Nothing was changed.",
           },
         ]);
-        setTab("chat");
         return;
       }
       const list = undos.current.get(runId) || [];
@@ -627,15 +823,218 @@ export const useNeoRuntime = () => {
           text: `Reversed ${reversed.length} records.${skipped.length ? ` Kept ${skipped.length} records because they changed, were approved or are unavailable: ${skipped.join(", ")}.` : " No later edits were overwritten."}`,
         },
       ]);
-      setTab("chat");
     },
     [runs, itemId, router]
   );
 
+  useEffect(() => {
+    if (!messages.length) return;
+    const first = messages.find((m) => m.role === "user");
+    // Titled once Neo has answered, so the list doesn't flicker mid-request.
+    const answered = messages.some((m) => m.role === "neo");
+    const title = answered ? titleFrom(first?.text || "") : "New chat";
+    setChats((cs) => {
+      const entry: NeoChat = {
+        id: chatId,
+        title,
+        updatedAt: new Date().toISOString(),
+        messages,
+      };
+      return cs.some((c) => c.id === chatId)
+        ? cs.map((c) =>
+            c.id === chatId
+              ? {
+                  ...entry,
+                  starred: c.starred,
+                  named: c.named,
+                  title:
+                    c.named || c.title !== "New chat" ? c.title : entry.title,
+                }
+              : c
+          )
+        : [entry, ...cs];
+    });
+  }, [messages, chatId]);
+
   const reset = useCallback(() => {
     if (controller.current) return;
     setMessages([]);
+    setChatId(uid("chat"));
+    setCarried(null);
+    setPicked(null);
+    setCanvas(null);
   }, []);
+
+  /* ------------------------------------------- edits, retries, versions */
+
+  /**
+   * Ask again from a user message: the old answer (and everything after it)
+   * is kept as a version, and the new one runs in its place. `text` is the
+   * edited request; a retry passes the same words.
+   */
+  const branch = useCallback(
+    (userId: string, text: string) => {
+      if (controller.current || !text.trim()) return;
+      const ms = messagesRef.current;
+      const idx = ms.findIndex((m) => m.id === userId && m.role === "user");
+      if (idx < 0) return;
+      const u = ms[idx];
+      const versions = (
+        u.versions || [{ text: u.text || "", attachments: u.attachments, after: [] }]
+      ).map((v) => ({ ...v }));
+      const cur = u.version ?? 0;
+      versions[cur] = {
+        text: u.text || "",
+        attachments: u.attachments,
+        after: ms.slice(idx + 1),
+      };
+      versions.push({ text, attachments: u.attachments, after: [] });
+      setMessages([
+        ...ms.slice(0, idx),
+        { ...u, text, versions, version: versions.length - 1 },
+      ]);
+      setCanvas(null);
+      void startRun(text, u.attachments || [], { userId });
+    },
+    [startRun]
+  );
+
+  const retry = useCallback(
+    (userId: string) => {
+      const u = messagesRef.current.find((m) => m.id === userId);
+      if (u?.text) branch(userId, u.text);
+    },
+    [branch]
+  );
+
+  /** Show another version of a user turn, with the conversation it had. */
+  const switchVersion = useCallback((userId: string, n: number) => {
+    if (controller.current) return;
+    const ms = messagesRef.current;
+    const idx = ms.findIndex((m) => m.id === userId);
+    const u = ms[idx];
+    if (!u?.versions?.[n] || n === (u.version ?? 0)) return;
+    const versions = u.versions.map((v) => ({ ...v }));
+    versions[u.version ?? 0] = {
+      text: u.text || "",
+      attachments: u.attachments,
+      after: ms.slice(idx + 1),
+    };
+    const v = versions[n];
+    setMessages([
+      ...ms.slice(0, idx),
+      { ...u, text: v.text, attachments: v.attachments, versions, version: n },
+      ...v.after,
+    ]);
+    setCanvas(null);
+  }, []);
+
+  /**
+   * Rate an answer. DEV: POST /api/neo/feedback { messageId, value, note }.
+   * The same value again clears it.
+   */
+  const rate = useCallback(
+    (messageId: string, value: "up" | "down", note?: string) =>
+      setMessages((ms) =>
+        ms.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                feedback:
+                  m.feedback?.value === value && note === undefined
+                    ? undefined
+                    : { value, note },
+              }
+            : m
+        )
+      ),
+    []
+  );
+
+  /**
+   * Carry on a stopped run: its messages are replaced by the same task run
+   * again, with every decision already made answered at once, so it arrives
+   * back where it stopped and goes on from there. Only when the stop left
+   * nothing changed — a replay must never write twice.
+   */
+  const continueRun = useCallback(
+    (stoppedId: string) => {
+      if (controller.current) return;
+      const ms = messagesRef.current;
+      const stop = ms.find((m) => m.id === stoppedId);
+      const meta = stop?.runId && runMeta.current.get(stop.runId);
+      if (!stop?.stopped || !meta || stop.stopped.touched) return;
+      if (meta.context.company !== getState().company) return;
+      const first = ms.findIndex((m) => m.runId === stop.runId);
+      const user = [...ms.slice(0, first)].reverse().find((m) => m.role === "user");
+      setMessages(ms.filter((m) => m.runId !== stop.runId));
+      setCanvas(null);
+      void startRun(meta.prompt, meta.attachments, {
+        userId: user?.id,
+        context: meta.context,
+        replay: meta.decisions,
+      });
+    },
+    [startRun]
+  );
+
+  /** Make these Inbox documents "this", for the next request. */
+  const pickRecords = useCallback(
+    (ids: string[]) =>
+      setPicked(ids.length ? { company: getState().company, ids } : null),
+    []
+  );
+
+  /* ------------------------------------------------------ chat management */
+
+  const renameChat = useCallback((id: string, title: string) => {
+    const t = title.replace(/\s+/g, " ").trim();
+    if (!t) return;
+    setChats((cs) =>
+      cs.map((c) => (c.id === id ? { ...c, title: t, named: true } : c))
+    );
+  }, []);
+
+  const toggleStar = useCallback(
+    (id: string) =>
+      setChats((cs) =>
+        cs.map((c) => (c.id === id ? { ...c, starred: !c.starred } : c))
+      ),
+    []
+  );
+
+  /** The panel's chat, full width on Neo's page, with its "this" carried. */
+  const expand = useCallback(() => {
+    setCarried(context.itemId || context.selectedIds.length ? context : null);
+    void router.push("/inbox?module=NEO");
+  }, [context, router]);
+
+  /** Carry on an earlier conversation. Not while a run is live. */
+  const openChat = useCallback(
+    (id: string) => {
+      if (controller.current) return;
+      const chat = chats.find((c) => c.id === id);
+      if (!chat) return;
+      setChatId(id);
+      setMessages(chat.messages);
+      setCanvas(null);
+    },
+    [chats]
+  );
+
+  /** Delete a chat. Deleting the one on screen starts a new one. */
+  const deleteChat = useCallback(
+    (id: string) => {
+      if (controller.current && id === chatId) return;
+      setChats((cs) => cs.filter((c) => c.id !== id));
+      if (id === chatId) {
+        setMessages([]);
+        setChatId(uid("chat"));
+        setCanvas(null);
+      }
+    },
+    [chatId]
+  );
 
   /* ---------------------------------------------------------- global keys */
 
@@ -648,7 +1047,34 @@ export const useNeoRuntime = () => {
         e.code === "KeyJ"
       ) {
         e.preventDefault();
-        setOpen((o) => !o);
+        // Inside Neo, Ctrl J is the prompt box, not a second Neo.
+        if (onNeoPage(routerRef.current.query)) {
+          if (!onNeoChatPage(routerRef.current.query))
+            void routerRef.current.push("/inbox?module=NEO");
+          window.setTimeout(
+            () => document.getElementById("neo-composer")?.focus(),
+            60
+          );
+        } else setOpen((o) => !o);
+      }
+      // Ctrl Shift O: a new chat, as in the chat apps.
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        !e.altKey &&
+        e.code === "KeyO"
+      ) {
+        if (controller.current) return;
+        e.preventDefault();
+        setMessages([]);
+        setChatId(uid("chat"));
+        setCarried(null);
+        setPicked(null);
+        setCanvas(null);
+        window.setTimeout(
+          () => document.getElementById("neo-composer")?.focus(),
+          60
+        );
       }
     };
     window.addEventListener("keydown", onKey);
@@ -663,14 +1089,17 @@ export const useNeoRuntime = () => {
   return {
     open,
     setOpen,
-    tab,
-    setTab,
     messages,
     runs,
     busy,
     context,
     runContext: runs.find((r) => r.id === busy)?.context,
-    detach: () => setDetached(true),
+    detach: () => {
+      setPicked(null);
+      setCarried(null);
+      setDetached(true);
+    },
+    expand,
     startRun,
     completeWaiting: (runId: string) =>
       setRuns((rs) =>
@@ -692,6 +1121,23 @@ export const useNeoRuntime = () => {
     stop,
     undo,
     reset,
+    chats,
+    chatId,
+    openChat,
+    deleteChat,
+    renameChat,
+    toggleStar,
+    retry,
+    edit: branch,
+    continueRun,
+    pickRecords,
+    picked: picked?.company === company ? picked.ids : [],
+    switchVersion,
+    rate,
+    canvas,
+    setCanvas,
+    panelWidth,
+    setPanelWidth,
     goTo,
     hasLauncher: launchers > 0,
     paused,

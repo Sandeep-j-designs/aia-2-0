@@ -90,6 +90,141 @@ User asked whether Neo solves a real problem, then to build the proposition (art
 - **Panel:** the Live run card is gone (the task remains, by typing); suggestions come from data (`suggestions.ts`: a vendor whose open bills sit on a different ledger from their approved ones, overdue, not-in-masters, top vendor); unmatched requests get the three closest example chips (`closestExamples`). Prototype notes ("Scripted prototype", "simulated") show only with `NEO_DEMO_NOTES` (`config/pages/neo/demo.ts`, off).
 - Verified headless at 1440 and 390: brief, panel, sign-off, ask-the-books, fallback chips, chase send → reply, offer → sign-off. Production build passes. Not tested: the trust offer (no seeded pattern sits at 4 of 5 with a waiting bill), chase auto-close on approval.
 
+## Neo as a place (19 Oct 2026, supersedes the Navigation line of the Neo proposition)
+
+User shared two reference screens (a chat home and an Agents page) and asked for Neo to look like them. They chose: keep the docked panel as well as the page; keep the navy rail rather than the screens' light one; Needs attention and Activity reuse the existing brief and activity log; Today and Sources fold into the new navigation.
+- **Route:** `?module=NEO[&page=chat|agents|attention|activity]`, default chat. `?module=AGENTS&page=document-collection` (the old Sources detail) renders inside it under Agents; `?module=AGENTS` alone shows the Agents page. The sidebar has one **Neo** item (the star, see below) instead of the Today/Sources group. On every Neo page the workspace asks the rail to fold to icons (the same unsaved ask the docked record uses).
+- **Neo column** (`components/neo/page/nav.tsx`): New chat, Chat, Agents, Needs attention (count = non-neutral brief signals across the live clients), Activity, then Recent chats.
+- **Chat** (`components/neo/page/chat.tsx`): empty, a home with the solid star, "Hi {first name}, what can I help you with?", the page-variant composer (`Composer variant="page"`), four prompt chips (`HOME_PROMPTS` in suggestions.ts) and the confirmation note, over a dotted brand-tint wash (`.neo-home-wash`, tokens only). With messages, the same `Message` cards run down a 760px column, composer pinned below. Chips map to real tasks: Find unpaid invoices → ask-books (`unpaid` added; with nothing overdue it names the other client that has some), Upload purchase bills → batch entry (`upload` added), Create an invoice → sales from purchase, Create an agent → create-agent.
+- **The docked panel stays** for every other screen and shows the same conversation. On the chat page itself the panel and its edge tab are not drawn, NeoShell stops making room, and the top-bar Neo button focuses the prompt box (`utils/pages/neo/route.ts`).
+- **Recent chats** (runtime `chats`, `chatId`, `openChat`; seed `mock-chats.ts`): the current chat is filed as soon as it has a message, titled by the first request. New chat starts another; opening one restores its messages. Both are blocked while a run is live. In memory.
+- **Agents** (`components/neo/page/agents.tsx`, store `hooks/pages/neo/use-agents.ts`, types `types/pages/neo/agents.ts`, seed + recipes + ready-to-use in `mock-agents.ts`): Your agents (Document collection from the collection agent, then the store's agents: Bill validator draft, TDS deduction check scheduled, per company), Recommended agents (five recipes, "Create"), Ready to use (five assistants, "Start chat" with a prompt the planner handles). Create agent, Create and an agent card all open a fresh chat.
+- **Create-agent task** (`tasks/create-agent.ts`, card kind `agent`, `common/agent-card.tsx`): what it does (skipped when the prompt names a recipe) → when it runs → flag only or drafts too → card with Turn on / Save as draft / Not now. One agent per recipe: creating it again updates the one you have. "Edit agent <name>" opens a saved agent at its card. Agents flag or draft; nothing approves.
+- **Needs attention** is the firm brief, retitled, without its own button. Today's links now point to `page=attention`.
+- Verified headless at 1440 (dev server): home, agents, attention, activity; create-agent from the chip and from a recipe (no duplicate), unpaid answer, upload and invoice chips reach their first question, recent chats, dock on the Inbox with the same conversation. Production build not run (it would overwrite the running dev server's `.next`).
+
+## One Neo, two sizes (19 Oct 2026, later; supersedes the panel rules above)
+
+User: "It feels like 'Neo' exists in 2 places." The case: one agent and one conversation, drawn as two products (three marks, two front doors with different greetings, the panel's Tasks tab repeating the page, the chat lost on following a link, the panel docking over Neo's own pages). Rule: **the page is Neo's home, at full size; the panel is the same chat made small beside the work. Never both on screen; each leads to the other.** The user chose the star mark and moving Tasks to Activity.
+- **One mark:** the solid star (`NeoStar` in components/icons, the sparkle's star without accents). Bare in the sidebar, the Neo column and the home; white on a brand tile in `NeoMark` (top-bar button, panel header, edge tab, offers, batch strip, presence). The duotone `Sparkle` again means only "the AI decided this value". Ready-to-use agent cards use the star too.
+- **Panel = the small chat** (`components/neo/index.tsx`): header is mark, the chat's title (or Neo / Accounting agent), Recent chats menu, New chat, **Expand**, Close. No Chat/Tasks tabs, no greeting. Empty state: "Ask about this screen" (`suggestionsFor(context)`) and "Open Neo for agents, findings and history". The runtime's `tab` state is gone.
+- **Neo tasks live in Activity:** Neo › Activity has a fourth tab, Neo tasks (`components/neo/page/activity.tsx` passes `tasks` to `ActivityLog`), with every run, its outcome and Undo. Chases were already in Needs attention.
+- **Hand-offs** (`hooks/pages/neo/use-neo-runtime.ts`, `utils/pages/neo/route.ts`): Expand sets `carried` (the panel's "this") and opens the page, which shows the context chip above its prompt box until New chat or ×. Following a link or a run's `navigate` out of the page chat docks the panel on the same chat where you land (`dockAfter`); panel-to-record keeps closing the panel. Neo's own pages (`?module=NEO|AGENTS`) never draw the panel: entering one folds it, and Ctrl J or the top-bar button go to Neo › Chat's prompt box.
+- **Fixed on the way:** ask-books didn't match "aren't in my masters" (its own example), only "not in".
+- Verified headless at 1440: dock on a record → Expand with "Looking at Mahindra Logistics Ltd" carried; page answer → INB-2042 with the panel docked on the same chat; Ctrl J on Agents → Chat with the prompt box focused; Activity › Neo tasks lists a run.
+
+## Neo chat, rebuilt as a chat app (19 Oct 2026)
+
+User: Neo's chat "looks generic" next to Claude and the other LLM chats. The plan covered turn anatomy, the working state, sources, documents beside the chat, the composer, scrolling, chat management, the home and the panel. The user chose: Neo gets its own reading face, the canvas goes on both the page and the panel, and `react-markdown` + `remark-gfm` may be added (the production repo will need them too). A pre-change snapshot of the work tree is at `refs/checkpoints/pre-neo-chat-redesign`.
+- **Reading face:** Source Serif 4. It is bundled in `public/fonts/`, with the latin-ext cut loaded as a second family only for ₹. It is exposed as `--font-family-reading`, `.neo-reading` and `.neo-prose` in `styles/neo-workspace.css`. Answers are 16.5px / 1.65 on the page and 15.5px in the panel. The UI stays Open Sans.
+- **One thread for both sizes** (`common/thread.tsx`):
+  - Messages are grouped into turns: request, Neo's messages, then an action row.
+  - A new or edited request scrolls to the top of the view. The last turn has a min-height equal to the view, so the answer arrives below it.
+  - "Jump to latest" appears when there is content below the fold.
+  - While working, the star breathes (`.neo-breathe`) and the status line shimmers (`.neo-shimmer`). Both are off under reduced motion.
+- **Your message** (`common/user-message.tsx`):
+  - A grey `pi-fill` bubble.
+  - Long messages fold behind "Show more".
+  - Hover shows Copy and Edit. Edit re-runs from that request.
+  - Versions are kept as `NeoMessage.versions` / `version` and switched with ‹ 2 / 2 ›.
+  - More than four attachments fold to three plus "+N more".
+- **Neo's message** (`common/message.tsx`):
+  - Text is rendered as Markdown by `common/prose.tsx`.
+  - Any id, invoice no. or voucher no. of the current company in the text becomes a citation pill (`common/source-pill.tsx`) that previews the bill on hover.
+  - Tables right-align figure columns and have Copy as CSV.
+  - Sign-offs with draft, commit or external risk sit in an approval card whose head says what they risk.
+  - Follow-ups are quiet ↩ lines.
+  - `triage` and `ask-books` now write Markdown (bold verdicts, lists).
+- **Steps** (`common/steps.tsx`):
+  - Open while running, folded when done ("label · N steps · 1.4s").
+  - `NeoStep.startedAt` / `endedAt` record the timings.
+  - A failure never folds.
+- **Action row** (`common/turn-actions.tsx`):
+  - Copy, Retry, 👍 and 👎. 👎 asks for a reason chip and an optional note, stored as `NeoMessage.feedback`.
+  - "N sources" lists the records with previews. Only records with an `itemId` count.
+- **Streaming:** `say()` writes word by word at about 30ms a word, capped at 2.4s, and sets `streaming` while it runs. Reduced motion shows the text at once.
+- **Canvas** (`common/canvas.tsx`, `utils/pages/neo/canvas.ts`):
+  - Voucher, batch, change set, diff, collection setup, dry run and lists over five rows show in the thread as a tile. The document opens beside the chat on the page, and to the left of the panel over the work when docked.
+  - It opens automatically when a run shows one.
+  - ‹ › steps through the chat's documents. Esc or × closes it.
+  - Below 1024px it covers the screen.
+  - It renders the same `CardBody`, so edits there are the ones the sign-off counts.
+  - Runtime state: `canvas` / `setCanvas`.
+- **Composer** (`common/composer.tsx`, state in `hooks/pages/neo/use-composer.ts`):
+  - Two rows: the text on top, then a toolbar with +, the context pill and Send. Send becomes Stop while Neo works.
+  - + offers Upload bills and the sample batch.
+  - `@` lists the company's vendors and customers.
+  - `/` at the start lists `NEO_COMMANDS` (suggestions.ts).
+  - ↑ in an empty box edits the last request (`EDIT_LAST_EVENT`).
+  - Attachments show as file tiles.
+  - Files dropped anywhere on the chat attach to the next message (`common/drop-zone.tsx`).
+  - The key legend is gone. Ctrl / opens `common/shortcuts.tsx`.
+- **Chat management:**
+  - `page/chat-title.tsx`: click the title to rename it. Its caret offers Star, Rename, Export as Markdown and Delete.
+  - Titles are written once Neo answers: the first sentence, up to eight words.
+  - The Neo column has a chat search, Starred / Today / Yesterday / Previous 7 days / Older groups and a ⋯ menu per chat.
+  - Runtime: `renameChat`, `toggleStar`, `deleteChat`, `retry`, `edit`, `switchVersion` and `rate`.
+  - Ctrl Shift O starts a new chat.
+- **Home:**
+  - The greeting reads "Good morning/afternoon/evening, {name}" in the reading face.
+  - Four category chips (Find, Enter, Chase, Tidy up) each open three requests the planner handles, including data-derived ones from `suggestionsFor`.
+  - The dotted wash is now a faint tint.
+- **Panel:**
+  - Header: mark, chat title, Recent, New, Expand, Close. The company and the context chip moved into the composer.
+  - The left edge drags the width from 384 to 560px (`panelWidth`, localStorage `aia.neo.panelWidth`). `NeoShell` and the toast offsets follow `--neo-w`.
+  - The run strip (`presence.tsx`) is hidden on Neo's chat page and centres on the actual panel width.
+- **Icons added:** `ThumbsUp`, `ThumbsDown`, `Star`.
+- **Continue after stopping (added the same day):**
+  - A stopped run now ends on a notice (`NeoMessage.stopped`: reason, records touched, company) with Continue and Start over. Start over is the same as Retry, so it creates a version.
+  - The runtime keeps each run's prompt, attachments, context and every decision in order (`runMeta`). A decision is an ask answer, or a card action plus the edited card.
+  - `continueRun` removes the stopped run's messages and runs the same task again with those decisions replayed. While replaying, asks and cards answer themselves, waits are 0 and text appears whole. Once the decisions run out, or the run asks something different, it goes live.
+  - Continue is disabled when the stop left records changed ("would repeat changes already made") or the company is different.
+  - Known side effect: replaying batch entry makes a fresh batch id (B-…-02). The first batch stays in the in-memory batch store with no drafts.
+- **Pick from Inbox (added the same day):**
+  - The prompt box's + menu opens `common/inbox-picker.tsx`: the company's documents, with search, an All / Needs review / Approved filter, ticks and "Use N documents".
+  - The picks become "this" through the runtime's `picked` / `pickRecords`: one document becomes `itemId`, several become `selectedIds`. So tasks that read selected rows ("move the selected bills…", chases, collections) work from Neo's page.
+  - Picks show as brand-tint tiles in the prompt box (removable) and as chips on the request they were sent with (`NeoMessage.records`).
+  - Picks stay until ×, a new chat or a company switch.
+- **Verified** headless at 1440 and 390 (dev server):
+  - Home and categories.
+  - Triage Markdown.
+  - Streaming.
+  - Spend answer with sources and preview.
+  - / and @ menus.
+  - Retry and edit, with versions.
+  - 👎 feedback.
+  - Change-by-rule in the canvas on the page and in the panel.
+  - Batch entry with attachments into the canvas.
+  - Panel resize.
+  - Dark mode.
+  - Typecheck passes.
+- **Not done:**
+  - No production build (it would overwrite the running dev server's `.next`).
+  - Citation pills only appear where a task's text names a record number.
+  - The Neo column still breaks layouts under ~700px, as before this work.
+
+## Document collection set up in Neo's chat, phase 1 (19 Oct 2026)
+
+Plan doc "Document Collection setup — research and plan" (https://claude.ai/artifact/PTQdv2fgGaJbrg6UVBtodr), from research on ChatGPT, Gemini, Copilot, Zapier, Lindy, n8n, Dext, Hubdoc, QuickBooks, Zoho and Ramp. The user approved: setup in the chat, forwarding address first, firm-inbox routing by buyer GSTIN in phase 3, phase 1 now and stop for review.
+- **Task** `config/pages/neo/tasks/collection-setup.ts` (score 60; "Set up document collection", "Edit agent Document collection", "collect my bills from Gmail…"). Steps:
+  1. Where bills arrive (single pick of channel combos; WhatsApp suggested when the Inbox has WhatsApp items).
+  2. Connect: the forwarding address is always first and connected at once (`forwardingAddress(slug)`, Gmail's confirmation code caught as `MOCK_FORWARDING_CODE`). Then optional Gmail label `AIA/Bills` behind a sample consent, with a filter to copy (`MOCK_GMAIL_FILTER`). Drive offers an AIA-created folder or an existing one. WhatsApp uses the business number.
+  3. Senders (vendors and staff / anyone) and non-bills (skip / hold).
+  4. Routing is not asked yet.
+  5. Backfill: period (1 Sep, suggested for the 20 Oct GSTR-3B) / last 30 days / FY / new.
+  6. Dry run, then Turn on / Save as draft / Not now; Save changes / Cancel when editing an agent that is on.
+  - Turn on commits and `chain`s the ordinary collection run. A stopped or finished run discards any unsaved draft.
+- **Setup card** (`common/collection-card.tsx`, card kind `collection-setup`) reads the draft live from the source store. While drafting, every rule is a select. A hand edit is listed in `edited` and Neo never asks about it or overwrites it (`patchCollectionDraft`). After saving, the card reads the saved setup.
+- **Dry run** (`common/dry-run-card.tsx`, kind `collection-dry-run`): five groups (would prepare, already in your books, needs your decision, skipped, unreadable), with Allow sender / Exclude sender / Include again on rows. The sign-off reads "Turn on and prepare N drafts". `rows` freezes it on save.
+- **One rule set** (`classify` in `use-inbox-sources.ts`), used by `dryRunCollection` and `collectSources`, in this order: excluded sender → not a bill → unknown sender → duplicate (content hash, also across channels in one pass) → unreadable → no invoice no. → prepared. Skipped files and held non-bills get receipts and no item. Verified: the dry run's 4 prepared / 1 decision / 1 unreadable matched the real run.
+- **Store:** `drafts`, `CollectionAgent.setup` (configured=false + setup = Draft), `sinceFor`, `BACKFILL_LABEL`, `startCollectionDraft`, `setDraftChannel` (keeps card order), `commitCollectionSetup(company, "on"|"draft")`.
+- **Types:** `SourceProvider` gains "Forwarding"; candidates carry `sender`, `knownSender` and `kind`; receipts can be `skipped`; `CollectionSetup`, `CollectionChannel`, `CollectionDryRunRow`.
+- **Mock data** (`mock-sources.ts`): forwarding carries the whole accounts@ inbox. That includes the four bills, an August Blue Dart bill (FY backfill only), and a bank statement, a payment advice, a quote and a newsletter. Gmail carries the same four bills (same hashes). Drive has the Mahindra duplicate and Delhivery. WhatsApp has VRL, and Ganesh Tempo from an unknown number.
+- **Screens:** the Agents card opens the chat when not set up (Draft → continue). `components/agents/index.tsx` is now only the agent's own screen: "Set up with Neo" when not set up; the Setup tab shows the card read-only, a Channels list with Disconnect/Reconnect, and "Change in Neo". `connection-setup.tsx` and `run-mode.tsx` are deleted; the dead Sources list branch is gone; in-house icons. `hooks/pages/neo/use-start-chat.ts` starts a fresh chat on Neo's page.
+- **Asking to collect** before setup now chains into setup.
+- **No missing-invoice-number strip** (user: "It is not needed"): `sources/document-issue.tsx` now shows only the unreadable-attachment strip. The form's Supplier invoice no. field already marks the gap. `resolveSourceReference` is gone, and the header reason reads "No supplier invoice number on the bill; add it before approving".
+- **Not built (phases 2–3):** status-board Overview, Run now as a chat, reconnect health in Needs attention, firm inbox routing, WhatsApp "which company?", the daily summary notice (the Notices choice is stored, not sent). Known: the Neo column breaks layouts under ~700px; that predates this work.
+
 ## Neo voucher entry, phase A (14 Oct 2026)
 
 User: "neo should be helpful in doing the core accounting tasks like Voucher creation … creation of 10 bills from instructions and uploads." Plan artifact https://claude.ai/artifact/4aPK6gptSju9SJVNHNB8Ex; the user chose phase A (batch purchases) in depth, then said "It should happen inside the chat interface, not in the main UI": the Batches page, its nav entry and the upload dialog's instruction field were removed. It revises part one's rule: one record → the screen; a batch, or context the document doesn't carry → Neo.

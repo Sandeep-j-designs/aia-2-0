@@ -5,6 +5,8 @@ import askBooks from "./ask-books";
 import batchEntry from "./batch-entry";
 import batchActions from "./batch-actions";
 import changeByRule from "./change-by-rule";
+import createAgent from "./create-agent";
+import collectionSetup from "./collection-setup";
 import chase from "./chase";
 import journal from "./journal";
 import liveRun from "./live-run";
@@ -27,6 +29,8 @@ import { freightInsight, itcInsight } from "@/config/pages/neo/tasks/insights";
  * definitions and this file is deleted.
  */
 export const NEO_TASKS: NeoTask[] = [
+  collectionSetup,
+  createAgent,
   batchActions,
   batchEntry,
   inboxCollection,
@@ -59,6 +63,8 @@ export const NEO_EXAMPLES = [
   "Book depreciation of ₹12,000 on office equipment",
   "Create a sales invoice from a purchase",
   "What needs me across my clients today?",
+  "Create an agent that validates vendor bills",
+  "Set up document collection",
 ];
 
 const words = (s: string) =>
