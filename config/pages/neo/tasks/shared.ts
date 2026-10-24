@@ -1,6 +1,13 @@
 import { getState, type Item } from "@/components/inbox/v2/store";
-import type { NeoOption, NeoRef, NeoTaskApi } from "@/types/pages/neo";
+import type {
+  NeoAction,
+  NeoDecisionItem,
+  NeoOption,
+  NeoRef,
+  NeoTaskApi,
+} from "@/types/pages/neo";
 import { findItemId, money } from "@/utils/pages/neo";
+import { OTHER } from "@/utils/pages/neo/decisions";
 
 /**
  * What the scripted tasks share: reading the store the way the screens do,
@@ -90,3 +97,46 @@ export const pickItem = async (
 
 /** The sum of a list of documents, for a group heading. */
 export const total = (xs: Item[]) => xs.reduce((s, x) => s + x.amount, 0);
+
+/**
+ * Ask everything at once (20 Oct 2026): one decision sheet with Neo's picks
+ * filled in and what the books settle folded away, confirmed by one button
+ * that also carries the run's sign-off. Returns the button and the answers.
+ *
+ * `items` take `recommended` as their starting pick. A one-option question
+ * is not a question: leave it out and say what Neo did instead.
+ */
+export const decide = async (
+  api: NeoTaskApi,
+  title: string,
+  items: Omit<NeoDecisionItem, "pick">[],
+  actions: NeoAction[]
+) => {
+  const card = {
+    kind: "decisions" as const,
+    title,
+    // "Recommended" on the sheet says it; the hint keeps only the reason.
+    items: items.map((i) => ({
+      ...i,
+      pick: i.recommended,
+      options: i.options.map((o) => ({
+        ...o,
+        hint:
+          o.hint
+            ?.replace(/^Suggested(:\s*|\s*$)/i, "")
+            .replace(/^./, (c) => c.toUpperCase()) || undefined,
+      })),
+    })),
+  };
+  const choice = await api.card(card, actions);
+  // "Something else" hands the task its fallback pick and your words.
+  const picks: Record<string, string> = {};
+  const notes: Record<string, string> = {};
+  for (const i of card.items) {
+    if (i.pick === OTHER && i.other) {
+      picks[i.id] = i.other.fallback;
+      if (i.note?.trim()) notes[i.id] = i.note.trim();
+    } else picks[i.id] = i.pick;
+  }
+  return { choice, picks, notes };
+};

@@ -5,13 +5,20 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ArrowDown, NeoStar } from "@/components/icons";
+import {
+  ArrowDown,
+  ChevronRight,
+  MessageSquareText,
+  NeoStar,
+} from "@/components/icons";
+import { getState } from "@/components/inbox/v2/store";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
 import type { NeoRuntime } from "@/hooks/pages/neo/use-neo-runtime";
 import type { NeoMessage, NeoRef } from "@/types/pages/neo";
 import { cn } from "@/lib/utils";
-import Message from "./message";
+import { opensInCanvas, sameDoc } from "@/utils/pages/neo/canvas";
+import Message, { DocStrip } from "./message";
 import TurnActions from "./turn-actions";
 import UserMessage from "./user-message";
 
@@ -32,6 +39,29 @@ export const useLiveMessage = (neo: NeoRuntime) =>
 export const EDIT_LAST_EVENT = "neo:edit-last";
 
 type Turn = { user?: NeoMessage; neo: NeoMessage[] };
+
+/** A message that is only a document to open: no words, steps or buttons. */
+const docOnly = (m: NeoMessage) =>
+  !!m.card &&
+  opensInCanvas(m.card) &&
+  !m.text &&
+  !m.steps &&
+  !m.ask &&
+  !m.actions?.length &&
+  !m.links?.length &&
+  !m.suggestions?.length;
+
+/** Two or more documents in a row become one strip; the rest stay as they are. */
+const segments = (ms: NeoMessage[]) => {
+  const out: (NeoMessage | NeoMessage[])[] = [];
+  for (const m of ms) {
+    const last = out[out.length - 1];
+    if (docOnly(m) && Array.isArray(last)) last.push(m);
+    else if (docOnly(m)) out.push([m]);
+    else out.push(m);
+  }
+  return out.map((x) => (Array.isArray(x) && x.length === 1 ? x[0] : x));
+};
 
 const turnsOf = (messages: NeoMessage[]) =>
   messages.reduce<Turn[]>((ts, m) => {
@@ -84,7 +114,40 @@ export const NeoGlyph = ({ working }: { working?: boolean }) => (
 type Props = {
   variant: "page" | "panel";
   onPrompt: (text: string) => void;
+  /**
+   * A bill's subtask: only the turns asked from that bill, under `header`
+   * (its checklist). Without it the chat shows its own turns, and each
+   * bill's subtask folds to one line where it was first asked.
+   */
+  scope?: string | null;
+  header?: React.ReactNode;
+  /** Opens a folded subtask: the bill, with its own view in the dock. */
+  onOpenScope?: (itemId: string) => void;
 };
+
+/** One folded subtask in the chat: the bill and how much was said there. */
+const SubtaskLine = ({
+  label,
+  asks,
+  onOpen,
+}: {
+  label: string;
+  asks: number;
+  onOpen?: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onOpen}
+    className="group flex w-full items-center gap-2 rounded-md border border-pi-line px-3 py-2 text-left text-[13px] leading-5 text-pi-body transition-colors hover:border-pi-line-2 hover:bg-pi-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+  >
+    <MessageSquareText className="h-3.5 w-3.5 flex-none text-pi-faint" />
+    <span className="min-w-0 flex-1 truncate">
+      On <span className="font-medium text-pi-ink">{label}</span> · {asks}{" "}
+      {asks === 1 ? "question" : "questions"}
+    </span>
+    <ChevronRight className="h-3.5 w-3.5 flex-none text-pi-faint transition-transform group-hover:translate-x-0.5" />
+  </button>
+);
 
 /**
  * The conversation, as turns: the request, then everything Neo did and said
@@ -95,11 +158,38 @@ type Props = {
  * view and the answer arrives below it, rather than the view chasing the
  * bottom line by line. Scrolled away, "Jump to latest" brings you back.
  */
-const Thread = ({ variant, onPrompt }: Props) => {
+const Thread = ({ variant, onPrompt, scope, header, onOpenScope }: Props) => {
   const neo = useNeo();
   const live = useLiveMessage(neo);
   const page = variant === "page";
-  const turns = useMemo(() => turnsOf(neo.messages), [neo.messages]);
+  const { scopeOf } = neo;
+  // The turns this view shows; in the chat, each subtask's first turn
+  // stands in for all of its turns, folded.
+  const { visible, folds } = useMemo(() => {
+    const folds = new Map<string, { scope: string; asks: number }>();
+    if (scope)
+      return {
+        visible: neo.messages.filter((m) => scopeOf(m) === scope),
+        folds,
+      };
+    const seen = new Map<string, { scope: string; asks: number }>();
+    const visible = neo.messages.filter((m) => {
+      const s = scopeOf(m);
+      if (!s) return true;
+      if (m.role !== "user") return false;
+      const fold = seen.get(s);
+      if (fold) {
+        fold.asks += 1;
+        return false;
+      }
+      const f = { scope: s, asks: 1 };
+      seen.set(s, f);
+      folds.set(m.id, f);
+      return true;
+    });
+    return { visible, folds };
+  }, [neo.messages, scope, scopeOf]);
+  const turns = useMemo(() => turnsOf(visible), [visible]);
   const [editing, setEditing] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
@@ -117,7 +207,7 @@ const Thread = ({ variant, onPrompt }: Props) => {
     const el = scroller.current;
     if (el) setBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 48);
   };
-  useEffect(measure, [neo.messages, height]);
+  useEffect(measure, [visible, height]);
 
   // A chat opened from the list starts at its end.
   const chat = useRef(neo.chatId);
@@ -129,7 +219,9 @@ const Thread = ({ variant, onPrompt }: Props) => {
   }, [neo.chatId, neo.messages]);
 
   // A new (or edited) request goes to the top of the view.
-  const lastUser = [...neo.messages].reverse().find((m) => m.role === "user");
+  const lastUser = [...visible]
+    .reverse()
+    .find((m) => m.role === "user" && !folds.has(m.id));
   const anchor = `${neo.chatId}:${lastUser?.id}:${lastUser?.version ?? 0}`;
   const anchored = useRef(anchor);
   useEffect(() => {
@@ -142,7 +234,9 @@ const Thread = ({ variant, onPrompt }: Props) => {
       `[data-turn="${CSS.escape(lastUser.id)}"]`
     );
     if (!el || !target) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
     el.scrollTo({
       top: target.offsetTop - (page ? 24 : 16),
       behavior: reduce ? "auto" : "smooth",
@@ -168,10 +262,25 @@ const Thread = ({ variant, onPrompt }: Props) => {
           <div
             className={cn(
               "mx-auto flex flex-col",
-              page ? "max-w-[760px] gap-8 px-6 py-8" : "gap-8 px-5 py-5"
+              page
+                ? "max-w-[760px] gap-8 px-4 py-6 sm:px-6 sm:py-8"
+                : "gap-8 px-5 py-5"
             )}
           >
+            {header}
             {turns.map((t, i) => {
+              const fold = t.user && folds.get(t.user.id);
+              if (fold) {
+                const bill = getState().items.find((x) => x.id === fold.scope);
+                return (
+                  <SubtaskLine
+                    key={t.user!.id}
+                    label={bill?.form.invoiceNo || bill?.file.name || "a bill"}
+                    asks={fold.asks}
+                    onOpen={onOpenScope && (() => onOpenScope(fold.scope))}
+                  />
+                );
+              }
               const last = i === turns.length - 1;
               const running = last && !!neo.busy;
               const rated =
@@ -218,45 +327,62 @@ const Thread = ({ variant, onPrompt }: Props) => {
                       onVersion={(n) => neo.switchVersion(t.user!.id, n)}
                     />
                   )}
-                  {t.neo.map((m) => (
-                    <Message
-                      key={m.id}
-                      message={m}
-                      live={live?.id === m.id}
-                      running={!!m.runId && m.runId === neo.busy}
-                      paused={neo.paused}
-                      onAnswer={(v) => neo.answer(m.id, v)}
-                      onEditCard={(card) => neo.editCard(m.id, card)}
-                      onRef={neo.goTo}
-                      onPrompt={onPrompt}
-                      onPause={neo.pause}
-                      onResume={neo.resume}
-                      onStop={neo.stop}
-                      onOpenCanvas={() =>
-                        neo.setCanvas(neo.canvas === m.id ? null : m.id)
-                      }
-                      inCanvas={neo.canvas === m.id}
-                      onContinue={
-                        m.stopped && last && !neo.busy
-                          ? () => neo.continueRun(m.id)
-                          : undefined
-                      }
-                      onRetry={
-                        m.stopped && last && !neo.busy && t.user
-                          ? () => neo.retry(t.user!.id)
-                          : undefined
-                      }
-                      continueBlocked={
-                        !m.stopped
-                          ? undefined
-                          : m.stopped.touched
-                            ? "Continue would repeat changes already made. Start over asks again from the top."
-                            : m.stopped.company !== neo.context.company
-                              ? "Switch back to the run's company to continue."
+                  {segments(t.neo).map((seg) =>
+                    Array.isArray(seg) ? (
+                      <DocStrip
+                        key={seg[0].id}
+                        messages={seg}
+                        isOpen={(m) => sameDoc(neo.messages, neo.canvas, m)}
+                        onOpen={(m) =>
+                          neo.setCanvas(
+                            sameDoc(neo.messages, neo.canvas, m) ? null : m.id
+                          )
+                        }
+                      />
+                    ) : (
+                      ((m) => (
+                        <Message
+                          key={m.id}
+                          message={m}
+                          live={live?.id === m.id}
+                          running={!!m.runId && m.runId === neo.busy}
+                          paused={neo.paused}
+                          onAnswer={(v) => neo.answer(m.id, v)}
+                          onEditCard={(card) => neo.editCard(m.id, card)}
+                          onRef={neo.goTo}
+                          onPrompt={onPrompt}
+                          onPause={neo.pause}
+                          onResume={neo.resume}
+                          onStop={neo.stop}
+                          onOpenCanvas={() =>
+                            neo.setCanvas(
+                              sameDoc(neo.messages, neo.canvas, m) ? null : m.id
+                            )
+                          }
+                          inCanvas={sameDoc(neo.messages, neo.canvas, m)}
+                          onContinue={
+                            m.stopped && last && !neo.busy
+                              ? () => neo.continueRun(m.id)
                               : undefined
-                      }
-                    />
-                  ))}
+                          }
+                          onRetry={
+                            m.stopped && last && !neo.busy && t.user
+                              ? () => neo.retry(t.user!.id)
+                              : undefined
+                          }
+                          continueBlocked={
+                            !m.stopped
+                              ? undefined
+                              : m.stopped.touched
+                                ? "Continue would repeat changes already made. Start over asks again from the top."
+                                : m.stopped.company !== neo.context.company
+                                  ? "Switch back to the run's company to continue."
+                                  : undefined
+                          }
+                        />
+                      ))(seg)
+                    )
+                  )}
                   {running ? (
                     !streaming && !stepping ? (
                       <div
@@ -264,7 +390,11 @@ const Thread = ({ variant, onPrompt }: Props) => {
                         aria-live="polite"
                       >
                         <NeoGlyph working={!neo.paused && !waiting} />
-                        <span className={cn(!waiting && !neo.paused && "neo-shimmer")}>
+                        <span
+                          className={cn(
+                            !waiting && !neo.paused && "neo-shimmer"
+                          )}
+                        >
                           {status}
                         </span>
                       </div>
@@ -297,6 +427,18 @@ const Thread = ({ variant, onPrompt }: Props) => {
                             rated && neo.rate(rated.id, v, note)
                           }
                           onRef={neo.goTo}
+                          onUndo={(() => {
+                            // Undo sits on the answer that made the change,
+                            // until it is approved or undone.
+                            const run = neo.runs.find(
+                              (r) =>
+                                r.undoable &&
+                                t.neo.some((m) => m.runId === r.id)
+                            );
+                            return run && !neo.busy
+                              ? () => neo.undo(run.id)
+                              : undefined;
+                          })()}
                         />
                       </div>
                     )

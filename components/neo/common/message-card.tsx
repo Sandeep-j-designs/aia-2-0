@@ -22,6 +22,13 @@ const MessageCard = ({ inputId, card, editable, onChange }: Props) => (
         To {card.to}
       </span>
     </div>
+    {card.template && (
+      <p className="border-b border-border px-3 py-1.5 text-caption-1 text-muted-foreground">
+        Goes as the approved template{" "}
+        <code className="code text-foreground">{card.template}</code>. Only the
+        request in the middle can change.
+      </p>
+    )}
     <label className="sr-only" htmlFor={inputId}>
       Message to send
     </label>

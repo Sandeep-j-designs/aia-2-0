@@ -7,6 +7,7 @@ import {
 } from "@/components/inbox/v2/store";
 import { LEDGERS } from "@/config/pages/inbox/journal-masters";
 import { COST_CENTRES } from "@/config/pages/inbox/mock-cost-centres";
+import { decide } from "./shared";
 import type { NeoChangeRow, NeoTask } from "@/types/pages/neo";
 import { findName, has, money } from "@/utils/pages/neo";
 import { companyItems, isOpen } from "./shared";
@@ -78,7 +79,10 @@ const changeByRule: NeoTask = {
       p,
       /\b(move|change|set|switch|re-?ledger|recode|re-?code|reclass|tag|post)\b.*\b(to|ledger|under|into|cost cent)/i
     ) && !has(p, /sales invoice|journal|jv\b|remind/i)
-      ? 4
+      ? // Acting on records already chosen outranks entering new ones.
+        /\bselected\b/i.test(p)
+        ? 10
+        : 4
       : 0,
   run: async (api) => {
     const field: Field = /cost cent|\btag\b/i.test(api.prompt)
@@ -103,41 +107,82 @@ const changeByRule: NeoTask = {
     let vendor = findName(api.prompt, [
       ...new Set(bills.map((x) => x.form.party)),
     ]);
-    if (!vendor && !selection) {
-      if (!openVendors.length) {
-        await api.say("There are no open purchase bills to change.");
-        return "Nothing open";
-      }
-      vendor = await api.ask(
-        "Whose bills?",
-        openVendors.slice(0, 4).map((v) => ({
-          id: v,
-          label: v,
-          hint: `${bills.filter((b) => b.form.party === v && isOpen(b)).length} open`,
-        }))
-      );
+    if (!vendor && !selection && !openVendors.length) {
+      await api.say("There are no open purchase bills to change.");
+      return "Nothing open";
     }
 
     const values = knownValues(field);
     const fromText = api.prompt.match(/\bfrom\b(.*?)\b(?:to|into|under)\b/i);
     const from = fromText ? findName(fromText[1], values) : undefined;
     const toText = api.prompt.split(/\b(?:to|into|under)\b/i).pop() || "";
-    const to =
-      findName(toText, values) ||
-      (await api.ask(
+    let to = findName(toText, values);
+    // Whose bills and where they go, if the request didn't say, on one
+    // sheet; the change set after it is the sign-off (20 Oct 2026).
+    const askVendor = !vendor && !selection;
+    if (askVendor || !to) {
+      const targets =
         field === "Ledger"
-          ? `Which ledger should ${vendor || "these"} bills go to?`
-          : `Which cost centre should ${vendor || "these"} bills carry?`,
-        (field === "Ledger"
           ? [
               "Freight Inward",
               "Office Expenses",
               "General Expenses",
               "Repairs & Maintenance",
             ]
-          : COST_CENTRES.slice(0, 4).map((c) => c.name)
-        ).map((v) => ({ id: v, label: v }))
-      ));
+          : COST_CENTRES.slice(0, 4).map((c) => c.name);
+      const { choice, picks } = await decide(
+        api,
+        field === "Ledger"
+          ? "Move bills to another ledger"
+          : "Tag bills with a cost centre",
+        [
+          ...(askVendor
+            ? [
+                {
+                  id: "vendor",
+                  header: "Vendor",
+                  question: "Whose bills?",
+                  recommended: "",
+                  options: openVendors.slice(0, 4).map((v) => ({
+                    id: v,
+                    label: v,
+                    hint: `${bills.filter((b) => b.form.party === v && isOpen(b)).length} open`,
+                  })),
+                },
+              ]
+            : []),
+          ...(!to
+            ? [
+                {
+                  id: "to",
+                  header: "Move to",
+                  question:
+                    field === "Ledger"
+                      ? "Which ledger should they go to?"
+                      : "Which cost centre should they carry?",
+                  recommended: "",
+                  options: targets.map((v) => ({ id: v, label: v })),
+                },
+              ]
+            : []),
+        ],
+        [
+          {
+            id: "go",
+            label: "Submit and find the bills",
+            primary: true,
+            risk: "read",
+          },
+          { id: "cancel", label: "Not now" },
+        ]
+      );
+      if (choice !== "go") {
+        await api.say("Nothing changed.");
+        return "Not changed";
+      }
+      if (askVendor) vendor = picks.vendor;
+      to = to || picks.to;
+    }
 
     const scan = await api.step(
       `Finding ${vendor ? `${vendor}'s` : "the selected"} bills${from ? ` on ${from}` : ""}`
@@ -250,11 +295,17 @@ const changeByRule: NeoTask = {
     api.touch(targets.map((x) => x.id));
     api.onUndo(neoUndoChanges(snapshots, api.runId));
     const sum = targets.reduce((s, x) => s + x.amount, 0);
+    api.remember({
+      kind: "move",
+      vendor,
+      ids: targets.map((x) => x.id),
+      label: `${targets.length} ${vendor ? `${vendor} ` : ""}bill${targets.length === 1 ? "" : "s"} on ${to}`,
+    });
     applying(
       `${card.verb === "Move" ? "Moved" : "Tagged"} ${targets.length} bill${targets.length === 1 ? "" : "s"} · ${money(sum)}`
     );
     await api.say(
-      `Done. ${targets.length} bill${targets.length === 1 ? " is" : "s are"} on ${to} and still waiting for review — nothing was approved.${card.rows.length > picked.length ? ` ${card.rows.length - picked.length} left as ${card.rows.length - picked.length === 1 ? "it was" : "they were"}.` : ""} Undo is in Tasks until they're approved.`,
+      `Done. ${targets.length} bill${targets.length === 1 ? " is" : "s are"} on ${to} and still waiting for review — nothing was approved.${card.rows.length > picked.length ? ` ${card.rows.length - picked.length} left as ${card.rows.length - picked.length === 1 ? "it was" : "they were"}.` : ""} Undo is below, and in Activity until they're approved.`,
       targets.slice(0, 3).map((x) => ({
         label: x.form.invoiceNo || x.id,
         itemId: x.id,

@@ -142,7 +142,7 @@ const seed = (company: string): NeoAgent[] => [
     permission: "flag",
     recipeId: "validate-bills",
     checks: AGENT_RECIPES[0].checks,
-    lastRunAt: "2026-10-19T12:07:00+05:30",
+    lastRunAt: "2026-10-13T12:07:00+05:30",
     toReview: 5,
   },
   {
@@ -158,7 +158,7 @@ const seed = (company: string): NeoAgent[] => [
       "194C and 194J bills above the single and yearly limits",
       "Lower-deduction certificates and 194C(6) declarations",
     ],
-    lastRunAt: "2026-10-16T11:11:00+05:30",
+    lastRunAt: "2026-10-10T11:11:00+05:30",
   },
 ];
 

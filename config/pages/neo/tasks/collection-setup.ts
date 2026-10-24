@@ -17,6 +17,7 @@ import {
   MOCK_GMAIL_FILTER,
   SOURCE_SCOPES,
 } from "@/config/pages/inbox/mock-sources";
+import { decide } from "./shared";
 import type { NeoTask } from "@/types/pages/neo";
 import type {
   CollectionBackfill,
@@ -75,50 +76,141 @@ const collectionSetup: NeoTask = {
         );
         api.show({ kind: "collection-setup", company });
 
-        /* 1 — where bills arrive, suggested from what the Inbox has */
+        /*
+          Everything setup needs, on one sheet (20 Oct 2026): channels, the
+          Gmail label, the Drive folder, senders, non-bills and how far back.
+          Neo's picks are filled in; questions about a channel show only
+          while that channel is picked. One button applies them and runs the
+          dry run, whose card is the turn-on.
+        */
         const items = getState().items.filter((x) => x.company === company);
         const hasWhatsApp = items.some((x) => x.source === "whatsapp");
-        const where = await api.ask(
-          "Where do bills arrive today?\nPick the closest. A channel can be added later.",
+        const order: CollectionBackfill[] = ["period", "30d", "fy", "new"];
+        const { choice: ready, picks } = await decide(
+          api,
+          `Set up Document collection for ${org?.name}`,
           [
             {
-              id: "email-wa",
-              label: "Email and WhatsApp",
-              hint: hasWhatsApp
-                ? "Suggested: your Inbox already has bills from both"
-                : undefined,
+              id: "where",
+              header: "Channels",
+              question: "Where do bills arrive today?",
+              why: "Pick the closest; a channel can be added later. Email starts with a forwarding address, which needs no access to your mailbox.",
+              recommended: hasWhatsApp ? "email-wa" : "email",
+              ...(hasWhatsApp
+                ? {
+                    settled:
+                      "your Inbox already has bills from email and WhatsApp",
+                  }
+                : {}),
+              options: [
+                { id: "email-wa", label: "Email and WhatsApp" },
+                { id: "email", label: "Email only" },
+                { id: "all", label: "Email, a Drive folder and WhatsApp" },
+                { id: "wa", label: "WhatsApp only" },
+              ],
             },
-            { id: "email", label: "Email only" },
-            { id: "all", label: "Email, a Drive folder and WhatsApp" },
-            { id: "wa", label: "WhatsApp only" },
+            {
+              id: "gmail",
+              header: "Gmail label",
+              question: "Also read a Gmail label directly?",
+              why: "Forwarding is enough to start. A label is read-only and sees only the mail you file there.",
+              when: { id: "where", in: ["email-wa", "email", "all"] },
+              recommended: "no",
+              options: [
+                { id: "no", label: "Not now, forwarding is enough" },
+                { id: "yes", label: "Connect Gmail: read-only, one label" },
+              ],
+            },
+            {
+              id: "folder",
+              header: "Drive folder",
+              question: "Which Drive folder?",
+              when: { id: "where", in: ["all"] },
+              recommended: "new",
+              options: [
+                {
+                  id: "new",
+                  label: "A folder AI Accountant creates",
+                  hint: "Access to that folder only",
+                },
+                {
+                  id: "existing",
+                  label: "An existing folder",
+                  hint: "Needs read access to your whole Drive",
+                },
+              ],
+            },
+            ...(!edited("senders")
+              ? [
+                  {
+                    id: "senders",
+                    header: "Senders",
+                    question: "Whose bills should I collect?",
+                    recommended: "known",
+                    options: [
+                      {
+                        id: "known",
+                        label: "Your vendors and staff",
+                        hint: "Anyone else is skipped, and you can allow them",
+                      },
+                      { id: "anyone", label: "Anyone who sends one" },
+                    ],
+                  },
+                ]
+              : []),
+            ...(!edited("files")
+              ? [
+                  {
+                    id: "files",
+                    header: "Other files",
+                    question: "Files that aren't bills?",
+                    why: "Bank statements, payment advices, quotes and newsletters.",
+                    recommended: "bills",
+                    options: [
+                      {
+                        id: "bills",
+                        label: "Skip them",
+                        hint: "Each is listed with the reason",
+                      },
+                      { id: "all", label: "Hold them for me to file" },
+                    ],
+                  },
+                ]
+              : []),
+            ...(!edited("backfill")
+              ? [
+                  {
+                    id: "backfill",
+                    header: "How far back",
+                    question: "How far back should the first collection go?",
+                    why: "September's GSTR-3B is due on 20 Oct, so starting on 1 Sep makes that return complete.",
+                    recommended: "period",
+                    options: order.map((b) => ({
+                      id: b,
+                      label: `${BACKFILL_LABEL[b]} · ${day(sinceFor(b))}`,
+                    })),
+                  },
+                ]
+              : []),
+          ],
+          [
+            {
+              id: "go",
+              label: "Submit and show a dry run",
+              primary: true,
+              risk: "read",
+            },
+            { id: "cancel", label: "Not now" },
           ]
         );
+        if (ready !== "go") {
+          await api.say("Nothing saved.");
+          return "Nothing saved";
+        }
+        const where = picks.where;
         const email = where !== "wa";
         const drive = where === "all";
         const whatsapp = where !== "email";
-        if (email)
-          setDraftChannel(company, {
-            provider: "Forwarding",
-            status: "pending",
-            account: forwardingAddress(slug),
-            scope: SOURCE_SCOPES.Forwarding[0],
-          });
-        if (drive)
-          setDraftChannel(company, {
-            provider: "Google Drive",
-            status: "pending",
-            account: `accounts@${slug}.example`,
-            scope: SOURCE_SCOPES["Google Drive"][0],
-          });
-        if (whatsapp)
-          setDraftChannel(company, {
-            provider: "WhatsApp Business",
-            status: "pending",
-            account: "Business number +91 80 4718 2290",
-            scope: SOURCE_SCOPES["WhatsApp Business"][0],
-          });
-
-        /* 2 — connect, starting with the channel that needs no access */
         if (email) {
           setDraftChannel(company, {
             provider: "Forwarding",
@@ -129,121 +221,55 @@ const collectionSetup: NeoTask = {
           await api.say(
             `Your forwarding address is ready: ${forwardingAddress(slug)}. In Gmail, open Settings › Forwarding, add it, and forward everything sent to accounts@. Gmail mails a confirmation code to the new address; I caught it for you: ${MOCK_FORWARDING_CODE}.`
           );
-          const gmail = await api.ask(
-            "Should I also read a Gmail label directly?\nForwarding is enough to start. A label is read-only and sees only the mail you file there.",
-            [
-              {
-                id: "no",
-                label: "Not now, forwarding is enough",
-                hint: "Suggested",
-              },
-              { id: "yes", label: "Connect Gmail: read-only, one label" },
-            ]
-          );
-          if (gmail === "yes") {
-            const allow = await api.ask(
-              "Allow AI Accountant to read the Gmail label AIA/Bills?\nRead-only. It can't send or delete mail, or see other labels. Google's sign-in opens in its own window.",
-              [
-                { id: "allow", label: "Allow (sample sign-in)" },
-                { id: "cancel", label: "Cancel" },
-              ]
-            );
-            setDraftChannel(company, {
-              provider: "Gmail",
-              status: allow === "allow" ? "connected" : "skipped",
-              account: `accounts@${slug}.example`,
-              scope: SOURCE_SCOPES.Gmail[0],
-            });
-            if (allow === "allow")
-              await api.say(
-                `Connected. I'll read AIA/Bills only. To fill the label by itself, add this Gmail filter and set it to apply AIA/Bills: ${MOCK_GMAIL_FILTER}. It's on the card to copy.`
-              );
-          }
         }
-        if (drive) {
-          const folder = await api.ask("Which Drive folder?", [
-            {
-              id: "new",
-              label: "A folder AI Accountant creates",
-              hint: "Suggested: access to that folder only",
-            },
-            {
-              id: "existing",
-              label: "An existing folder",
-              hint: "Needs read access to your whole Drive",
-            },
-          ]);
+        if (drive)
           setDraftChannel(company, {
             provider: "Google Drive",
             status: "connected",
             account: `accounts@${slug}.example`,
-            scope: SOURCE_SCOPES["Google Drive"][folder === "new" ? 0 : 1],
+            scope:
+              SOURCE_SCOPES["Google Drive"][picks.folder === "new" ? 0 : 1],
           });
-        }
-        if (whatsapp) {
-          const wa = await api.ask(
-            "Collect bills sent to your WhatsApp business number?\nFrom vendors in your masters and named staff. Anyone else is skipped until you allow them.",
-            [
-              { id: "yes", label: "Yes, use the business number" },
-              { id: "skip", label: "Skip WhatsApp for now" },
-            ]
-          );
+        // Choosing WhatsApp on the sheet is the go-ahead for the business
+        // number: vendors in your masters and named staff only.
+        if (whatsapp)
           setDraftChannel(company, {
             provider: "WhatsApp Business",
-            status: wa === "yes" ? "connected" : "skipped",
+            status: "connected",
             account: "Business number +91 80 4718 2290",
             scope: SOURCE_SCOPES["WhatsApp Business"][0],
           });
-        }
-
-        /* 3 — which documents count */
-        if (!edited("senders")) {
-          const senders = await api.ask("Whose bills should I collect?", [
-            {
-              id: "known",
-              label: "Your vendors and staff",
-              hint: "Suggested: anyone else is skipped, and you can allow them",
-            },
-            { id: "anyone", label: "Anyone who sends one" },
-          ]);
+        if (picks.senders)
           patchCollectionDraft(company, {
-            senders: senders as CollectionSetup["senders"],
+            senders: picks.senders as CollectionSetup["senders"],
           });
-        }
-        if (!edited("files")) {
-          const files = await api.ask(
-            "And files that aren't bills?\nBank statements, payment advices, quotes and newsletters.",
+        if (picks.files)
+          patchCollectionDraft(company, {
+            files: picks.files as CollectionSetup["files"],
+          });
+        if (picks.backfill)
+          patchCollectionDraft(company, {
+            backfill: picks.backfill as CollectionBackfill,
+          });
+        // Google's consent is its own step, and only for the label.
+        if (email && picks.gmail === "yes") {
+          const allow = await api.ask(
+            "Allow AI Accountant to read the Gmail label AIA/Bills?\nRead-only. It can't send or delete mail, or see other labels. Google's sign-in opens in its own window.",
             [
-              {
-                id: "bills",
-                label: "Skip them",
-                hint: "Suggested: each is listed with the reason",
-              },
-              { id: "all", label: "Hold them for me to file" },
+              { id: "allow", label: "Allow (sample sign-in)" },
+              { id: "cancel", label: "Cancel" },
             ]
           );
-          patchCollectionDraft(company, {
-            files: files as CollectionSetup["files"],
+          setDraftChannel(company, {
+            provider: "Gmail",
+            status: allow === "allow" ? "connected" : "skipped",
+            account: `accounts@${slug}.example`,
+            scope: SOURCE_SCOPES.Gmail[0],
           });
-        }
-        await api.say(
-          "Duplicates are matched by the file, then by GSTIN, invoice number and amount, across every channel. A bill already in your books is linked, never drafted twice."
-        );
-
-        /* 5 — how far back (4, routing, waits for the firm inbox) */
-        if (!edited("backfill")) {
-          const order: CollectionBackfill[] = ["period", "30d", "fy", "new"];
-          const backfill = await api.ask(
-            "How far back should the first collection go?\nSeptember's GSTR-3B is due on 20 Oct, so starting on 1 Sep makes that return complete.",
-            order.map((b) => ({
-              id: b,
-              label: `${BACKFILL_LABEL[b]} · ${day(sinceFor(b))}`,
-              hint: b === "period" ? "Suggested" : undefined,
-            }))
-          );
-          patchCollectionDraft(company, {
-            backfill: backfill as CollectionBackfill,
-          });
+          if (allow === "allow")
+            await api.say(
+              `Connected. I'll read AIA/Bills only. To fill the label by itself, add this Gmail filter and set it to apply AIA/Bills: ${MOCK_GMAIL_FILTER}. It's on the card to copy.`
+            );
         }
       }
 

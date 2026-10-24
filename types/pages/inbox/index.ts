@@ -287,6 +287,8 @@ export type NeoPrepared = {
   tdsExempt?: { section: string; reason: string };
   /** GST the company pays itself (a GTA bill under RCM), at this rate. */
   reverseChargeRate?: number;
+  /** The voucher's own date when it isn't the day of entry: a POS day. */
+  voucherDate?: string;
 };
 
 export type InboxItem = {

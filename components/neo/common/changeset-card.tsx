@@ -116,8 +116,8 @@ const ChangesetCard = ({ card, editable, onChange, onRef }: Props) => {
         ))}
       </ul>
       <p className="border-t border-panel-border px-3 py-2 text-caption-1 text-muted-foreground">
-        Ticked bills stay in Needs review. Undo from Tasks until they&rsquo;re
-        approved.
+        Ticked bills stay in Needs review. Undo from Activity until
+        they&rsquo;re approved.
       </p>
     </div>
   );

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import {
   ArrowUp,
+  CornerDownLeft,
   FileStack,
   FileText,
   Inbox,
@@ -22,9 +23,10 @@ import { useStore } from "@/components/inbox/v2/store";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
 import InboxPicker from "./inbox-picker";
 import { NEO_COMMANDS } from "@/config/pages/neo/suggestions";
-import type { NeoAttachment } from "@/types/pages/neo";
+import type { NeoAttachment, NeoDecisionItem } from "@/types/pages/neo";
 import { cn } from "@/lib/utils";
-import { EDIT_LAST_EVENT } from "./thread";
+import { EDIT_LAST_EVENT, useLiveMessage } from "./thread";
+import { QuestionsInBox } from "./message";
 
 type Props = {
   value: string;
@@ -34,7 +36,7 @@ type Props = {
   onSend: () => void;
   onStop: () => void;
   onAttachFiles: (files: FileList) => void;
-  onAttachSample: () => void;
+  onAttachSample: (which?: "bills" | "recon") => void;
   onRemoveAttachment: (name: string) => void;
   /** "page" is the wider box on Neo's page; "panel" the docked one. */
   variant?: "panel" | "page";
@@ -77,6 +79,12 @@ const Composer = forwardRef<HTMLTextAreaElement, Props>(
   ) => {
     const state = useStore();
     const neo = useNeo();
+    const live = useLiveMessage(neo);
+    const [typed, setTyped] = useState<{ text: string; n: number }>();
+    const [openQ, setOpenQ] = useState<NeoDecisionItem>();
+    // Neo is waiting on the person, not working: a question or a sign-off.
+    const answering = !!neo.textAsk;
+    const signOff = live?.actions?.find((a) => a.primary);
     const [menu, setMenu] = useState(false);
     const [picking, setPicking] = useState(false);
     const records = neo.picked
@@ -171,19 +179,43 @@ const Composer = forwardRef<HTMLTextAreaElement, Props>(
       }, 0);
     };
 
-    const canSend = !!value.trim() || attachments.length > 0;
+    const canSend = answering
+      ? !!value.trim()
+      : !!value.trim() || attachments.length > 0;
     const placeholderText = records.length
       ? `What should Neo do with ${records.length === 1 ? "this document" : `these ${records.length}`}?`
       : null;
     const page = variant === "page";
 
+    // Neo is asking: its questions rise out of the top of the prompt box,
+    // joined to it, and the box stays. Typing there answers the open
+    // question in your own words, as "Something else".
+    const asking = live?.card?.kind === "decisions" ? live : undefined;
+    const sendTyped = () => {
+      if (!asking || !value.trim() || !openQ?.other) return;
+      setTyped((t) => ({ text: value.trim(), n: (t?.n || 0) + 1 }));
+      onChange("");
+    };
+
     return (
-      <div
-        className={cn(
-          "flex-none",
-          !page && "bg-background px-4 pb-3 pt-2"
+      <div className={cn("flex-none", !page && "bg-background px-4 pb-3 pt-2")}>
+        {asking && (
+          <div
+            className={cn(
+              "max-h-[60vh] overflow-y-auto rounded-t-2xl border border-b-0 border-pi-line bg-background duration-200 animate-in fade-in-0 slide-in-from-bottom-3 motion-reduce:animate-none",
+              "[&>section]:rounded-none [&>section]:border-0 [&>section]:shadow-none",
+              page ? "mx-3 shadow-pi-2" : "mx-2 shadow-pi-1"
+            )}
+          >
+            <QuestionsInBox
+              m={asking}
+              onAnswer={(v) => neo.answer(asking.id, v)}
+              onEditCard={(card) => neo.editCard(asking.id, card)}
+              typed={typed}
+              onActive={setOpenQ}
+            />
+          </div>
         )}
-      >
         <div
           className={cn(
             "relative rounded-2xl border bg-background transition-[border-color,box-shadow] focus-within:border-pi-line-2",
@@ -352,17 +384,33 @@ const Composer = forwardRef<HTMLTextAreaElement, Props>(
                 !e.metaKey
               ) {
                 e.preventDefault();
-                onSend();
+                if (asking) sendTyped();
+                else onSend();
               }
             }}
             placeholder={
-              busy
-                ? "Neo is working. Esc stops it"
-                : placeholderText
-                  ? placeholderText
-                  : attachments.length
-                  ? "What should Neo know about these?"
-                  : placeholder || "Ask Neo, or type / for what it can do"
+              asking
+                ? openQ?.other
+                  ? "Pick an answer above, or type your own · Enter sends it"
+                  : openQ
+                    ? `Pick an answer above (1–${Math.min(9, openQ.options.length)})`
+                    : "Check the answers above, then submit · Esc cancels"
+                : answering
+                  ? `${live?.ask?.input?.placeholder || "Type your answer"} · Enter answers`
+                  : busy && live?.ask
+                    ? `Pick an answer above (1–${Math.min(9, live.ask.options.length)}) · Esc stops`
+                    : busy && signOff
+                      ? signOff.risk === "commit" || signOff.risk === "external"
+                        ? "Waiting for your sign-off · Esc cancels"
+                        : "Waiting for your sign-off · Ctrl ↵ applies · Esc cancels"
+                      : busy
+                        ? "Neo is working · Esc stops it"
+                        : placeholderText
+                          ? placeholderText
+                          : attachments.length
+                            ? "What should Neo know about these?"
+                            : placeholder ||
+                              "Ask Neo, or type / for a skill"
             }
             className={cn(
               "block w-full resize-none bg-transparent px-4 text-pi-ink placeholder:text-pi-faint focus-visible:outline-none [field-sizing:content]",
@@ -434,7 +482,7 @@ const Composer = forwardRef<HTMLTextAreaElement, Props>(
                     role="menuitem"
                     onClick={() => {
                       setMenu(false);
-                      onAttachSample();
+                      onAttachSample("bills");
                     }}
                     className="flex w-full items-start gap-2.5 rounded-sm px-2.5 py-2 text-left hover:bg-pi-fill focus-visible:bg-pi-fill focus-visible:outline-none"
                   >
@@ -445,6 +493,25 @@ const Composer = forwardRef<HTMLTextAreaElement, Props>(
                       </span>
                       <span className="block text-caption-1 text-pi-body">
                         September freight, courier and packing
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(false);
+                      onAttachSample("recon");
+                    }}
+                    className="flex w-full items-start gap-2.5 rounded-sm px-2.5 py-2 text-left hover:bg-pi-fill focus-visible:bg-pi-fill focus-visible:outline-none"
+                  >
+                    <FileStack className="mt-0.5 h-4 w-4 flex-none text-pi-body" />
+                    <span>
+                      <span className="block text-[13px] text-pi-ink">
+                        Sample: Nandhini's September reports
+                      </span>
+                      <span className="block text-caption-1 text-pi-body">
+                        POS, card, UPI, Zomato, Swiggy and the statement
                       </span>
                     </span>
                   </button>
@@ -464,15 +531,39 @@ const Composer = forwardRef<HTMLTextAreaElement, Props>(
                 }}
               />
             </div>
-            <div className="flex min-w-0 flex-1 items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              {neo.frame && (
+                <span
+                  className="flex h-7 min-w-0 items-center gap-1 rounded-full border border-pi-brand-border bg-pi-brand-tint pl-2.5 pr-1 text-[12px] text-pi-ink"
+                  title={`Follow-ups read as about ${neo.frame.label}. × starts a new topic.`}
+                >
+                  <CornerDownLeft
+                    aria-hidden
+                    className="h-3 w-3 flex-none -scale-x-100 text-pi-brand"
+                  />
+                  <span className="sr-only">Following on from</span>
+                  <span className="truncate font-medium">
+                    {neo.frame.label}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="New topic"
+                    disabled={busy}
+                    onClick={neo.clearFrame}
+                    className="grid h-5 w-5 flex-none place-items-center rounded-full text-pi-body hover:bg-background hover:text-pi-ink disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
               {/* Picked documents are "this" now; their tiles say so. */}
               {records.length ? null : context}
             </div>
-            {busy ? (
+            {busy && !answering && !(asking && value.trim()) ? (
               <button
                 type="button"
-                aria-label="Stop"
-                title="Stop (Esc)"
+                aria-label={signOff || live?.ask ? "Cancel" : "Stop"}
+                title={signOff || live?.ask ? "Cancel (Esc)" : "Stop (Esc)"}
                 onClick={onStop}
                 className="grid h-8 w-8 flex-none place-items-center rounded-full bg-pi-ink text-background transition-transform duration-150 animate-in zoom-in-75 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
               >
@@ -483,8 +574,8 @@ const Composer = forwardRef<HTMLTextAreaElement, Props>(
                 type="button"
                 aria-label="Send"
                 title="Send (Enter)"
-                disabled={!canSend}
-                onClick={onSend}
+                disabled={asking ? !openQ?.other : !canSend}
+                onClick={asking ? sendTyped : onSend}
                 className="grid h-8 w-8 flex-none place-items-center rounded-full bg-primary text-primary-foreground transition-[opacity,transform] duration-150 animate-in zoom-in-75 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border disabled:bg-pi-fill disabled:text-pi-faint"
               >
                 <ArrowUp className="h-4 w-4" />

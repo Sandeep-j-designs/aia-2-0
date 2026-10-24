@@ -4,9 +4,17 @@ import {
   getState,
   neoLog,
 } from "@/components/inbox/v2/store";
+import { decide } from "./shared";
 import type { NeoCard, NeoTask } from "@/types/pages/neo";
 import { findName, has } from "@/utils/pages/neo";
 import { openChaseOn, recordChase } from "@/hooks/pages/neo/use-chases";
+import {
+  contactFor,
+  normaliseEmail,
+  normalisePhone,
+  saveContact,
+} from "@/hooks/pages/neo/use-contacts";
+import { VENDOR_REQUEST_TEMPLATE } from "@/config/pages/neo/mock-contacts";
 import { demoNote } from "@/config/pages/neo/demo";
 import type { ChaseAsk } from "@/types/pages/neo/chases";
 import {
@@ -104,13 +112,95 @@ const chase: NeoTask = {
       );
       if (!x) return;
     }
-    const askId =
-      ASKS.find((a) => a.test.test(api.prompt))?.id ||
-      (await api.ask(
-        `What do you need from ${x.form.party || "the vendor"}?`,
-        ASKS.map((a) => ({ id: a.id, label: a.label }))
-      ));
+    const named = ASKS.find((a) => a.test.test(api.prompt))?.id;
+    const party = x.form.party || "the vendor";
+    /*
+      Where it can go. The address a bill was emailed from is the vendor's
+      own; the vendor master may add an email or a WhatsApp number. A bill
+      that came in on WhatsApp was forwarded by a teammate, so its sender is
+      one of us — never message that number as if it were the vendor.
+    */
+    const src = x.original.source;
+    const fromEmail =
+      src.channel === "email" && /@/.test(src.sender) ? src.sender : "";
+    const saved = contactFor(x.form.party);
+    type Way = { channel: "Email" | "WhatsApp"; to: string; hint: string };
+    const ways: Way[] = [
+      fromEmail && {
+        channel: "Email" as const,
+        to: fromEmail,
+        hint: "The address the bill came from",
+      },
+      saved.email &&
+        saved.email !== fromEmail && {
+          channel: "Email" as const,
+          to: saved.email,
+          hint: "From the vendor master",
+        },
+      saved.whatsapp && {
+        channel: "WhatsApp" as const,
+        to: saved.whatsapp,
+        hint: "From the vendor master · approved template",
+      },
+    ].filter(Boolean) as Way[];
 
+    // What to ask for (if the request didn't say) and which way to send
+    // it (if there's more than one), on one sheet; the message preview after
+    // it is the send.
+    let askId: string = named || ASKS[0].id;
+    let way: Way | undefined = ways[0];
+    if (!named || ways.length > 1) {
+      const { choice, picks } = await decide(
+        api,
+        `Follow up with ${party}`,
+        [
+          ...(!named
+            ? [
+                {
+                  id: "ask",
+                  header: "Request",
+                  question: "What do you need from them?",
+                  recommended: x.original.bill?.vendorMissing ? "gstin" : "",
+                  ...(x.original.bill?.vendorMissing
+                    ? { settled: "the vendor isn't in your masters yet" }
+                    : {}),
+                  options: ASKS.map((a) => ({ id: a.id, label: a.label })),
+                },
+              ]
+            : []),
+          ...(ways.length > 1
+            ? [
+                {
+                  id: "way",
+                  header: "Send by",
+                  question: "Send it how?",
+                  recommended: "0",
+                  options: ways.map((w, i) => ({
+                    id: String(i),
+                    label: `${w.channel} · ${w.to}`,
+                    hint: w.hint,
+                  })),
+                },
+              ]
+            : []),
+        ],
+        [
+          {
+            id: "go",
+            label: "Submit and draft the message",
+            primary: true,
+            risk: "read",
+          },
+          { id: "cancel", label: "Not now" },
+        ]
+      );
+      if (choice !== "go") {
+        await api.say("Nothing drafted.");
+        return "Not drafted";
+      }
+      askId = named || picks.ask;
+      if (picks.way !== undefined) way = ways[Number(picks.way)];
+    }
     const already = openChaseOn(x.id, askId as ChaseAsk);
     if (already) {
       await api.say(
@@ -121,30 +211,54 @@ const chase: NeoTask = {
       );
       return "Chase already open";
     }
+    if (!way) {
+      // No contact on file: add one here, rather than sending the person
+      // off to the vendor master — or hand over the text.
+      const pick = await api.ask(
+        `${party} has no email or WhatsApp in the vendor master. How should I reach them?`,
+        [
+          { id: "whatsapp", label: "Add their WhatsApp number" },
+          { id: "email", label: "Add their email address" },
+          { id: "copy", label: "Just give me the text" },
+        ]
+      );
+      if (pick === "whatsapp") {
+        const to = await api.askText(`${party}'s WhatsApp number?`, {
+          placeholder: "+91 98450 12345",
+          parse: normalisePhone,
+          retry: "That isn't a 10-digit Indian mobile number.",
+        });
+        saveContact(x.form.party, { whatsapp: to });
+        way = { channel: "WhatsApp", to, hint: "Added to the vendor master" };
+      } else if (pick === "email") {
+        const to = await api.askText(`${party}'s email address?`, {
+          placeholder: "accounts@vendor.com",
+          parse: normaliseEmail,
+          retry: "That doesn't look like an email address.",
+        });
+        saveContact(x.form.party, { email: to });
+        way = { channel: "Email", to, hint: "Added to the vendor master" };
+      }
+    }
+
     const drafting = await api.step("Drafting the message", refTo(x));
     await api.wait(500);
-    /*
-      The vendor's own address, from the email the bill arrived on. A bill
-      that came in on WhatsApp was forwarded by a teammate, so its sender is
-      one of us — never message that number as if it were the vendor.
-    */
-    const src = x.original.source;
-    const to =
-      src.channel === "email" && /@/.test(src.sender) ? src.sender : "";
     const company = companyOf(getState().company)?.name || "";
     const doc = x.form.invoiceNo || x.file.name;
-    drafting(
-      to
-        ? `Drafted an email to ${x.form.party || to}`
-        : `Drafted a message — no contact for ${x.form.party || "this vendor"} on file`
-    );
     const card: NeoCard = {
       kind: "message",
-      channel: "Email",
-      to: to || "no address on file",
+      channel: way?.channel || "Email",
+      to: way?.to || "no contact on file",
       body: body(askId, x.form.party || "Vendor", doc, company),
+      template:
+        way?.channel === "WhatsApp" ? VENDOR_REQUEST_TEMPLATE : undefined,
     };
-    if (!to) {
+    drafting(
+      way
+        ? `Drafted a${way.channel === "Email" ? "n email" : " WhatsApp message"} to ${party}${way.hint.startsWith("Added") ? " · contact saved to the vendor master" : ""}`
+        : "Drafted the text to send yourself"
+    );
+    if (!way) {
       const pick = await api.card(card, [
         { id: "copy", label: "Copy the text", primary: true },
         { id: "cancel", label: "Don't send" },
@@ -156,14 +270,13 @@ const chase: NeoTask = {
           );
         await navigator.clipboard.writeText(card.body);
         neoLog("Neo Vendor Message Drafted", api.runId, x, { request: askId });
-        await api.say(
-          `Copied. ${x.form.party || "This vendor"} has no email or WhatsApp in the vendor master, so send it from your own phone — and add their contact so I can send the next one.`
-        );
+        await api.say("Copied. Send it from your own phone or mail.");
         return "Drafted, not sent";
       }
       await api.say("Not sent.");
       return "Not sent";
     }
+    const to = way.to;
     const choice = await api.card(card, [
       {
         id: "send",
@@ -200,7 +313,7 @@ const chase: NeoTask = {
     api.touch([x.id]);
     sending(`Sent to ${to} · logged against ${x.id}`);
     await api.say(
-      `Sent. I'll watch for the reply and link it to ${describe(x)} when it lands — it's under Chases in Tasks until then.${demoNote(" (Simulated: nothing left the prototype.)")}`,
+      `Sent. I'll watch for the reply and link it to ${describe(x)} when it lands — it's under Chases in Needs attention until then.${demoNote(" (Simulated: nothing left the prototype.)")}`,
       [refTo(x)]
     );
     return `Asked ${x.form.party || to}`;

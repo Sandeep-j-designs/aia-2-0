@@ -1,11 +1,14 @@
 import type { NeoTask } from "@/types/pages/neo";
-import { firmBrief, lakhs } from "@/hooks/pages/neo/use-firm-brief";
+import { companyBrief } from "@/hooks/pages/neo/use-firm-brief";
+import { companyOf, getState } from "@/components/inbox/v2/store";
 import { has } from "@/utils/pages/neo";
 
 /**
- * "What needs me across my clients today?" / "What needs my attention?"
+ * "What needs me today?" / "What needs my attention?"
  *
- * The firm brief, said in two sentences, with the brief itself one tap away.
+ * This company's brief, said briefly, with Needs attention one tap away.
+ * Neo is one company's (20 Oct 2026): asked "across my clients", it answers
+ * for the company in the top bar and says so.
  * Read-only. It used to sort one company's queue and offer to approve the
  * ready bills from chat; approving belongs to the Inbox, and the question an
  * accountant actually asks at nine is which client to open first.
@@ -26,44 +29,37 @@ const triage: NeoTask = {
       ? 3
       : 0,
   run: async (api) => {
-    const scan = await api.step("Reading every client's queue, GST and chases");
+    const company = api.context.company || getState().company;
+    const name = companyOf(company)?.name || "This company";
+    const scan = await api.step(`Reading ${name}'s queue, GST and chases`);
     await api.wait(600);
-    const brief = firmBrief();
-    const needing = brief.clients.filter((c) => !c.clear);
-    scan(`Checked ${brief.total} clients`);
-    if (!needing.length) {
-      await api.say(
-        `None of your ${brief.total} clients need you today. ${brief.overnight}.`
-      );
+    const c = companyBrief(company);
+    const needs = (c?.signals || []).filter((s) => s.tone !== "neutral");
+    scan(`Checked ${name}`);
+    const scope = has(
+      api.prompt,
+      /across (my )?clients|all (my )?clients|every client/i
+    )
+      ? `Neo works one company at a time, so this is ${name} only. `
+      : "";
+    if (!c || !needs.length) {
+      await api.say(`${scope}Nothing at ${name} needs you today.`);
       return "Nothing needs you";
     }
-    const top = needing[0];
-    // Markdown: the verdict in bold, then each client with its signals as a
-    // short list, so the reader can scan it rather than parse a sentence.
-    const block = (c: (typeof needing)[number], lead: boolean) =>
-      [
-        `**${c.name}**${lead ? ` — ${lakhs(c.impact)} to decide, ${c.deadline}` : ""}`,
-        ...c.signals.slice(0, 3).map((s) => `- ${s.text}`),
-      ].join("\n");
+    // Markdown: the verdict in bold, then each signal as a short list.
+    // Money stays in its kinds — ITC, waiting, overdue — never one sum.
     const body = [
-      `**${needing.length} of your ${brief.total} clients need you.** Start with ${top.name}.`,
-      ...needing.map((c, i) => block(c, i === 0)),
+      `${scope}**${name} needs you on ${needs.length} thing${needs.length === 1 ? "" : "s"}** — ${c.deadline}.`,
+      needs.map((s) => `- ${s.text}${s.due ? ` · ${s.due}` : ""}`).join("\n"),
     ].join("\n\n");
-    if (needing.length > 1)
-      await api.say(body, [
-        {
-          label: "Open Needs attention",
-          href: "/inbox?module=NEO&page=attention",
-        },
-      ]);
-    else
-      await api.say(`${body}\n\nThe rest are clear.`, [
-        {
-          label: "Open Needs attention",
-          href: "/inbox?module=NEO&page=attention",
-        },
-      ]);
-    return `${needing.length} clients need you`;
+    await api.say(body, [
+      ...(c.next ? [{ label: c.next.label, href: c.next.href }] : []),
+      {
+        label: "Open Needs attention",
+        href: "/inbox?module=NEO&page=attention",
+      },
+    ]);
+    return `${needs.length} need you`;
   },
 };
 

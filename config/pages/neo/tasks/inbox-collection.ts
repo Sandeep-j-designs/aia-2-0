@@ -62,6 +62,7 @@ const inboxCollection: NeoTask = {
     api.show({
       kind: "list",
       title: "Collection results",
+      review: "Collection run",
       groups: [
         {
           label: "Ready for review",

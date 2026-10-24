@@ -238,6 +238,15 @@ html[data-neo-open] [data-sonner-toaster][data-y-position="bottom"] {
   padding: 8px 12px;
   border-bottom: 1px solid var(--pi-line);
 }
+/* Cells break between words, never inside one; a wide table scrolls. */
+.neo-prose .neo-table td {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.neo-prose .neo-table td:first-child,
+.neo-prose .neo-table td:last-child {
+  white-space: nowrap;
+}
 .neo-prose .neo-table tbody tr:last-child td {
   border-bottom: 0;
 }
@@ -301,4 +310,18 @@ html[data-neo-open] [data-sonner-toaster][data-y-position="bottom"] {
    narrow-measure caps. */
 .neo-canvas > div > * {
   max-width: none;
+}
+
+/* Small laptops (20 Oct 2026): 1366 and 1280 wide are the norm for our
+   users, so Neo's reading face steps down a size below 1440px and the
+   answer keeps more of the screen. */
+@media (max-width: 1439px) {
+  .neo-prose {
+    font-size: 15.5px;
+    line-height: 1.6;
+  }
+  .neo-panel .neo-prose {
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
 }

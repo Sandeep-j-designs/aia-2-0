@@ -38,7 +38,11 @@ import OrganisationSwitcher from "./organization-switcher";
  */
 
 /** A plain label, or one that goes somewhere: a page above the current one. */
-export type Crumb = string | { label: string; onClick: () => void };
+export type Crumb =
+  | string
+  | { label: string; onClick: () => void }
+  /** A crumb that is a control of its own, like Neo's chat title menu. */
+  | { node: ReactNode; label: string };
 
 type Props = {
   crumbs?: Crumb[];
@@ -101,11 +105,13 @@ const AppTopBar = ({
           return (
             <React.Fragment key={`${i}-${label}`}>
               {i > 0 && <span className="flex-none text-pi-faint">/</span>}
-              {typeof crumb !== "string" && !last ? (
+              {typeof crumb !== "string" && "node" in crumb ? (
+                <span className="min-w-0">{crumb.node}</span>
+              ) : typeof crumb !== "string" && !last ? (
                 // Back up the trail: the page this one was opened from.
                 <button
                   type="button"
-                  onClick={crumb.onClick}
+                  onClick={"onClick" in crumb ? crumb.onClick : undefined}
                   className="-mx-1 flex-none rounded-xs px-1 text-pi-body transition-colors hover:bg-pi-fill hover:text-pi-ink"
                 >
                   {label}

@@ -2,6 +2,13 @@ import { getState, type Item } from "@/components/inbox/v2/store";
 import type { NeoCard, NeoTask } from "@/types/pages/neo";
 import { overdueInvoices } from "@/utils/pages/inbox/ai-calculations";
 import { findName, has, money } from "@/utils/pages/neo";
+import {
+  inPeriod,
+  isoDate,
+  parsePeriod,
+  periodPhrase,
+  type Period,
+} from "@/utils/pages/neo/period";
 import { companyItems, refTo } from "./shared";
 
 /**
@@ -21,20 +28,15 @@ import { companyItems, refTo } from "./shared";
  * query_ledger(filters, group_by), and this file is deleted.
  */
 
-const MONTHS: Record<string, { short: string; iso: string; name: string }> = {
-  jul: { short: "Jul", iso: "2026-07", name: "July" },
-  aug: { short: "Aug", iso: "2026-08", name: "August" },
-  sep: { short: "Sep", iso: "2026-09", name: "September" },
-  oct: { short: "Oct", iso: "2026-10", name: "October" },
-};
-
-const monthIn = (prompt: string) => {
-  const m = prompt.toLowerCase().match(/\b(jul|aug|sep|oct)[a-z]*\b/);
-  return m ? MONTHS[m[1]] : undefined;
-};
-
-const inMonth = (x: Item, m?: (typeof MONTHS)[string]) =>
-  !m || x.form.date.includes(m.short) || x.form.date.startsWith(m.iso);
+/** Words for a kind of spend that runs across ledgers and descriptions. */
+const TOPICS = [
+  "freight",
+  "courier",
+  "packing",
+  "rent",
+  "electricity",
+  "repairs",
+];
 
 /** Booked or waiting purchase bills — what "spend" means to an accountant. */
 const purchases = () =>
@@ -46,25 +48,46 @@ const purchases = () =>
 
 const net = (x: Item) => x.form.lines.reduce((s, l) => s + l.amount, 0);
 
+const MONTH_LABEL = (iso: string) =>
+  iso
+    ? new Date(`${iso.slice(0, 7)}-01T00:00:00`).toLocaleString("en-IN", {
+        month: "long",
+        year: "numeric",
+      })
+    : "Undated";
+
+/**
+ * The bills an answer summed, as the arithmetic: grouped by month, newest
+ * first, each group with its count and subtotal.
+ */
 const sourceList = (
   title: string,
-  rows: Item[]
-): Extract<NeoCard, { kind: "list" }> => ({
-  kind: "list",
-  title,
-  groups: [
-    {
-      label: `${rows.length} source bill${rows.length === 1 ? "" : "s"}`,
-      tone: "neutral",
-      rows: rows.map((x) => ({
-        itemId: x.id,
-        primary: x.form.party,
-        secondary: `${x.form.date} · ${x.form.invoiceNo || x.id} · ${x.status}`,
-        amount: net(x),
+  rows: Item[],
+  amountOf: (x: Item) => number = net
+): Extract<NeoCard, { kind: "list" }> => {
+  const byMonth = new Map<string, Item[]>();
+  rows.forEach((x) => {
+    const k = isoDate(x.form.date).slice(0, 7);
+    byMonth.set(k, [...(byMonth.get(k) || []), x]);
+  });
+  return {
+    kind: "list",
+    title,
+    groups: [...byMonth.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([k, xs]) => ({
+        // The list card counts and totals each group itself.
+        label: MONTH_LABEL(k),
+        tone: "neutral" as const,
+        rows: xs.map((x) => ({
+          itemId: x.id,
+          primary: x.form.party,
+          secondary: `${x.form.date} · ${x.form.invoiceNo || x.id} · ${x.status}`,
+          amount: amountOf(x),
+        })),
       })),
-    },
-  ],
-});
+  };
+};
 
 const askBooks: NeoTask = {
   id: "ask-books",
@@ -72,39 +95,36 @@ const askBooks: NeoTask = {
   match: (p) =>
     has(
       p,
-      /how much|spend|spent|total|top vendors?|biggest vendors?|largest vendors?|(not|n['’]t) in (my )?masters|missing gstin|without (a )?gstin|who owes|overdue|outstanding|unpaid/i
-    ) && !has(p, /freight/i)
-      ? 5
+      /how much|spend|spent|total|top vendors?|biggest vendors?|largest vendors?|(not|n['’]t) in (my )?masters|missing gstin|without (a )?gstin|who owes|overdue|outstanding|unpaid|receivable|kitna|kharch|baaki|bakaya|udhaar/i
+    ) && !has(p, /\bwhy\b|went up|gone up|increase|jump/i)
+      ? 9
       : 0,
   run: async (api) => {
     const p = api.prompt;
 
     // Who owes us
-    if (has(p, /who owes|overdue|outstanding|unpaid|receivable/i)) {
+    if (
+      has(
+        p,
+        /who owes|overdue|outstanding|unpaid|receivable|baaki|bakaya|udhaar/i
+      )
+    ) {
       const company = api.context.company || getState().company;
       const rows = overdueInvoices(getState().items, company).sort(
         (a, b) => b.outstanding - a.outstanding
       );
       if (!rows.length) {
-        // Say where the money is owed, if it is owed to another client.
-        const elsewhere = getState()
-          .companies.filter((c) => c.id !== company)
-          .map((c) => ({
-            name: c.name,
-            rows: overdueInvoices(getState().items, c.id),
-          }))
-          .filter((c) => c.rows.length);
         await api.say(
-          `Nobody is overdue here. Every approved invoice is in date.${elsewhere
-            .map(
-              (c) =>
-                ` ${c.name} has ${c.rows.length} overdue invoice${c.rows.length === 1 ? "" : "s"} worth ${money(c.rows.reduce((s, r) => s + r.outstanding, 0))}; switch to it to see them.`
-            )
-            .join("")}`
+          "Nobody is overdue here. Every approved invoice is in date."
         );
         return "Nothing overdue";
       }
       const sum = rows.reduce((s, r) => s + r.outstanding, 0);
+      api.remember({
+        kind: "overdue",
+        ids: rows.map((r) => r.item.id),
+        label: `${rows.length} overdue invoice${rows.length === 1 ? "" : "s"}`,
+      });
       await api.say(
         `${rows.length} invoice${rows.length === 1 ? " is" : "s are"} overdue, ${money(sum)} in all. The oldest is ${rows.reduce((a, b) => (b.days > a.days ? b : a)).item.form.party} at ${Math.max(...rows.map((r) => r.days))} days. Outstanding nets off part-payments matched in Banking.`
       );
@@ -150,6 +170,11 @@ const askBooks: NeoTask = {
         );
         return "All vendors known";
       }
+      api.remember({
+        kind: "masters",
+        ids: rows.map((x) => x.id),
+        label: "Vendors not in masters",
+      });
       await api.say(
         `${rows.length} open bill${rows.length === 1 ? " is" : "s are"} from a vendor that isn't in your masters. Approving creates the vendor in Tally, and that needs their GSTIN first.`,
         rows.map((x) => refTo(x))
@@ -170,9 +195,34 @@ const askBooks: NeoTask = {
       return `${rows.length} vendors not in masters`;
     }
 
-    const month = monthIn(p);
-    const bills = purchases().filter((x) => inMonth(x, month));
-    const period = month ? ` in ${month.name}` : "";
+    const when: Period | undefined = parsePeriod(p);
+    const only = has(
+      p,
+      /waiting for review|\b(open|pending|unapproved|not approved)\b/i
+    )
+      ? "open"
+      : has(
+            p,
+            /\b(approved|booked|posted) only\b|\bonly (approved|booked|posted)\b/i
+          )
+        ? "approved"
+        : undefined;
+    const bills = purchases().filter(
+      (x) =>
+        inPeriod(x.form.date, when) &&
+        (only === "open"
+          ? x.status !== "Approved"
+          : only === "approved"
+            ? x.status === "Approved"
+            : true)
+    );
+    const period =
+      periodPhrase(when) +
+      (only === "open"
+        ? ", waiting for review"
+        : only === "approved"
+          ? ", approved"
+          : "");
 
     // Top vendors
     if (has(p, /top|biggest|largest/i)) {
@@ -192,6 +242,12 @@ const askBooks: NeoTask = {
         await api.say(`No purchase bills${period}.`);
         return "No bills";
       }
+      api.remember({
+        kind: "top",
+        period: when && { phrase: when.phrase, label: when.label },
+        status: only,
+        label: `Top vendors${when ? ` · ${when.label}` : ""}`,
+      });
       await api.say(
         `Top ${top.length} vendors by spend${period}, before tax: ${top.map((t) => `${t.party} ${money(t.sum)}`).join("; ")}.`
       );
@@ -212,44 +268,85 @@ const askBooks: NeoTask = {
       return `Top vendors${period}`;
     }
 
-    // Spend with a vendor, or on a ledger
-    const vendor = findName(p, [...new Set(bills.map((x) => x.form.party))]);
-    const ledger = vendor
+    // Spend with a vendor, on a ledger, or on a kind of spend ("freight")
+    // that runs across ledgers and line descriptions.
+    const all = purchases();
+    const vendor = findName(p, [...new Set(all.map((x) => x.form.party))]);
+    const topic = vendor
       ? undefined
-      : findName(p, [
-          ...new Set(bills.flatMap((x) => x.form.lines.map((l) => l.ledger))),
-        ]);
-    if (!vendor && !ledger) {
+      : TOPICS.find((t) => new RegExp(`\\b${t}`, "i").test(p));
+    const ledger =
+      vendor || topic
+        ? undefined
+        : findName(p, [
+            ...new Set(all.flatMap((x) => x.form.lines.map((l) => l.ledger))),
+          ]);
+    if (!vendor && !ledger && !topic) {
       await api.say(
-        `I can total spend by vendor or by ledger${period}. Name one — “How much did we spend with Mahindra Logistics in September?” or “What did we spend on Office Expenses?”`
+        `I can total spend by vendor, by ledger or by kind${period}. Name one — “How much did we spend with Mahindra Logistics last month?” or “What did we spend on freight this quarter?”`
       );
       return "Needs a vendor or ledger";
     }
     const scan = await api.step(
-      `Adding up ${vendor ? `${vendor}'s bills` : `lines on ${ledger}`}${period}`
+      `Adding up ${vendor ? `${vendor}'s bills` : topic ? `${topic} lines, any ledger` : `lines on ${ledger}`}${period}`
     );
     await api.wait(450);
+    type Line = Item["form"]["lines"][number];
+    const lineHit = (l: Line) =>
+      topic
+        ? new RegExp(topic, "i").test(`${l.ledger} ${l.description || ""}`)
+        : l.ledger === ledger;
     const rows = vendor
       ? bills.filter((x) => x.form.party === vendor)
-      : bills.filter((x) => x.form.lines.some((l) => l.ledger === ledger));
+      : bills.filter((x) => x.form.lines.some(lineHit));
     const amountOf = (x: Item) =>
       vendor
         ? net(x)
-        : x.form.lines
-            .filter((l) => l.ledger === ledger)
-            .reduce((s, l) => s + l.amount, 0);
+        : x.form.lines.filter(lineHit).reduce((s, l) => s + l.amount, 0);
     const sum = rows.reduce((s, x) => s + amountOf(x), 0);
     const waiting = rows.filter((x) => x.status !== "Approved");
     scan(`${rows.length} bill${rows.length === 1 ? "" : "s"} · ${money(sum)}`);
+    const subject = vendor
+      ? `with ${vendor}`
+      : topic
+        ? `on ${topic}`
+        : `on ${ledger}`;
+    const ledgers = topic
+      ? [
+          ...new Set(
+            rows.flatMap((x) =>
+              x.form.lines.filter(lineHit).map((l) => l.ledger)
+            )
+          ),
+        ]
+      : [];
+    api.remember({
+      kind: topic === "freight" ? "freight" : "spend",
+      vendor,
+      ledger,
+      topic,
+      period: when && { phrase: when.phrase, label: when.label },
+      status: only,
+      ids: rows.filter((x) => x.status !== "Approved").map((x) => x.id),
+      label: [
+        vendor || ledger || (topic && topic[0].toUpperCase() + topic.slice(1)),
+        when?.label,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    });
     await api.say(
-      `**${money(sum)}** ${vendor ? `with ${vendor}` : `on ${ledger}`}${period}, before tax, from ${rows.length} bill${rows.length === 1 ? "" : "s"}.${waiting.length ? `\n\n${waiting.length} of them ${waiting.length === 1 ? "is" : "are"} still waiting for review, so the booked figure is **${money(sum - waiting.reduce((s, x) => s + amountOf(x), 0))}**.` : ""}`
+      `**${money(sum)}** ${subject}${period}, before tax, from ${rows.length} bill${rows.length === 1 ? "" : "s"}.${ledgers.length > 1 ? ` That covers ${ledgers.join(" and ")}, and any line that says ${topic}.` : ""}${waiting.length && only !== "open" ? `\n\n${waiting.length} of them ${waiting.length === 1 ? "is" : "are"} still waiting for review, so the booked figure is **${money(sum - waiting.reduce((s, x) => s + amountOf(x), 0))}**.` : ""}`
     );
-    api.show(
-      sourceList(
-        `${vendor || ledger}${period}`,
-        [...rows].sort((a, b) => amountOf(b) - amountOf(a))
-      )
-    );
+    if (rows.length)
+      api.show(
+        sourceList(
+          `${vendor || ledger || topic}${period}`,
+          [...rows].sort((a, b) => amountOf(b) - amountOf(a)),
+          amountOf
+        )
+      );
+    if (topic === "freight") api.suggest(["Why is freight up in September?"]);
     return `${money(sum)}${period}`;
   },
 };

@@ -153,7 +153,8 @@ import PreparedTag from "@/components/neo/common/prepared-tag";
 import Brief from "@/components/neo/brief";
 import NeoPage, { NEO_PAGES, type NeoPageId } from "@/components/neo/page";
 import NeoChat from "@/components/neo/page/chat";
-import NeoAgents from "@/components/neo/page/agents";
+import NeoSkills from "@/components/neo/page/skills";
+import ChatTitle from "@/components/neo/page/chat-title";
 import NeoActivity from "@/components/neo/page/activity";
 import NeoOffers from "@/components/neo/offers";
 import BatchStrip from "@/components/neo/batch-strip";
@@ -1443,12 +1444,15 @@ export default function Workspace() {
   const neoModule = router.query.module === "NEO";
   // Neo is one place (19 Oct 2026): Chat, Agents, Needs attention, Activity.
   // Document collection's own screens (?module=AGENTS&page=…) sit under Agents.
+  // Agents became Skills (20 Oct 2026); ?page=agents still lands there.
   const neoPage: NeoPageId | undefined = agentsModule
-    ? "agents"
+    ? "skills"
     : neoModule
-      ? NEO_PAGES.includes(router.query.page as NeoPageId)
-        ? (router.query.page as NeoPageId)
-        : "chat"
+      ? router.query.page === "agents"
+        ? "skills"
+        : NEO_PAGES.includes(router.query.page as NeoPageId)
+          ? (router.query.page as NeoPageId)
+          : "chat"
       : undefined;
   const batchFilter =
     typeof router.query.batch === "string" ? router.query.batch : "";
@@ -1525,12 +1529,16 @@ export default function Workspace() {
         "Neo",
         router.query.page === "document-collection"
           ? "Document collection"
-          : {
-              chat: "Chat",
-              agents: "Agents",
-              attention: "Needs attention",
-              activity: "Activity",
-            }[neoPage],
+          : neoPage === "chat"
+            ? // The chat's own name and menu, in the trail (20 Oct 2026):
+              // one header row instead of two on a small screen.
+              { label: "Chat", node: <ChatTitle compact /> }
+            : {
+                chat: "Chat",
+                skills: "Skills",
+                attention: "Needs attention",
+                activity: "Activity",
+              }[neoPage],
       ]
     : notificationsPage
       ? ["Notifications"]
@@ -4121,7 +4129,7 @@ export default function Workspace() {
                 router.query.page === "document-collection" ? (
                 <Agents key={state.company} company={state.company} />
               ) : (
-                <NeoAgents key={state.company} company={state.company} />
+                <NeoSkills key={state.company} company={state.company} />
               )}
             </NeoPage>
           ) : dashboardModule ? (

@@ -30,6 +30,8 @@ export type NeoRisk = "read" | "draft" | "commit" | "external";
 /** A record the agent is pointing at — a citation, or a place to go. */
 export type NeoRef = {
   label: string;
+  /** Open it in this client: the company is switched first. */
+  company?: string;
   href?: string;
   itemId?: string;
   /** "open" goes to the record; "inbox" shows its row in the queue. */
@@ -54,9 +56,46 @@ export type NeoOption = {
   hint?: string;
 };
 
+/**
+ * One question on a decision sheet (20 Oct 2026). Neo works out everything
+ * it needs before asking, pre-picks its recommendation, and folds the ones
+ * the books already settle; the person confirms the lot with one click.
+ */
+export type NeoDecisionItem = {
+  id: string;
+  /** The question's tab, a word or two: "LLP transfer", "Swiggy ₹10". */
+  header?: string;
+  /** One line: what Neo needs to know. */
+  question: string;
+  /** Why it's asking, folded under the question. */
+  why?: string;
+  /** Recommended first. */
+  options: NeoOption[];
+  /** The answer Neo recommends; the sheet opens on it. */
+  recommended: string;
+  /** The current answer; starts as `recommended`. */
+  pick: string;
+  /**
+   * Set when the books settle it ("Collections tie on every day"): the
+   * question folds under "Settled from your books" and opens on Change.
+   */
+  settled?: string;
+  /** Shown only while another item's pick is one of these: "Which Drive folder?" waits for Drive. */
+  when?: { id: string; in: string[] };
+  /**
+   * "Something else": an answer in your own words. The task gets `fallback`
+   * as the pick (suspense, carry) and the words as a note.
+   */
+  other?: { fallback: string; placeholder?: string };
+  /** Your words, when you answered "Something else". */
+  note?: string;
+};
+
 export type NeoAsk = {
   question: string;
   options: NeoOption[];
+  /** Answered in words: the field's placeholder. Options become fills. */
+  input?: { placeholder: string };
   /** The option picked, once answered. The question stays on screen. */
   answer?: string;
 };
@@ -90,6 +129,12 @@ export type NeoCard =
   | {
       kind: "list";
       title: string;
+      /**
+       * Set by a task whose list hands drafts over for review: the set's
+       * name ("Collection run"). Each listed bill then opens as a subtask
+       * of this chat (utils/pages/neo/review-sets.ts).
+       */
+      review?: string;
       groups: {
         label: string;
         tone: NeoTone;
@@ -144,6 +189,25 @@ export type NeoCard =
     }
   | {
       /**
+       * Three-way reconciliation (20 Oct 2026). The card reads the policy
+       * or the run live from the recon store; `view` is which step it is.
+       */
+      kind: "recon";
+      company: string;
+      runId?: string;
+      view:
+        | "policy"
+        | "reports"
+        | "payouts"
+        | "sales"
+        | "bank"
+        | "register"
+        | "drafts"
+        | "close"
+        | "rules";
+    }
+  | {
+      /**
        * Document Collection's setup card. It reads the setup live from the
        * collection store (the draft while setting up, the saved one after),
        * so a field edited on the card and an answer in the chat land in the
@@ -176,10 +240,21 @@ export type NeoCard =
       state: "Preview" | "Saved as draft" | "Scheduled";
     }
   | {
+      kind: "decisions";
+      /** What the answers are for: "Before I draft September". */
+      title: string;
+      items: NeoDecisionItem[];
+    }
+  | {
       kind: "message";
       channel: "WhatsApp" | "Email";
       to: string;
       body: string;
+      /**
+       * WhatsApp outside a reply window goes as an approved template, so
+       * the wording is fixed except for its fields; the card says which.
+       */
+      template?: string;
     }
   | {
       /**
@@ -244,6 +319,12 @@ export type NeoMessage = {
   /** Inbox documents picked for this message (+ › Pick from Inbox). */
   records?: string[];
   runId?: string;
+  /**
+   * The bill this message is about, when it was asked from that bill's
+   * subtask in a batch chat. Neo's replies inherit it from their run
+   * (`scopeOf` in the runtime). Unset = the chat itself.
+   */
+  scope?: string;
   text?: string;
   steps?: NeoStep[];
   ask?: NeoAsk;
@@ -301,6 +382,33 @@ export type NeoRun = {
   undoable: boolean;
 };
 
+/**
+ * What the conversation is about so far: the last answer's subject, period
+ * and records, so a follow-up ("and August?", "move them to Freight
+ * Inward") means what it would mean to a colleague. Shown as a chip in the
+ * prompt box; × clears it, which is "new topic".
+ *
+ * DEV: with a model this is the conversation history it already sees; the
+ * chip stays, as the visible statement of what Neo thinks "it" is.
+ */
+export type NeoFrame = {
+  /** The task that set it. */
+  task: string;
+  company: string;
+  kind: "spend" | "top" | "overdue" | "masters" | "move" | "chase" | "freight";
+  vendor?: string;
+  ledger?: string;
+  /** A word searched across ledgers and descriptions: "freight". */
+  topic?: string;
+  period?: { phrase: string; label: string };
+  /** Only approved, or only waiting, records were counted. */
+  status?: "open" | "approved";
+  /** The records the answer was about. */
+  ids?: string[];
+  /** The chip: "Mahindra Logistics Ltd · September 2026". */
+  label: string;
+};
+
 /** What "this" means when the user types it. */
 export type NeoContext = {
   company?: string;
@@ -328,12 +436,28 @@ export type NeoTaskApi = {
   say: (text: string, links?: NeoRef[]) => Promise<void>;
   /** Offer follow-up requests as one-tap chips once the run is done. */
   suggest: (prompts: string[]) => void;
+  /** What this answer was about, for the next message to follow on from. */
+  remember: (frame: Omit<NeoFrame, "task" | "company">) => void;
+  /**
+   * A question answered in words, not picked: an amount, a phone number.
+   * `parse` turns the reply into the value, or undefined to ask again with
+   * `retry`. `options` are one-tap fills. The prompt box answers it too.
+   */
+  askText: (
+    question: string,
+    opts: {
+      placeholder: string;
+      options?: NeoOption[];
+      parse?: (text: string) => string | undefined;
+      retry?: string;
+    }
+  ) => Promise<string>;
   step: (label: string, cite?: NeoRef) => Promise<(label?: string) => void>;
   fail: (label: string) => void;
   ask: (question: string, options: NeoOption[]) => Promise<string>;
   card: (card: NeoCard, actions: NeoAction[]) => Promise<string>;
   /** Show a card that doesn't wait on the user; returns its updater. */
-  show: (card: NeoCard) => (card: NeoCard) => void;
+  show: (card: NeoCard, opts?: { open?: boolean }) => (card: NeoCard) => void;
   /** Replace the last card in place — a preview that becomes a result. */
   updateCard: (card: NeoCard, actions?: NeoAction[]) => void;
   touch: (ids: string[]) => void;
@@ -373,6 +497,8 @@ export type NeoTask = {
  */
 export type NeoChat = {
   id: string;
+  /** The company it was asked in; Neo lists only the top bar's company's. */
+  company: string;
   title: string;
   updatedAt: string;
   messages: NeoMessage[];

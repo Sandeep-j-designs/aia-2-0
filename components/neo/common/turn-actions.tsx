@@ -4,6 +4,7 @@ import {
   Copy,
   RotateCcw,
   ThumbsDown,
+  Undo2,
   ThumbsUp,
 } from "@/components/icons";
 import {
@@ -62,6 +63,8 @@ type Props = {
   onRetry: () => void;
   onRate: (value: "up" | "down", note?: string) => void;
   onRef: (ref: NeoRef) => void;
+  /** The run changed records that can still be put back. */
+  onUndo?: () => void;
 };
 
 /**
@@ -76,6 +79,7 @@ const TurnActions = ({
   onRetry,
   onRate,
   onRef,
+  onUndo,
 }: Props) => {
   const [copied, setCopied] = useState(false);
   const [asking, setAsking] = useState(false);
@@ -89,6 +93,16 @@ const TurnActions = ({
 
   return (
     <div className="flex items-center gap-0.5">
+      {onUndo && (
+        <button
+          type="button"
+          onClick={onUndo}
+          className="mr-1 flex h-7 items-center gap-1.5 rounded-md border border-pi-line px-2 text-[12px] font-medium text-pi-ink-2 transition-colors hover:border-pi-line-2 hover:bg-pi-fill hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+          Undo
+        </button>
+      )}
       {text && (
         <IconAction
           label={copied ? "Copied" : "Copy"}

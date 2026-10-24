@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from "react";
 import {
   CircleAlert,
+  History,
+  PanelLeftClose,
+  PanelLeftOpen,
   Download,
   Ellipsis,
   NeoStar,
@@ -10,7 +13,7 @@ import {
   Search,
   Star,
   Trash2,
-  Workflow,
+  Wand2,
   X,
 } from "@/components/icons";
 import {
@@ -23,18 +26,26 @@ import {
 import type { NeoChat } from "@/types/pages/neo";
 import { exportChat } from "./chat-title";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
-import { useFirmBrief } from "@/hooks/pages/neo/use-firm-brief";
+import { useCompanyBrief } from "@/hooks/pages/neo/use-firm-brief";
 import { cn } from "@/lib/utils";
+import { DEMO_TODAY } from "@/utils/pages/inbox/ai-calculations";
 import type { NeoPageId } from "./index";
 
 type Props = {
   page: NeoPageId;
   onPage: (page: NeoPageId) => void;
+  /** Folded to a strip of icons, for small screens. */
+  folded?: boolean;
+  /** Fold or unfold; absent in the phone sheet, which closes instead. */
+  onToggle?: () => void;
 };
+
+const ICON_BTN =
+  "relative grid h-9 w-9 place-items-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border disabled:opacity-50";
 
 const ITEMS: { id: NeoPageId; label: string; icon: typeof NeoStar }[] = [
   { id: "chat", label: "Chat", icon: NeoStar },
-  { id: "agents", label: "Agents", icon: Workflow },
+  { id: "skills", label: "Skills", icon: Wand2 },
   { id: "attention", label: "Needs attention", icon: CircleAlert },
   { id: "activity", label: "Activity", icon: ScrollText },
 ];
@@ -42,8 +53,13 @@ const ITEMS: { id: NeoPageId; label: string; icon: typeof NeoStar }[] = [
 const ROW =
   "flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[14px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border";
 
-/** Today, Yesterday, Previous 7 days, Older — as the chat apps file them. */
-const groupOf = (iso: string, now = new Date()) => {
+/**
+ * Today, Yesterday, Previous 7 days, Older — as the chat apps file them,
+ * counted from the prototype's one clock (DEMO_TODAY), the same day the
+ * brief and the overdue days are counted from. A chat started now is later
+ * than that, so it files under Today.
+ */
+const groupOf = (iso: string, now = DEMO_TODAY) => {
   const d = new Date(iso);
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.floor((start.getTime() - d.getTime()) / 86400000) + 1;
@@ -60,14 +76,13 @@ const GROUPS = ["Starred", "Today", "Yesterday", "Previous 7 days", "Older"];
  * search over titles and messages. Each chat has a ⋯ menu on hover: Star,
  * Rename, Export, Delete. Opening one carries it on.
  */
-const NeoNav = ({ page, onPage }: Props) => {
+const NeoNav = ({ page, onPage, folded, onToggle }: Props) => {
   const neo = useNeo();
-  const brief = useFirmBrief();
-  // What the brief marks as needing a person, across the live clients.
-  const attention = brief.clients.reduce(
-    (n, c) => n + c.signals.filter((s) => s.tone !== "neutral").length,
-    0
-  );
+  const { client } = useCompanyBrief();
+  // What the brief marks as needing a person, in this company.
+  const attention = client
+    ? client.signals.filter((s) => s.tone !== "neutral").length
+    : 0;
   const busy = !!neo.busy;
   const [query, setQuery] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -88,10 +103,114 @@ const NeoNav = ({ page, onPage }: Props) => {
         const g = c.starred ? "Starred" : groupOf(c.updatedAt);
         by.set(g, [...(by.get(g) || []), c]);
       });
-    return GROUPS.filter((g) => by.has(g)).map(
-      (g) => [g, by.get(g)!] as const
-    );
+    return GROUPS.filter((g) => by.has(g)).map((g) => [g, by.get(g)!] as const);
   }, [neo.chats, query]);
+
+  // Folded (small screens, 20 Oct 2026): a 52px strip with the same
+  // places as icons, recent chats behind one button, and unfold at the foot.
+  if (folded)
+    return (
+      <nav
+        aria-label="Neo"
+        className="flex w-[52px] flex-none flex-col items-center gap-1 border-r border-pi-line bg-background py-2"
+      >
+        <button
+          type="button"
+          disabled={busy}
+          title="New chat"
+          aria-label="New chat"
+          onClick={() => {
+            neo.reset();
+            onPage("chat");
+          }}
+          className={cn(
+            ICON_BTN,
+            "border border-pi-line-2 text-pi-ink shadow-pi-1 hover:bg-pi-fill"
+          )}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <span className="my-1 h-px w-6 bg-pi-line" />
+        {ITEMS.map((it) => {
+          const active = page === it.id;
+          return (
+            <button
+              key={it.id}
+              type="button"
+              title={it.label}
+              aria-label={it.label}
+              aria-current={active ? "page" : undefined}
+              onClick={() => onPage(it.id)}
+              className={cn(
+                ICON_BTN,
+                active
+                  ? "bg-pi-fill text-pi-brand"
+                  : "text-pi-body hover:bg-pi-fill hover:text-pi-ink"
+              )}
+            >
+              <it.icon className="h-4 w-4" />
+              {it.id === "attention" && attention > 0 && (
+                <span className="absolute right-1 top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-0.5 text-[9px] font-semibold tabular-nums text-primary-foreground">
+                  {attention}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              title="Recent chats"
+              aria-label="Recent chats"
+              className={cn(
+                ICON_BTN,
+                "text-pi-body hover:bg-pi-fill hover:text-pi-ink"
+              )}
+            >
+              <History className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" className="w-64">
+            {neo.chats.length === 0 && (
+              <p className="px-2 py-1.5 text-[13px] text-pi-faint">
+                No chats yet
+              </p>
+            )}
+            {neo.chats.slice(0, 12).map((c) => (
+              <DropdownMenuItem
+                key={c.id}
+                disabled={busy && c.id !== neo.chatId}
+                onSelect={() => {
+                  neo.openChat(c.id);
+                  onPage("chat");
+                }}
+                className={cn(
+                  "text-[13px]",
+                  c.id === neo.chatId && "font-medium"
+                )}
+              >
+                <span className="truncate">{c.title}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {onToggle && (
+          <button
+            type="button"
+            title="Show chats"
+            aria-label="Show chats"
+            onClick={onToggle}
+            className={cn(
+              ICON_BTN,
+              "mt-auto text-pi-body hover:bg-pi-fill hover:text-pi-ink"
+            )}
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        )}
+      </nav>
+    );
 
   return (
     <nav
@@ -200,6 +319,21 @@ const NeoNav = ({ page, onPage }: Props) => {
           </section>
         ))}
       </div>
+      {onToggle && (
+        <div className="flex-none border-t border-pi-line px-3 py-2">
+          <button
+            type="button"
+            onClick={onToggle}
+            className={cn(
+              ROW,
+              "h-8 text-[13px] text-pi-body hover:bg-pi-fill hover:text-pi-ink"
+            )}
+          >
+            <PanelLeftClose className="h-4 w-4 flex-none" />
+            Hide chats
+          </button>
+        </div>
+      )}
     </nav>
   );
 };
@@ -266,7 +400,10 @@ const ChatRow = ({
             : "text-pi-ink-2 hover:bg-pi-fill"
         )}
       >
-        <span key={c.title} className="truncate duration-500 animate-in fade-in-0">
+        <span
+          key={c.title}
+          className="truncate duration-500 animate-in fade-in-0"
+        >
           {c.title}
         </span>
       </button>
@@ -296,7 +433,9 @@ const ChatRow = ({
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() =>
-              exportChat(c.id === neo.chatId ? { ...c, messages: neo.messages } : c)
+              exportChat(
+                c.id === neo.chatId ? { ...c, messages: neo.messages } : c
+              )
             }
           >
             <Download className="mr-2 h-4 w-4" />

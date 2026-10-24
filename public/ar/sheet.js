@@ -1494,6 +1494,13 @@ const MASTERS = {
      ourselves, and the aggregate the customer measures their own deduction
      against. */
   customers:[
+    // Nandhini Deluxe's channel receivables (three-way reconciliation, 20 Oct 2026): daily POS sales are booked to these debtors.
+    {id:'v-nd-card',  name:'HDFC Card Receivable – JP Nagar',group:'Sundry Debtors',gstin:'',pan:'',state:'KA',credit:1,ledger:'led-sales-local',treatment:'unregistered',deductee:'company',address:'',fyGoods:0,fyServices:0},
+    {id:'v-nd-upi',   name:'HDFC UPI Receivable – JP Nagar', group:'Sundry Debtors',gstin:'',pan:'',state:'KA',credit:1,ledger:'led-sales-local',treatment:'unregistered',deductee:'company',address:'',fyGoods:0,fyServices:0},
+    {id:'v-nd-zomato',name:'Zomato Receivable',              group:'Sundry Debtors',gstin:'',pan:'',state:'KA',credit:10,ledger:'led-sales-local',treatment:'unregistered',deductee:'company',address:'',fyGoods:0,fyServices:0},
+    {id:'v-nd-swiggy',name:'Swiggy Receivable',              group:'Sundry Debtors',gstin:'',pan:'',state:'KA',credit:11,ledger:'led-sales-local',treatment:'unregistered',deductee:'company',address:'',fyGoods:0,fyServices:0},
+    {id:'v-nd-ownly', name:'Ownly Receivable',               group:'Sundry Debtors',gstin:'',pan:'',state:'KA',credit:8,ledger:'led-sales-local',treatment:'unregistered',deductee:'company',address:'',fyGoods:0,fyServices:0},
+    {id:'v-nd-cash',  name:'Cash',                           group:'Cash-in-Hand',  gstin:'',pan:'',state:'KA',credit:0,ledger:'led-sales-local',treatment:'unregistered',deductee:'company',address:'',fyGoods:0,fyServices:0},
     {id:'v-reliance-retail',name:'Reliance Retail Ltd',group:'Karnataka',gstin:'29AAACR7342J1Z3',pan:'AAACR7342J',state:'KA',credit:30,ledger:'led-sales-local',treatment:'registered',deductee:'company',address:'Whitefield, Bengaluru, Karnataka 560066',fyGoods:3200000,fyServices:0},
     {id:'v-technova',name:'Technova Systems LLP',        group:'Karnataka',  gstin:'29AAGFT1122R1Z8',pan:'AAGFT1122R',state:'KA',credit:15,ledger:'led-sales-local',treatment:'registered',deductee:'company',   address:'#7, 4th Cross, Koramangala Industrial Layout, Bengaluru — 560034',fyGoods:4920000,fyServices:0},
     {id:'v-sunrise', name:'Sunrise Retail Ventures Pvt Ltd',group:'Karnataka',gstin:'29AACCS8899P1ZQ',pan:'AACCS8899P',state:'KA',credit:30,ledger:'led-sales-local',treatment:'registered',deductee:'company',   address:'14, Nandidurga Road, Benson Town, Bengaluru — 560046',fyGoods:860000,fyServices:0},
@@ -11952,6 +11959,9 @@ function boot(){
     if(doc.dueDate)        state.dueDate   = doc.dueDate;
     if(doc.placeOfSupply)  state.destState = doc.placeOfSupply;
     if(doc.voucherNo)      state.voucherNo = doc.voucherNo;
+    /* A day's POS sales is dated the day it was sold, not the day it was entered
+       (Neo reconciliation, 20 Oct 2026). Other documents keep today. */
+    if(doc.voucherDate)    state.voucherDate = doc.voucherDate;
 
     /* Item Mode bills stock, and stock is quantities, units and rates. An
        inbox extraction carries a description and an amount — that is a ledger

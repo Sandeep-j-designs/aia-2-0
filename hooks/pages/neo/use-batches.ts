@@ -574,11 +574,13 @@ const buildRows = (b: Batch): BatchRow[] => {
         ? leftOut
         : status === "check" && rcm
           ? "Reverse charge: choose the liability ledger on the form before approving"
-          : status === "check"
-            ? `${bill.items[0].desc.split(" — ")[0]} isn't freight, so the freight rule wasn't applied. Booked to ${ledger}, the ledger this code is filed on.`
-            : status === "new-vendor"
-              ? "Vendor is created in Tally when this is approved"
-              : undefined,
+          : status === "check" && isFreight(d)
+            ? `Your instruction didn't name a freight ledger, so Neo used ${ledger} for the batch's freight bills.`
+            : status === "check"
+              ? `${bill.items[0].desc.split(" — ")[0]} isn't freight, so the freight rule wasn't applied. Booked to ${ledger}, the ledger this code is filed on.`
+              : status === "new-vendor"
+                ? "Vendor is created in Tally when this is approved"
+                : undefined,
       checked: !leftOut,
       lines,
     };

@@ -17,6 +17,7 @@ import {
   MOCK_NEO_CUSTOMERS,
   MOCK_NEO_REGISTRATIONS,
 } from "@/config/pages/neo/mock-customers";
+import { decide } from "./shared";
 import type { NeoCard, NeoTask, NeoVoucherLine } from "@/types/pages/neo";
 import {
   day,
@@ -215,16 +216,104 @@ const salesFromPurchase: NeoTask = {
           }))
         )
       ));
-    if (!customer) await askCustomer();
-    if (markup === undefined) await askMarkup();
+    // Who, the price, the GST rate and where it's supplied: what the bill
+    // doesn't say, on one sheet with Neo's picks filled in (20 Oct 2026).
+    // Place of supply follows the customer unless you say the goods go
+    // elsewhere.
     const suggestedRate = rateOf(bill);
-    const rate = Number(
-      await api.ask(
-        `Confirm one GST rate for all resale lines${suggestedRate !== undefined ? ` (purchase suggests ${suggestedRate}%)` : " (purchase rate could not be established)"}. Mixed rates need manual review.`,
-        [0, 5, 18, 40].map((n) => ({ id: String(n), label: `${n}%` }))
-      )
+    const states = [
+      ...new Map(
+        MOCK_NEO_CUSTOMERS.map((x) => [x.stateCode, x.state])
+      ).entries(),
+    ];
+    const sheet = await decide(
+      api,
+      `Before I prepare the invoice from ${describe(bill)}`,
+      [
+        ...(!customer
+          ? [
+              {
+                id: "customer",
+                header: "Customer",
+                question: "Which customer is it for?",
+                recommended: "",
+                options: CUSTOMERS.slice(0, 4).map((name) => {
+                  const c = MOCK_NEO_CUSTOMERS.find((x) => x.name === name);
+                  return {
+                    id: name,
+                    label: name,
+                    hint: c ? `${c.state} · ${c.gstin}` : "",
+                  };
+                }),
+              },
+            ]
+          : []),
+        ...(markup === undefined
+          ? [
+              {
+                id: "markup",
+                header: "Price",
+                question: "At what price?",
+                why: "Neo marks up the bill's pre-tax cost; it isn't a margin.",
+                recommended: "",
+                options: MARKUPS.map((m) => ({
+                  id: String(m),
+                  label: m ? `${m}% markup` : "At cost",
+                })),
+              },
+            ]
+          : []),
+        {
+          id: "rate",
+          header: "GST rate",
+          question: "One GST rate for every resale line?",
+          why: "Mixed rates need editing in Sales before approval.",
+          recommended: suggestedRate !== undefined ? String(suggestedRate) : "",
+          ...(suggestedRate !== undefined
+            ? { settled: `the purchase bill charges ${suggestedRate}%` }
+            : {}),
+          options: [0, 5, 18, 40].map((n) => ({
+            id: String(n),
+            label: `${n}%`,
+          })),
+        },
+        {
+          id: "supply",
+          header: "Supply",
+          question: "Place of supply?",
+          why: "The customer's registration state isn't proof of where the goods go.",
+          recommended: "registered",
+          options: [
+            {
+              id: "registered",
+              label: "Where the customer is registered",
+              hint: "Change only if the goods ship to another state",
+            },
+            ...states.map(([id, label]) => ({ id, label })),
+          ],
+        },
+      ],
+      [
+        {
+          id: "go",
+          label: "Submit and show the invoice",
+          primary: true,
+          risk: "read",
+        },
+        { id: "discard", label: "Discard" },
+      ]
     );
-    let placeOfSupply: string | undefined;
+    if (sheet.choice !== "go") {
+      await api.say("Discarded. Nothing was created.");
+      return "Discarded";
+    }
+    if (!customer) customer = sheet.picks.customer;
+    if (markup === undefined) markup = Number(sheet.picks.markup);
+    const rate = Number(sheet.picks.rate);
+    let placeOfSupply: string | undefined =
+      sheet.picks.supply === "registered"
+        ? MOCK_NEO_CUSTOMERS.find((x) => x.name === customer)?.stateCode
+        : sheet.picks.supply;
     let chosenLedger: string | undefined;
 
     /* 3 — build, preview, and let the user steer until they create */

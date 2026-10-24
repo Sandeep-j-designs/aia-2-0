@@ -56,7 +56,7 @@ export default function AgentOverview({
         : firstRun
           ? "Connected. Let’s collect your first invoices."
           : c.agent.runMode === "continuous"
-            ? "Your agent is keeping an eye on things."
+            ? "Document collection is keeping an eye on things."
             : "Your next collection is a click away.";
   return (
     <div className="space-y-5">
@@ -214,7 +214,7 @@ export default function AgentOverview({
               ) : (
                 <p className="p-5 text-sm leading-6 text-pi-body">
                   {c.busy
-                    ? "Your agent is checking the connected sources. Documents will appear here as they’re collected."
+                    ? "Document collection is checking the connected sources. Documents will appear here as they’re collected."
                     : "No documents collected yet. Check the activity for details."}
                 </p>
               )}

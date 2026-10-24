@@ -36,7 +36,7 @@ const Agents = ({ company }: { company: string }) => {
     void router.push(
       nextTab
         ? `/inbox?module=AGENTS&page=document-collection&tab=${nextTab}`
-        : "/inbox?module=NEO&page=agents"
+        : "/inbox?module=NEO&page=skills"
     );
   const draft = !c.agent.configured && !!c.agent.setup;
   const editInChat = () =>

@@ -5,6 +5,7 @@ import {
   agentByRecipe,
   saveAgent,
 } from "@/hooks/pages/neo/use-agents";
+import { decide } from "./shared";
 import type { NeoCard, NeoTask } from "@/types/pages/neo";
 import type { NeoAgent, NeoAgentTrigger } from "@/types/pages/neo/agents";
 import { has } from "@/utils/pages/neo";
@@ -16,7 +17,7 @@ const TRIGGERS: NeoAgentTrigger[] = [
   "monthly",
 ];
 
-const AGENTS_HREF = "/inbox?module=NEO&page=agents";
+const AGENTS_HREF = "/inbox?module=NEO&page=skills";
 
 /**
  * Neo › Agents: set up a standing agent in a conversation — what it does,
@@ -28,9 +29,11 @@ const AGENTS_HREF = "/inbox?module=NEO&page=agents";
  */
 const createAgent: NeoTask = {
   id: "create-agent",
-  title: "Set up an agent",
+  title: "Set a skill to run automatically",
   match: (p) =>
     has(p, /\b(create|new|set ?up|build|make)\b.*\bagents?\b/i) ||
+    // A skill set to run on its own (20 Oct 2026: agents are skills).
+    has(p, /\brun automatically\b/i) ||
     has(p, /^(edit|open) agent\b/i)
       ? 20
       : 0,
@@ -43,6 +46,7 @@ const createAgent: NeoTask = {
       : undefined;
 
     let agent: NeoAgent;
+    let sheet: Awaited<ReturnType<typeof decide>> | undefined;
     if (existing) {
       agent = existing;
     } else {
@@ -51,41 +55,64 @@ const createAgent: NeoTask = {
           p.includes(r.name.toLowerCase()) ||
           p.includes(r.agentName.toLowerCase())
       );
-      if (!recipe) {
-        const pick = await api.ask(
-          "What should the agent do?",
-          AGENT_RECIPES.map((r) => ({
-            id: r.id,
-            label: r.name,
-            hint: r.description,
-          }))
-        );
-        recipe = AGENT_RECIPES.find((r) => r.id === pick)!;
-      } else {
-        await api.say(
-          `Setting up "${recipe.agentName}". ${recipe.description}`
-        );
-      }
-      const trigger = (await api.ask(
-        "When should it run?",
-        TRIGGERS.map((t) => ({
-          id: t,
-          label: TRIGGER_LABEL[t],
-          hint: t === recipe!.trigger ? "Suggested for this agent" : undefined,
-        }))
-      )) as NeoAgentTrigger;
-      const permission = (await api.ask("How far may it go?", [
-        {
-          id: "flag",
-          label: "Flag what it finds",
-          hint: "Nothing changes in your books",
-        },
-        {
-          id: "draft",
-          label: "Prepare drafts as well",
-          hint: "Drafts wait in Need review for your approval",
-        },
-      ])) as NeoAgent["permission"];
+      // What it does (if the request didn't say), when it runs and how far
+      // it may go, on one sheet whose buttons also turn it on (20 Oct 2026).
+      const named = recipe;
+      sheet = await decide(
+        api,
+        named ? `${named.agentName}: run automatically` : "Run a check automatically",
+        [
+          ...(!named
+            ? [
+                {
+                  id: "recipe",
+                  header: "Job",
+                  question: "Which check?",
+                  recommended: "",
+                  options: AGENT_RECIPES.map((r) => ({
+                    id: r.id,
+                    label: r.name,
+                    hint: r.description,
+                  })),
+                },
+              ]
+            : []),
+          {
+            id: "trigger",
+            header: "When",
+            question: "When should it run?",
+            recommended: named?.trigger || "",
+            options: TRIGGERS.map((t) => ({ id: t, label: TRIGGER_LABEL[t] })),
+          },
+          {
+            id: "permission",
+            header: "Permission",
+            question: "How far may it go?",
+            recommended: "flag",
+            options: [
+              {
+                id: "flag",
+                label: "Flag what it finds",
+                hint: "Nothing changes in your books",
+              },
+              {
+                id: "draft",
+                label: "Prepare drafts as well",
+                hint: "Drafts wait in Need review for your approval",
+              },
+            ],
+          },
+        ],
+        [
+          { id: "on", label: "Submit and turn it on", primary: true },
+          { id: "draft", label: "Save as draft" },
+          { id: "cancel", label: "Not now" },
+        ]
+      );
+      recipe =
+        named || AGENT_RECIPES.find((r) => r.id === sheet!.picks.recipe)!;
+      const trigger = sheet.picks.trigger as NeoAgentTrigger;
+      const permission = sheet.picks.permission as NeoAgent["permission"];
       // One agent per recipe: making it again changes the one you have.
       const same = agentByRecipe(company, recipe.id);
       if (same)
@@ -119,11 +146,13 @@ const createAgent: NeoTask = {
       state,
     });
 
-    const choice = await api.card(card("Preview"), [
-      { id: "on", label: "Turn on", primary: true },
-      { id: "draft", label: "Save as draft" },
-      { id: "cancel", label: existing ? "Close" : "Not now" },
-    ]);
+    const choice = sheet
+      ? sheet.choice
+      : await api.card(card("Preview"), [
+          { id: "on", label: "Turn on", primary: true },
+          { id: "draft", label: "Save as draft" },
+          { id: "cancel", label: existing ? "Close" : "Not now" },
+        ]);
     if (choice === "cancel") {
       await api.say(
         existing ? "Left it as it was." : "Nothing saved. Ask again any time."
@@ -132,14 +161,14 @@ const createAgent: NeoTask = {
     }
     const status = choice === "on" ? "scheduled" : "draft";
     saveAgent({ ...agent, status });
-    api.updateCard(
-      card(status === "scheduled" ? "Scheduled" : "Saved as draft")
-    );
+    const done = card(status === "scheduled" ? "Scheduled" : "Saved as draft");
+    if (sheet) api.show(done);
+    else api.updateCard(done);
     await api.say(
       status === "scheduled"
-        ? `${agent.name} is on. It runs ${TRIGGER_LABEL[agent.trigger].toLowerCase()} and puts what it finds in Needs attention; nothing is approved without you.`
+        ? `**${agent.name} runs automatically**, ${TRIGGER_LABEL[agent.trigger].toLowerCase()}. What it finds goes to Needs attention; it approves nothing.`
         : `${agent.name} is saved as a draft. It won't run until you turn it on.`,
-      [{ label: "Open Agents", href: AGENTS_HREF }]
+      [{ label: "Open Skills", href: AGENTS_HREF }]
     );
     return status === "scheduled"
       ? `${agent.name} turned on`

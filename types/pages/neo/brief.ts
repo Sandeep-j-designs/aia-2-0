@@ -15,6 +15,16 @@ export type BriefSignal = {
   tone: BriefTone;
   /** Where the work behind it is. */
   href: string;
+  /** The return it holds up: "3B · 20 Oct". */
+  due?: string;
+};
+
+/** One kind of money waiting on a decision, never added to another kind. */
+export type BriefPart = {
+  id: "itc" | "waiting" | "overdue";
+  /** "₹7.6L ITC", "₹38L waiting", "₹2L overdue". */
+  label: string;
+  amount: number;
 };
 
 export type BriefClient = {
@@ -22,8 +32,14 @@ export type BriefClient = {
   name: string;
   /** "GSTR-3B due 20 Oct · 7 days". */
   deadline: string;
-  /** Rupees that need a decision: ITC at risk + overdue + waiting bills. */
+  /**
+   * The largest single amount needing a decision. Ranking only: ITC at risk,
+   * bills waiting and money overdue are different things and are shown
+   * apart (`parts`), never summed.
+   */
   impact: number;
+  /** Each kind of money, largest first. */
+  parts: BriefPart[];
   signals: BriefSignal[];
   /** The one place to start, with its label. */
   next?: { label: string; href: string };

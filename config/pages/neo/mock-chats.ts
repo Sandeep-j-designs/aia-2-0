@@ -1,12 +1,14 @@
 import type { NeoChat } from "@/types/pages/neo";
 
 const chat = (
+  company: string,
   id: string,
   title: string,
   updatedAt: string,
   turns: [string, string][]
 ): NeoChat => ({
   id,
+  company,
   title,
   updatedAt,
   messages: turns.flatMap(([user, neo], i) => [
@@ -23,16 +25,23 @@ const chat = (
  * DEV: GET /api/neo/chats
  */
 export const MOCK_NEO_CHATS: NeoChat[] = [
-  chat("chat-seed-validator", "Bill validator", "2026-10-19T12:02:00+05:30", [
-    [
-      "Create an agent that validates vendor bills",
-      'Saved "Bill validator" as a draft. It runs when a bill is uploaded and only flags what it finds; nothing changes in your books until you approve it.',
-    ],
-  ]),
   chat(
+    "shakun",
+    "chat-seed-validator",
+    "Set up the Bill validator",
+    "2026-10-13T12:02:00+05:30",
+    [
+      [
+        "Create an agent that validates vendor bills",
+        'Saved "Bill validator" as a draft. It runs when a bill is uploaded and only flags what it finds; nothing changes in your books until you approve it.',
+      ],
+    ]
+  ),
+  chat(
+    "acme",
     "chat-seed-unpaid",
     "Find unpaid invoices",
-    "2026-10-18T17:40:00+05:30",
+    "2026-10-12T17:40:00+05:30",
     [
       [
         "Find unpaid invoices",
@@ -41,9 +50,10 @@ export const MOCK_NEO_CHATS: NeoChat[] = [
     ]
   ),
   chat(
+    "shakun",
     "chat-seed-upload",
     "Upload purchase bills",
-    "2026-10-17T10:15:00+05:30",
+    "2026-10-11T10:15:00+05:30",
     [
       [
         "Upload purchase bills",
@@ -52,9 +62,10 @@ export const MOCK_NEO_CHATS: NeoChat[] = [
     ]
   ),
   chat(
+    "shakun",
     "chat-seed-invoice",
     "Create an invoice for Reliance",
-    "2026-10-16T15:28:00+05:30",
+    "2026-10-10T15:28:00+05:30",
     [
       [
         "Create an invoice for Reliance against their PO",
@@ -62,10 +73,16 @@ export const MOCK_NEO_CHATS: NeoChat[] = [
       ],
     ]
   ),
-  chat("chat-seed-freight", "Why is freight up?", "2026-10-14T09:50:00+05:30", [
+  chat(
+    "shakun",
+    "chat-seed-freight",
+    "Why is freight up?",
+    "2026-10-08T09:50:00+05:30",
     [
-      "Why is freight up in September?",
-      "Freight is up mainly on Mahindra Logistics bills. Ask again for the breakdown by vendor and the bills behind it.",
-    ],
-  ]),
+      [
+        "Why is freight up in September?",
+        "Freight is up mainly on Mahindra Logistics bills. Ask again for the breakdown by vendor and the bills behind it.",
+      ],
+    ]
+  ),
 ];

@@ -1,3 +1,4 @@
+import { unanswered } from "@/utils/pages/neo/decisions";
 import React, { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
 import {
@@ -27,6 +28,12 @@ import DropZone from "./common/drop-zone";
 import NeoMark from "./common/neo-mark";
 import Thread, { useLiveMessage } from "./common/thread";
 import ChatTitle from "./page/chat-title";
+import {
+  BackToBill,
+  BillChecks,
+  SubtaskTitle,
+  useSubtask,
+} from "./bill-subtask";
 import { demoNote } from "@/config/pages/neo/demo";
 
 const ICON_BUTTON =
@@ -54,6 +61,7 @@ const NeoPanel = () => {
   const state = useStore();
   const box = useComposer(neo);
   const live = useLiveMessage(neo);
+  const subtask = useSubtask();
   const input = useRef<HTMLTextAreaElement>(null);
 
   const suggestions = useMemo(
@@ -90,7 +98,13 @@ const NeoPanel = () => {
       box.send(suggestions[Number(e.key) - 1]);
       return;
     }
-    if (live?.ask && !typing && !box.draft && /^[1-9]$/.test(e.key)) {
+    if (
+      live?.ask &&
+      !live.ask.input &&
+      !typing &&
+      !box.draft &&
+      /^[1-9]$/.test(e.key)
+    ) {
       const option = live.ask.options[Number(e.key) - 1];
       if (option) {
         e.preventDefault();
@@ -106,7 +120,8 @@ const NeoPanel = () => {
         primary &&
         !typing &&
         primary.risk !== "commit" &&
-        primary.risk !== "external"
+        primary.risk !== "external" &&
+        !unanswered(live.card)
       )
         neo.answer(live.id, primary.id);
     }
@@ -173,45 +188,51 @@ const NeoPanel = () => {
         <header className="flex h-14 flex-none items-center gap-1 border-b border-pi-line pl-3 pr-2">
           <NeoMark className="mr-1" live={!!neo.busy && !neo.paused} />
           <div className="flex min-w-0 flex-1 items-center">
-            <ChatTitle compact />
+            {neo.billFocus ? <SubtaskTitle /> : <ChatTitle compact />}
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {/* On a bill's subtask these are the chat's tools; the
+              breadcrumb needs the room. */}
+          {!neo.billFocus && (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Recent chats"
+                    title="Recent chats"
+                    disabled={!!neo.busy || !recent.length}
+                    className={ICON_BUTTON}
+                  >
+                    <History className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="text-caption-1 font-semibold text-pi-faint">
+                    Recent chats
+                  </DropdownMenuLabel>
+                  {recent.map((c) => (
+                    <DropdownMenuItem
+                      key={c.id}
+                      onSelect={() => neo.openChat(c.id)}
+                      className="truncate text-[13px]"
+                    >
+                      <span className="truncate">{c.title}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <button
                 type="button"
-                aria-label="Recent chats"
-                title="Recent chats"
-                disabled={!!neo.busy || !recent.length}
+                aria-label="New chat"
+                title="New chat (Ctrl Shift O)"
+                disabled={!!neo.busy || !neo.messages.length}
+                onClick={neo.reset}
                 className={ICON_BUTTON}
               >
-                <History className="h-4 w-4" />
+                <SquarePen className="h-4 w-4" />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel className="text-caption-1 font-semibold text-pi-faint">
-                Recent chats
-              </DropdownMenuLabel>
-              {recent.map((c) => (
-                <DropdownMenuItem
-                  key={c.id}
-                  onSelect={() => neo.openChat(c.id)}
-                  className="truncate text-[13px]"
-                >
-                  <span className="truncate">{c.title}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button
-            type="button"
-            aria-label="New chat"
-            title="New chat (Ctrl Shift O)"
-            disabled={!!neo.busy || !neo.messages.length}
-            onClick={neo.reset}
-            className={ICON_BUTTON}
-          >
-            <SquarePen className="h-4 w-4" />
-          </button>
+            </>
+          )}
           <button
             type="button"
             aria-label="Expand to Neo"
@@ -232,13 +253,27 @@ const NeoPanel = () => {
           </button>
         </header>
 
+        {subtask && !neo.billFocus && <BackToBill />}
+
         <DropZone
           onFiles={box.attachFiles}
           disabled={!!neo.busy}
           className="flex min-h-0 flex-1 flex-col"
         >
           {neo.messages.length ? (
-            <Thread variant="panel" onPrompt={(t) => box.send(t)} />
+            <Thread
+              variant="panel"
+              onPrompt={(t) => box.send(t)}
+              scope={neo.billFocus}
+              header={neo.billFocus ? <BillChecks /> : undefined}
+              onOpenScope={(id) =>
+                id === subtask?.item.id
+                  ? neo.setDockView("bill")
+                  : subtask
+                    ? subtask.open(id)
+                    : neo.goTo({ label: "", itemId: id, target: "open" })
+              }
+            />
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
               <p className="neo-reading text-[22px] leading-8 text-pi-ink">
@@ -263,7 +298,9 @@ const NeoPanel = () => {
               </ul>
               <button
                 type="button"
-                onClick={() => neo.goTo({ label: "", href: "/inbox?module=NEO" })}
+                onClick={() =>
+                  neo.goTo({ label: "", href: "/inbox?module=NEO" })
+                }
                 className="mt-5 inline-flex items-center gap-1 rounded-sm text-[13px] font-medium text-pi-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
               >
                 Open Neo for agents, findings and history
@@ -283,7 +320,11 @@ const NeoPanel = () => {
             onAttachFiles={box.attachFiles}
             onAttachSample={box.attachSample}
             onRemoveAttachment={box.removeAttachment}
-            placeholder={`Ask about ${company || "this company"}`}
+            placeholder={
+              neo.billFocus && subtask
+                ? `Ask about ${subtask.billNo}`
+                : `Ask about ${company || "this company"}`
+            }
             context={
               <ContextChip
                 variant="pill"
@@ -293,12 +334,15 @@ const NeoPanel = () => {
               />
             }
           />
-          <p className="flex-none px-4 pb-2.5 text-center text-[11px] leading-4 text-pi-faint">
-            {company}
-            {neo.runContext
-              ? " · Run scope is fixed"
-              : demoNote(" · Scripted prototype") || " · Neo prepares, you approve"}
-          </p>
+          {/* The company is the pill in the prompt box; this line only says
+              the rule, until the person has signed off once. */}
+          {(neo.runContext || !neo.signedOff) && (
+            <p className="flex-none px-4 pb-2.5 text-center text-[11px] leading-4 text-pi-faint">
+              {neo.runContext
+                ? "Run scope is fixed"
+                : demoNote("Scripted prototype") || "Neo prepares, you approve"}
+            </p>
+          )}
         </DropZone>
       </aside>
       <Canvas variant="panel" />

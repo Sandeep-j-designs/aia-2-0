@@ -15,13 +15,18 @@ type Props = {
   running?: boolean;
 };
 
-/** "0.4s", "1.4s", "12s" — how long the work took. */
+/**
+ * "2.4s", "12s" — how long the work took, once it took long enough to be
+ * worth saying. A quick answer shows no time: "0.6s" reads as a stopwatch,
+ * not as information.
+ */
 const took = (steps: NeoStep[]) => {
   const start = Math.min(...steps.map((s) => s.startedAt ?? Infinity));
   const end = Math.max(...steps.map((s) => s.endedAt ?? -Infinity));
   if (!isFinite(start) || !isFinite(end) || end < start) return "";
   const s = (end - start) / 1000;
-  return s < 10 ? `${Math.max(0.1, s).toFixed(1)}s` : `${Math.round(s)}s`;
+  if (s < 2) return "";
+  return s < 10 ? `${s.toFixed(1)}s` : `${Math.round(s)}s`;
 };
 
 const Icon = ({ s }: { s: NeoStep }) =>
@@ -96,7 +101,7 @@ const Steps = ({ steps, onRef, running }: Props) => {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="group flex min-h-7 items-center gap-2 self-start rounded-md py-0.5 pr-1.5 text-left text-[13px] leading-5 text-pi-body transition-colors hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+        className="group flex min-h-7 max-w-full items-center gap-2 self-start rounded-md py-0.5 pr-1.5 text-left text-[13px] leading-5 text-pi-body transition-colors hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
       >
         {current ? (
           <Loader2 className="h-3.5 w-3.5 flex-none animate-spin text-pi-brand motion-reduce:animate-none" />
@@ -105,7 +110,12 @@ const Steps = ({ steps, onRef, running }: Props) => {
         ) : (
           <CircleCheck className="h-3.5 w-3.5 flex-none text-pi-faint" />
         )}
-        <span className={cn("min-w-0 truncate", current && "neo-shimmer text-pi-ink")}>
+        <span
+          className={cn(
+            "min-w-0 truncate",
+            current && "neo-shimmer text-pi-ink"
+          )}
+        >
           {summary}
         </span>
         <ChevronDown

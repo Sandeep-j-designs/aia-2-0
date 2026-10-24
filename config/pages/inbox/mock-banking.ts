@@ -1,3 +1,7 @@
+import {
+  NANDHINI_ID,
+  STATEMENT_ROWS,
+} from "@/config/pages/neo/mock-recon";
 import type {
   BankLedgerData,
   BankTransaction,
@@ -933,8 +937,113 @@ const ACME_LEDGER_GROUPS: LedgerOptionGroup[] = [
   { heading: "Cash-in-Hand", options: ["Cash"] },
 ];
 
+/* ----------------------------------------- Nandhini Deluxe, JP Nagar */
+
+export const NANDHINI_HDFC_ID = "nandhini-hdfc-current-0418";
+export const NANDHINI_ICICI_ID = "nandhini-icici-current-4105";
+export const NANDHINI_CASH_ID = "nandhini-cash-in-hand";
+
+/** Nandhini's two current accounts and the till, for reconciliation. */
+const NANDHINI_BANK_LEDGERS: BankLedgerData[] = [
+  {
+    id: NANDHINI_HDFC_ID,
+    ledgerName: "HDFC Current A/c - 0418",
+    accountType: "bank",
+    bankName: "HDFC Bank",
+    unreconciledCount: 0,
+    accountParent: "Bank Accounts",
+    useInKorefi: true,
+    bankId: 1,
+    korefiBankName: "HDFC Bank",
+    typeOfAccountFixed: "bank",
+  },
+  {
+    id: NANDHINI_ICICI_ID,
+    ledgerName: "ICICI Current A/c - 4105",
+    accountType: "bank",
+    bankName: "ICICI Bank",
+    unreconciledCount: 0,
+    accountParent: "Bank Accounts",
+    useInKorefi: true,
+    bankId: 2,
+    korefiBankName: "ICICI Bank",
+    typeOfAccountFixed: "bank",
+  },
+  {
+    id: NANDHINI_CASH_ID,
+    ledgerName: "Cash",
+    accountType: "",
+    bankName: null,
+    unreconciledCount: 0,
+    accountParent: "Cash-in-Hand",
+    useInKorefi: true,
+    bankId: null,
+    korefiBankName: null,
+    typeOfAccountFixed: "cash",
+  },
+];
+
+const NANDHINI_GST_REGISTRATIONS = [
+  { uuid: "gst-ka-29-nandhini", label: "Karnataka - 29AADCN5532H1ZD" },
+];
+
+/** Nandhini's Tally ledgers, as reconciliation books to them. */
+const NANDHINI_LEDGER_GROUPS: LedgerOptionGroup[] = [
+  {
+    heading: "Sundry Debtors",
+    options: [
+      "HDFC Card Receivable – JP Nagar",
+      "HDFC UPI Receivable – JP Nagar",
+      "Zomato Receivable",
+      "Swiggy Receivable",
+      "Ownly Receivable",
+    ],
+  },
+  {
+    heading: "Sundry Creditors",
+    options: [
+      "Hopcoms (creditor)",
+      "Akshayakalpa Dairy (creditor)",
+      "Nandhini Foods LLP (creditor)",
+    ],
+  },
+  {
+    heading: "Indirect Expenses",
+    options: [
+      "Rent",
+      "Electricity",
+      "Salaries",
+      "Gas & Fuel",
+      "Bank Charges",
+      "MDR Charges",
+      "Zomato Commission",
+      "Swiggy Commission",
+      "Marketing – Platform Ads",
+      "Platform Other Charges",
+      "Office Expenses",
+      "Repairs & Maintenance",
+      "Round Off",
+    ],
+  },
+  {
+    heading: "Indirect Incomes",
+    options: ["Zomato Cancellation Refunds"],
+  },
+  {
+    heading: "Duties & Taxes",
+    options: ["Input CGST", "Input SGST", "Output CGST", "Output SGST", "GST Payable"],
+  },
+  {
+    heading: "Loans & Advances (Asset)",
+    options: ["TDS Receivable – 194-O", "Loan to Nandhini Foods LLP"],
+  },
+  { heading: "Suspense", options: ["Suspense A/c"] },
+  { heading: "Bank Accounts", options: ["HDFC Current A/c - 0418", "ICICI Current A/c - 4105"] },
+  { heading: "Cash-in-Hand", options: ["Cash"] },
+];
+
 const LEDGER_OF: Record<string, BankLedgerData> = Object.fromEntries(
-  [...MOCK_BANK_LEDGERS, ...ACME_BANK_LEDGERS].map((ledger) => [
+  [...MOCK_BANK_LEDGERS, ...ACME_BANK_LEDGERS, ...NANDHINI_BANK_LEDGERS].map((ledger) => [
     ledger.id,
     ledger,
   ])
@@ -1078,7 +1187,7 @@ export const EXTRACTED_ROWS: Record<"bank" | "credit_card", Row[]> = {
   ],
 };
 
-const statement = (
+export const buildStatement = (
   ledgerId: string,
   fileName: string,
   from: string,
@@ -1112,6 +1221,7 @@ const statement = (
     ...extra,
   };
 };
+const statement = buildStatement;
 
 export const MOCK_STATEMENTS: Statement[] = [
   statement(
@@ -1297,6 +1407,29 @@ const ACME_STATEMENTS: Statement[] = [
   ),
 ];
 
+/**
+ * Nandhini's September HDFC statement, every row uncoded: reconciliation
+ * codes them from the settlement reports (config/pages/neo/mock-recon.ts).
+ */
+const NANDHINI_TRANSACTIONS: BankTransaction[] = STATEMENT_ROWS.map((r) =>
+  buildTransaction(NANDHINI_HDFC_ID, [r.date, r.narration, r.amount, r.side, "n"])
+);
+
+const NANDHINI_STATEMENTS: Statement[] = [
+  statement(
+    NANDHINI_HDFC_ID,
+    "HDFC_CA_0418_Sep2026.pdf",
+    "2026-09-01",
+    "2026-09-30",
+    {
+      fileMetadata: {
+        noOfDuplicates: 0,
+        noOfLinesExtracted: STATEMENT_ROWS.length,
+      },
+    }
+  ),
+];
+
 /* ------------------------------------------------------- per company */
 
 /** One company's Banking, as its first loads return it. */
@@ -1325,7 +1458,13 @@ export const seedFor = (companyId: string): BankingSeed =>
           statements: ACME_STATEMENTS,
           transactions: ACME_TRANSACTIONS,
         }
-      : { ledgers: [], statements: [], transactions: [] };
+      : companyId === NANDHINI_ID
+        ? {
+            ledgers: NANDHINI_BANK_LEDGERS,
+            statements: NANDHINI_STATEMENTS,
+            transactions: NANDHINI_TRANSACTIONS,
+          }
+        : { ledgers: [], statements: [], transactions: [] };
 
 /** DEV: GET /api/accounts/grouped-tally-customer-account-list, per company. */
 export const ledgerGroupsOf = (companyId: string): LedgerOptionGroup[] =>
@@ -1333,7 +1472,9 @@ export const ledgerGroupsOf = (companyId: string): LedgerOptionGroup[] =>
     ? LEDGER_GROUPS
     : companyId === "acme"
       ? ACME_LEDGER_GROUPS
-      : [];
+      : companyId === NANDHINI_ID
+        ? NANDHINI_LEDGER_GROUPS
+        : [];
 
 /** DEV: GET /api/accounts/company-gstin-location-list, per company. */
 export const gstRegistrationsOf = (companyId: string) =>
@@ -1341,4 +1482,6 @@ export const gstRegistrationsOf = (companyId: string) =>
     ? GST_REGISTRATIONS
     : companyId === "acme"
       ? ACME_GST_REGISTRATIONS
-      : [];
+      : companyId === NANDHINI_ID
+        ? NANDHINI_GST_REGISTRATIONS
+        : [];

@@ -13,6 +13,7 @@ import {
   startBatch,
   undoBatch,
 } from "@/hooks/pages/neo/use-batches";
+import { decide } from "./shared";
 import type { NeoTask } from "@/types/pages/neo";
 import { has, money } from "@/utils/pages/neo";
 
@@ -42,7 +43,10 @@ const batchEntry: NeoTask = {
         p,
         /\b(book|enter|post|upload|these|freight goes|deduct|cost cent|plant)\b/i
       ) &&
-      !has(p, /sales invoice|how much|spend|which vendors|approve|undo|polic/i))
+      !has(
+        p,
+        /sales invoice|how much|spend|which vendors|approve|undo|polic|selected/i
+      ))
       ? 9
       : 0,
   run: async (api) => {
@@ -58,23 +62,10 @@ const batchEntry: NeoTask = {
       .filter((a) => !a.docId)
       .map((a) => a.name);
 
-    if (!api.attachments.length) {
-      const pick = await api.ask("Which bills?", [
-        {
-          id: "sample",
-          label: "Use the sample: 10 Harihar plant bills",
-          hint: "September freight, courier and packing for Shakunthalam",
-        },
-        { id: "attach", label: "I'll attach them" },
-      ]);
-      if (pick === "attach") {
-        await api.say(
-          "Attach them with the clip beside the message box and send them with your instruction: what the bills don't say, like the period, the plant, where freight goes and the TDS."
-        );
-        return "Waiting for the bills";
-      }
-      docIds = MOCK_BATCH_DOCUMENTS.map((d) => d.id);
-    }
+    // Nothing attached: the sample is the only batch that works here, so
+    // Neo reads it rather than asking (20 Oct 2026).
+    const sample = !api.attachments.length;
+    if (sample) docIds = MOCK_BATCH_DOCUMENTS.map((d) => d.id);
     if (!docIds.length) {
       await api.say(
         `I couldn't read ${unreadable.join(", ")}. This prototype reads its sample bills only; attach those from the clip menu.`
@@ -82,23 +73,15 @@ const batchEntry: NeoTask = {
       return "Nothing readable";
     }
 
+    // What the bills don't say isn't asked either: the sample's own
+    // instruction, or defaults, land on the settings card, where any value
+    // is one click to change.
     let instruction = /^enter a batch/i.test(typed) ? "" : typed.trim();
-    if (!instruction) {
-      const pick = await api.ask(
-        "What don't the bills say?\nThe period, the plant, where freight goes, the TDS. One line covers the whole batch.",
-        [
-          {
-            id: "sample",
-            label: SAMPLE_BATCH_INSTRUCTION,
-          },
-          { id: "none", label: "Nothing. Use your defaults" },
-        ]
-      );
-      instruction = pick === "sample" ? SAMPLE_BATCH_INSTRUCTION : "";
-    }
-
+    if (!instruction && sample) instruction = SAMPLE_BATCH_INSTRUCTION;
     const reading = await api.step(
-      `Reading ${docIds.length} bill${docIds.length === 1 ? "" : "s"}`
+      sample
+        ? "Reading the sample: 10 Harihar plant bills"
+        : `Reading ${docIds.length} bill${docIds.length === 1 ? "" : "s"}`
     );
     await api.wait(700);
     const batch = startBatch(
@@ -137,20 +120,41 @@ const batchEntry: NeoTask = {
     await api.checkpoint();
     readBatch(batch.id);
     const questions = getBatch(batch.id)?.questions || [];
-    if (questions.length)
-      await api.say(
-        `${questions.length} thing${questions.length === 1 ? "" : "s"} I can't decide alone. One answer covers every bill it applies to.`
-      );
     api.status("Entering a batch of bills", { done: 2, total: 4 });
-    for (const q of questions) {
-      const answer = await api.ask(
-        `${q.text}\n${q.detail}`,
-        q.options.map((o) => ({
-          ...o,
-          hint: o.id === q.answer ? "Suggested" : undefined,
-        }))
+    // Every exception on one sheet, Neo's pick filled in; one answer covers
+    // every bill it applies to.
+    if (questions.length) {
+      const { choice, picks } = await decide(
+        api,
+        "Before I build the register",
+        questions.map((q) => ({
+          id: q.id,
+          header: {
+            goods: "Goods",
+            costCentre: "Cost centre",
+            newVendors: "New vendors",
+            c6: "194C(6)",
+          }[q.id],
+          question: q.text,
+          why: q.detail,
+          recommended: q.answer,
+          options: q.options,
+        })),
+        [
+          {
+            id: "go",
+            label: "Submit and build the register",
+            primary: true,
+            risk: "read",
+          },
+          { id: "cancel", label: "Cancel" },
+        ]
       );
-      answerBatch(batch.id, q.id, answer);
+      if (choice !== "go") {
+        await api.say("Stopped. Nothing was entered.");
+        return "Cancelled";
+      }
+      for (const q of questions) answerBatch(batch.id, q.id, picks[q.id]);
     }
 
     showRegister(batch.id);

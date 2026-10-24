@@ -90,6 +90,18 @@ export const SEED_COMPANIES: Company[] = [
     state: "Maharashtra",
     tool: "tally",
   },
+  {
+    // A restaurant with two outlets in Bengaluru, selling at the counter and
+    // through Zomato, Swiggy and Ownly: the three-way reconciliation client
+    // (20 Oct 2026). Its September lives in config/pages/neo/mock-recon.ts.
+    id: "nandhini",
+    name: "Nandhini Deluxe",
+    slug: "nandhini-deluxe",
+    branches: ["JP Nagar", "Koramangala"],
+    gstin: "29AADCN5532H1ZD",
+    state: "Karnataka",
+    tool: "tally",
+  },
 ];
 export const actor = "Sandeep Balaji";
 export type Form = {
@@ -2801,7 +2813,15 @@ function createDraft(
       ? undefined
       : { agent: "Neo", runId, onBehalfOf: actor, fromId },
   };
-  state = { ...state, items: [next, ...state.items] };
+  // A draft is an arrival: a company that had nothing sent yet now has its
+  // Inbox started, or the queue's empty kickstart would hide the draft.
+  state = {
+    ...state,
+    startedCompanies: [
+      ...new Set([...(state.startedCompanies || []), next.company]),
+    ],
+    items: [next, ...state.items],
+  };
   event(person ? "Draft Created" : "Neo Draft Created", next, {
     agent: person ? undefined : "Neo",
     on_behalf_of: actor,

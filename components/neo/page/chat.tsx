@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  NeoStar,
-  Search,
-  Upload,
-  Workflow,
-  MessageCircle,
-} from "@/components/icons";
+import Link from "next/link";
+import { ArrowRight, ChevronDown, NeoStar } from "@/components/icons";
 import { actor, useStore } from "@/components/inbox/v2/store";
 import { useNeo } from "@/hooks/pages/neo/use-neo";
 import { useComposer } from "@/hooks/pages/neo/use-composer";
-import { suggestionsFor } from "@/config/pages/neo/suggestions";
+import {
+  NEO_EXAMPLE_GROUPS,
+  todayFor,
+  type TodayItem,
+} from "@/config/pages/neo/suggestions";
 import Shortcuts from "@/components/neo/common/shortcuts";
 import Canvas from "@/components/neo/common/canvas";
 import Composer from "@/components/neo/common/composer";
@@ -17,7 +16,7 @@ import ContextChip from "@/components/neo/common/context-chip";
 import DropZone from "@/components/neo/common/drop-zone";
 import Thread, { useLiveMessage } from "@/components/neo/common/thread";
 import { cn } from "@/lib/utils";
-import ChatTitle from "./chat-title";
+import { NeoMenuButton } from "./index";
 
 const NOTE =
   "Neo prepares; you approve. Nothing reaches your books without your click.";
@@ -28,18 +27,19 @@ const greeting = () => {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 };
 
-type Category = {
-  id: string;
-  label: string;
-  icon: typeof Search;
-  prompts: string[];
+const DOT: Record<TodayItem["tone"], string> = {
+  negative: "bg-pi-danger-dot",
+  notice: "bg-pi-warning-dot",
+  neutral: "bg-pi-line-strong",
 };
 
 /**
- * Neo › Chat. Empty, it is a home: a greeting in Neo's voice, the prompt box,
- * and four kinds of work that each open three real requests worked out from
- * the books. Once something is asked, the conversation runs down the middle
- * with the box pinned beneath; a document Neo makes opens beside it.
+ * Neo › Chat. Empty, it is a home that leads with today's work at this
+ * client, in the accountant's words — "₹7.6L of Q2 ITC at risk", "3
+ * Mahindra Logistics bills sit on Transportation" — each one a request Neo
+ * answers. Neo's full range is one quiet link below, grouped by the work.
+ * Once something is asked, the conversation runs down the middle with the
+ * box pinned beneath; a document Neo makes opens beside it.
  */
 const NeoChat = () => {
   const neo = useNeo();
@@ -49,65 +49,21 @@ const NeoChat = () => {
   const input = useRef<HTMLTextAreaElement>(null);
   const empty = !neo.messages.length;
   const first = actor.split(" ")[0];
-  const [category, setCategory] = useState<string | null>(null);
+  const [examples, setExamples] = useState(false);
   const [hello, setHello] = useState("Hello");
   useEffect(() => setHello(greeting()), []);
+  const company = state.companies.find((c) => c.id === state.company);
 
   useEffect(() => {
     input.current?.focus();
   }, [neo.chatId]);
 
-  // Four kinds of work, each with requests the planner answers from the
-  // books on screen — never a canned example that finds nothing.
-  const categories: Category[] = useMemo(() => {
-    const live = suggestionsFor({ company: state.company, selectedIds: [] });
-    const spend = live.find((s) => s.startsWith("How much"));
-    const move = live.find((s) => s.startsWith("Move all"));
-    return [
-      {
-        id: "find",
-        label: "Find",
-        icon: Search,
-        prompts: [
-          "Find unpaid invoices",
-          spend || "How much did we spend with Mahindra Logistics in September?",
-          "Why is freight up in September?",
-        ],
-      },
-      {
-        id: "enter",
-        label: "Enter",
-        icon: Upload,
-        prompts: [
-          "Upload purchase bills",
-          "Enter a batch of bills with an instruction",
-          "Create an invoice",
-        ],
-      },
-      {
-        id: "chase",
-        label: "Chase",
-        icon: MessageCircle,
-        prompts: [
-          "Who owes us money?",
-          "Draft collection reminders",
-          "Which vendors aren't in my masters?",
-        ],
-      },
-      {
-        id: "tidy",
-        label: "Tidy up",
-        icon: Workflow,
-        prompts: [
-          move || "Move all Mahindra Logistics bills from Transportation to Freight Inward",
-          "What needs me across my clients today?",
-          "Create an agent that validates vendor bills",
-        ],
-      },
-    ];
-    // The store is a dependency: what can be suggested follows the books.
-  }, [state]);
-  const openCategory = categories.find((c) => c.id === category);
+  // What the books say needs doing here, as requests Neo answers.
+  const today = useMemo(
+    () => todayFor(state.company),
+    // The store is a dependency: today's work follows the books.
+    [state]
+  );
 
   // Digits answer the open question, Esc stops a run — as in the panel.
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -120,7 +76,13 @@ const NeoChat = () => {
       neo.stop();
       return;
     }
-    if (live?.ask && !typing && !box.draft && /^[1-9]$/.test(e.key)) {
+    if (
+      live?.ask &&
+      !live.ask.input &&
+      !typing &&
+      !box.draft &&
+      /^[1-9]$/.test(e.key)
+    ) {
       const option = live.ask.options[Number(e.key) - 1];
       if (option) {
         e.preventDefault();
@@ -140,7 +102,7 @@ const NeoChat = () => {
       value={box.draft}
       busy={!!neo.busy}
       attachments={box.attachments}
-      onChange={setDraftAndClose(box.setDraft, setCategory)}
+      onChange={box.setDraft}
       onSend={() => box.send()}
       onStop={neo.stop}
       onAttachFiles={box.attachFiles}
@@ -171,73 +133,144 @@ const NeoChat = () => {
         className="flex min-h-0 min-w-0 flex-1 flex-col"
       >
         {empty && <div aria-hidden className="neo-home-wash" />}
-        <header className="relative flex h-14 flex-none items-center px-4">
-          <ChatTitle />
+        {/* The title lives in the top bar's trail; below 1024px this row
+            only carries the button that opens Neo's column. */}
+        <header className="relative flex h-12 flex-none items-center gap-1 px-2 lg:hidden">
+          <NeoMenuButton />
         </header>
 
         {empty ? (
-          <div className="relative flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pb-10 pt-[14vh]">
+          <div className="relative flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pb-10 pt-[6vh] sm:px-6 sm:pt-[9vh]">
             <div className="flex items-center gap-3">
-              <NeoStar className="h-8 w-8 text-pi-brand" />
-              <h2 className="neo-reading text-[36px] font-normal leading-[44px] tracking-[-0.01em] text-pi-ink [text-wrap:balance]">
+              <NeoStar className="h-7 w-7 flex-none text-pi-brand sm:h-8 sm:w-8" />
+              <h2 className="neo-reading text-[28px] font-normal leading-9 tracking-[-0.01em] text-pi-ink [text-wrap:balance] sm:text-[36px] sm:leading-[44px]">
                 {hello}, {first}
               </h2>
             </div>
             <div className="mt-8 w-full max-w-[720px]">{composer}</div>
-            <div className="mt-5 flex w-full max-w-[720px] flex-col items-center">
-              <ul className="flex flex-wrap justify-center gap-2">
-                {categories.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      aria-expanded={category === c.id}
-                      onClick={() =>
-                        setCategory((x) => (x === c.id ? null : c.id))
-                      }
-                      className={cn(
-                        "flex h-9 items-center gap-2 rounded-lg border px-3.5 text-[14px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
-                        category === c.id
-                          ? "border-pi-line-2 bg-pi-fill text-pi-ink"
-                          : "border-pi-line bg-background text-pi-ink-2 hover:bg-pi-fill hover:text-pi-ink"
-                      )}
-                    >
-                      <c.icon className="h-4 w-4 text-pi-body" />
-                      {c.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {openCategory && (
-                <ul
-                  key={openCategory.id}
-                  className="mt-3 w-full overflow-hidden rounded-xl border border-pi-line bg-background shadow-pi-1 duration-200 animate-in fade-in-0 slide-in-from-top-1"
+
+            {today.length > 0 && (
+              <section
+                aria-labelledby="neo-today"
+                className="mt-8 w-full max-w-[720px]"
+              >
+                <h3
+                  id="neo-today"
+                  className="mb-2 px-1 text-caption-1 font-semibold text-pi-faint"
                 >
-                  {openCategory.prompts.map((p) => (
-                    <li key={p} className="border-t border-pi-line first:border-t-0">
+                  Today at {company?.name}
+                </h3>
+                <ul className="overflow-hidden rounded-xl border border-pi-line bg-background shadow-pi-1">
+                  {today.map((t) => (
+                    <li
+                      key={t.id}
+                      className="border-t border-pi-line first:border-t-0"
+                    >
                       <button
                         type="button"
-                        onClick={() => box.send(p)}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-pi-ink transition-colors hover:bg-pi-fill focus-visible:bg-pi-fill focus-visible:outline-none"
+                        onClick={() => box.send(t.prompt)}
+                        className="group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-pi-fill focus-visible:bg-pi-fill focus-visible:outline-none"
                       >
-                        <openCategory.icon className="h-4 w-4 flex-none text-pi-faint" />
-                        {p}
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "mt-[7px] size-[7px] flex-none rounded-full",
+                            DOT[t.tone]
+                          )}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-medium leading-5 text-pi-ink">
+                            {t.text}
+                          </span>
+                          <span className="block text-caption-1 text-pi-body">
+                            {t.detail}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 hidden flex-none items-center gap-1 text-[12px] font-medium text-pi-body group-hover:text-pi-ink sm:flex">
+                          Ask Neo
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
                       </button>
                     </li>
                   ))}
                 </ul>
+              </section>
+            )}
+
+            <div className="mt-5 w-full max-w-[720px]">
+              <button
+                type="button"
+                aria-expanded={examples}
+                onClick={() => setExamples((x) => !x)}
+                className="flex items-center gap-1 rounded-sm px-1 text-[13px] font-medium text-pi-body hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              >
+                What can Neo do?
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform",
+                    examples && "rotate-180"
+                  )}
+                />
+              </button>
+              <Link
+                href="/inbox?module=NEO&page=skills"
+                className="float-right flex items-center gap-1 rounded-sm px-1 text-[13px] font-medium text-pi-body hover:text-pi-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+              >
+                All skills
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              {examples && (
+                <div className="mt-3 grid gap-x-8 gap-y-5 rounded-xl border border-pi-line bg-background p-4 shadow-pi-1 duration-200 animate-in fade-in-0 slide-in-from-top-1 sm:grid-cols-2">
+                  {NEO_EXAMPLE_GROUPS.map((g) => (
+                    <section key={g.label}>
+                      <h4 className="mb-1 text-caption-1 font-semibold text-pi-faint">
+                        {g.label}
+                      </h4>
+                      <ul>
+                        {g.prompts.map((p) => (
+                          <li key={p}>
+                            <button
+                              type="button"
+                              onClick={() => box.send(p)}
+                              className="w-full rounded-sm py-1 text-left text-[13px] leading-5 text-pi-ink-2 hover:text-pi-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                            >
+                              {p}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                  <p className="text-caption-1 text-pi-body sm:col-span-2">
+                    Follow-ups carry on from the last answer: after a spend
+                    question, try “and August?” or “only the open ones”.
+                  </p>
+                </div>
               )}
             </div>
-            <p className="mt-8 text-caption-1 text-pi-faint">{NOTE}</p>
+            {!neo.signedOff && (
+              <p className="mt-8 text-center text-caption-1 text-pi-faint">
+                {NOTE}
+              </p>
+            )}
           </div>
         ) : (
           <>
-            <Thread variant="page" onPrompt={(t) => box.send(t)} />
-            <div className="flex-none px-6 pb-4 pt-1">
+            <Thread
+              variant="page"
+              onPrompt={(t) => box.send(t)}
+              onOpenScope={(id) =>
+                neo.goTo({ label: "", itemId: id, target: "open" })
+              }
+            />
+            <div className="flex-none px-3 pb-3 pt-1 sm:px-6 sm:pb-4">
               <div className="mx-auto max-w-[760px]">
                 {composer}
-                <p className="mt-2 text-center text-caption-1 text-pi-faint">
-                  {NOTE}
-                </p>
+                {!neo.signedOff && (
+                  <p className="mt-2 text-center text-caption-1 text-pi-faint max-sm:hidden">
+                    {NOTE}
+                  </p>
+                )}
               </div>
             </div>
           </>
@@ -248,13 +281,5 @@ const NeoChat = () => {
     </section>
   );
 };
-
-/** Typing closes the open category: the person has their own words. */
-const setDraftAndClose =
-  (setDraft: (v: string) => void, setCategory: (v: null) => void) =>
-  (v: string) => {
-    setDraft(v);
-    if (v) setCategory(null);
-  };
 
 export default NeoChat;

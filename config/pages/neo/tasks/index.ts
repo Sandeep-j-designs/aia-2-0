@@ -12,6 +12,10 @@ import journal from "./journal";
 import liveRun from "./live-run";
 import salesFromPurchase from "./sales-from-purchase";
 import triage from "./triage";
+import reconSetup from "./recon-setup";
+import reconRun from "./recon-run";
+import reconClose from "./recon-close";
+import reconRules from "./recon-rules";
 import collections from "@/config/pages/neo/tasks/collections";
 import { freightInsight, itcInsight } from "@/config/pages/neo/tasks/insights";
 
@@ -29,6 +33,10 @@ import { freightInsight, itcInsight } from "@/config/pages/neo/tasks/insights";
  * definitions and this file is deleted.
  */
 export const NEO_TASKS: NeoTask[] = [
+  reconSetup,
+  reconClose,
+  reconRules,
+  reconRun,
   collectionSetup,
   createAgent,
   batchActions,
@@ -62,9 +70,10 @@ export const NEO_EXAMPLES = [
   "Draft collection reminders",
   "Book depreciation of ₹12,000 on office equipment",
   "Create a sales invoice from a purchase",
-  "What needs me across my clients today?",
-  "Create an agent that validates vendor bills",
+  "What needs me today?",
+  "Set up the Bill validator to run automatically",
   "Set up document collection",
+  "Reconcile September",
 ];
 
 const words = (s: string) =>

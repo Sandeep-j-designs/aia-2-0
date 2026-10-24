@@ -49,6 +49,8 @@ export type ArSeedDocument = {
   /** As printed on the invoice; seeds a customer master the book lacks. */
   customerAddress?: string;
   voucherNo: string;
+  /** Set only when the voucher is dated other than the day of entry. */
+  voucherDate?: string;
   invoiceDate: string;
   dueDate: string;
   narration: string;
@@ -105,6 +107,8 @@ export const arDocumentFor = (item: Item): ArSeedDocument | null => {
     customerPan: printed?.gstin.slice(2, 12) || "",
     customerAddress: printed?.address || "",
     voucherNo: item.form.voucherNo || invoice.voucherNo,
+    // A reconciliation's daily sales voucher is dated its day of sale.
+    voucherDate: item.original.neo?.voucherDate,
     invoiceDate: item.form.date || invoice.invoiceDate,
     dueDate: item.form.due || invoice.dueDate,
     narration: item.form.narration || "",

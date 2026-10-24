@@ -4,6 +4,7 @@ import { notificationActions } from "@/hooks/pages/notifications/use-notificatio
 import {
   EXTRACTED_ROWS,
   VOUCHER_TYPE_LABEL,
+  buildStatement,
   buildTransaction,
   gstRegistrationsOf,
   seedFor,
@@ -153,6 +154,51 @@ export const bankingActions = {
       })
     );
     return hits;
+  },
+
+  /**
+   * A statement read elsewhere (Neo's reconciliation) lands here: the file
+   * in Statement Logs, and only the rows Banking doesn't hold yet (DUP-01:
+   * same date, narration, amount and side). Returns how many were new.
+   * DEV: POST /api/statements/upload, then the extraction's rows.
+   */
+  importStatement: (
+    company: string,
+    ledgerId: string,
+    fileName: string,
+    from: string,
+    to: string,
+    rows: { date: string; narration: string; amount: number; side: "D" | "C" }[]
+  ) => {
+    const have = read(company).transactions;
+    const fresh = rows.filter(
+      (r) =>
+        !have.some(
+          (t) =>
+            t.bankAccountUuid === ledgerId &&
+            t.transactionDate === r.date &&
+            t.description === r.narration &&
+            Math.abs(Number(t.transactionAmountLc) - r.amount) < 0.005
+        )
+    );
+    write(company, {
+      statements: [
+        buildStatement(ledgerId, fileName, from, to, {
+          fileMetadata: {
+            noOfDuplicates: rows.length - fresh.length,
+            noOfLinesExtracted: rows.length,
+          },
+        }),
+        ...read(company).statements.filter((s) => s.fileName !== fileName),
+      ],
+      transactions: [
+        ...have,
+        ...fresh.map((r) =>
+          buildTransaction(ledgerId, [r.date, r.narration, r.amount, r.side, "n"])
+        ),
+      ],
+    });
+    return { fresh: fresh.length, duplicate: rows.length - fresh.length };
   },
 
   /** Every line for the company, for code outside a component. */

@@ -73,7 +73,7 @@ const sourceRequest: NeoTask = {
     });
     api.outcome("waiting");
     await api.say(
-      "Sent with your approved message. I’ll link the clearer copy to this document when it arrives — it’s under Chases in Tasks until then.",
+      "Sent with your approved message. I’ll link the clearer copy to this document when it arrives — it’s under Chases in Needs attention until then.",
       [{ label: "View pending request", itemId: receipt.itemId }]
     );
     return "Waiting for a clearer copy · simulated send";

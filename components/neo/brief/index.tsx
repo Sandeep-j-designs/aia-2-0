@@ -2,7 +2,10 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import FeaturePage from "@/components/inbox/v2/automation/common/feature-page";
 import { actor } from "@/components/inbox/v2/store";
-import { useFirmBrief, lakhs } from "@/hooks/pages/neo/use-firm-brief";
+import {
+  upcomingReturns,
+  useCompanyBrief,
+} from "@/hooks/pages/neo/use-firm-brief";
 import { BRIEF_DEADLINE } from "@/config/pages/neo/mock-firm";
 import { DEMO_TODAY } from "@/utils/pages/inbox/ai-calculations";
 import type { BriefTone } from "@/types/pages/neo/brief";
@@ -10,7 +13,7 @@ import { cn } from "@/lib/utils";
 import ChaseList from "@/components/neo/common/chase-list";
 
 type Props = {
-  /** Switch to the client and open the screen where the work is. */
+  /** Open the screen where the work is, in this company. */
   onOpen: (company: string, href: string) => void;
 };
 
@@ -26,20 +29,19 @@ const greeting = () => {
 };
 
 /**
- * Neo › Today: the firm brief. Every client at once, ranked by what needs a
- * person before the return is due, so the day starts from the brief rather
- * than from the company switcher. It only reads — each figure opens that
- * client's own screen, where the work is done and approved.
- *
- * The two live companies are computed from their stores; the rest of the
- * firm is one honest line (config/pages/neo/mock-firm.ts).
+ * Neo › Needs attention: what this company needs from a person before the
+ * return is due, and its chases. Neo is one company's (20 Oct 2026), so the
+ * brief is the company in the top bar; another client is another Neo. It
+ * only reads: each line opens the screen where the work is done.
  */
 const Brief = ({ onOpen }: Props) => {
-  const brief = useFirmBrief();
+  const { client: c, overnight } = useCompanyBrief();
   const first = actor.split(" ")[0];
   const due = new Date(
     `${BRIEF_DEADLINE.due}T00:00:00+05:30`
   ).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const needs = c ? c.signals.filter((s) => s.tone !== "neutral") : [];
+  const later = c ? c.signals.filter((s) => s.tone === "neutral") : [];
 
   return (
     <FeaturePage title="Needs attention">
@@ -53,101 +55,105 @@ const Brief = ({ onOpen }: Props) => {
         </p>
         <h2 className="mt-1 text-[22px] font-semibold leading-7 tracking-tight text-pi-ink [text-wrap:balance]">
           {greeting()}, {first}.{" "}
-          {brief.needYou
-            ? `${brief.needYou} of your ${brief.total} clients need you before ${due}.`
-            : `None of your ${brief.total} clients need you before ${due}.`}
+          {needs.length
+            ? `${c!.name} needs you on ${needs.length} thing${needs.length === 1 ? "" : "s"} before ${due}.`
+            : `Nothing at ${c?.name || "this company"} needs you before ${due}.`}
         </h2>
         <p className="mt-2 text-sm leading-6 text-pi-body">
-          {brief.overnight}.
+          {[c?.deadline, overnight].filter(Boolean).join(" · ")}.
         </p>
       </section>
 
-      <section aria-labelledby="brief-clients">
-        <h3
-          id="brief-clients"
-          className="mb-3 text-sm font-semibold text-pi-ink"
-        >
-          Clients, most pressing first
+      <section aria-labelledby="brief-due">
+        <h3 id="brief-due" className="mb-3 text-sm font-semibold text-pi-ink">
+          Due next
         </h3>
-        <ul className="overflow-hidden rounded-lg border border-pi-line bg-background shadow-contact">
-          {brief.clients.map((c) => (
+        <ol className="grid grid-cols-2 overflow-hidden rounded-lg border border-pi-line bg-background shadow-contact md:grid-cols-4">
+          {upcomingReturns().map((r, i) => (
             <li
-              key={c.company}
-              className="grid grid-cols-1 gap-3 border-b border-pi-line px-5 py-4 last:border-b-0 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto] md:items-center md:gap-6"
+              key={r.id}
+              className={cn(
+                "flex flex-col gap-0.5 border-pi-line px-4 py-3",
+                i % 2 === 1 && "border-l",
+                i >= 2 && "border-t md:border-t-0",
+                i >= 1 && "md:border-l"
+              )}
             >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-pi-ink">
-                  {c.name}
-                </p>
-                <p className="mt-0.5 text-caption-1 text-pi-body">
-                  {c.deadline}
-                </p>
-              </div>
-              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
-                {c.clear ? (
-                  <span className="text-[13px] text-pi-body">
-                    Nothing needs you
-                  </span>
-                ) : (
-                  c.signals.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => onOpen(c.company, s.href)}
-                      className="inline-flex items-center gap-2 rounded-sm text-[13px] text-pi-body underline decoration-transparent underline-offset-2 hover:text-pi-ink hover:decoration-pi-line-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "size-[7px] flex-none rounded-full",
-                          DOT[s.tone]
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          s.tone === "negative" && "font-medium text-pi-ink"
-                        )}
-                      >
-                        {s.text}
-                      </span>
-                    </button>
-                  ))
+              <span className="text-[13px] font-semibold text-pi-ink">
+                {r.label}
+              </span>
+              <span className="text-caption-1 text-pi-body">
+                {r.period} · {r.on}
+              </span>
+              <span
+                className={cn(
+                  "text-caption-1 tabular-nums",
+                  r.days <= 7 ? "font-semibold text-pi-ink" : "text-pi-faint"
                 )}
-              </div>
-              <div className="flex items-center gap-4 md:justify-end">
-                {!c.clear && (
-                  <span
-                    className="text-caption-1 tabular-nums text-pi-faint"
-                    title="ITC at risk, overdue receivables and bills waiting for review"
-                  >
-                    {lakhs(c.impact)} to decide
-                  </span>
-                )}
-                {c.next && (
-                  <Button
-                    size="sm"
-                    variant={c === brief.clients[0] ? "default" : "outline"}
-                    onClick={() => onOpen(c.company, c.next!.href)}
-                  >
-                    {c.next.label}
-                  </Button>
-                )}
-              </div>
+              >
+                {r.days === 0
+                  ? "Today"
+                  : `${r.days} day${r.days === 1 ? "" : "s"}`}
+              </span>
             </li>
           ))}
-          <li className="grid grid-cols-1 gap-1 bg-pi-head-bg px-5 py-3 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:gap-6">
-            <p className="text-sm text-pi-ink">
-              {brief.rest.clients} other clients
-            </p>
-            <p className="text-[13px] text-pi-body">{brief.rest.note}</p>
-          </li>
-        </ul>
-        <p className="mt-2 text-caption-1 text-pi-faint">
-          Ranked by rupees that need a decision: ITC at risk, overdue
-          receivables and bills waiting for review. Opening a row switches to
-          that client.
-        </p>
+        </ol>
       </section>
+
+      {c && (needs.length > 0 || later.length > 0) && (
+        <section aria-labelledby="brief-needs">
+          <h3
+            id="brief-needs"
+            className="mb-3 text-sm font-semibold text-pi-ink"
+          >
+            What needs you
+          </h3>
+          <ul className="overflow-hidden rounded-lg border border-pi-line bg-background shadow-contact">
+            {[...needs, ...later].map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center gap-4 border-b border-pi-line px-5 py-3 last:border-b-0"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-[7px] flex-none rounded-full",
+                    DOT[s.tone]
+                  )}
+                />
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 text-[13px]",
+                    s.tone === "negative"
+                      ? "font-medium text-pi-ink"
+                      : "text-pi-body"
+                  )}
+                >
+                  {s.text}
+                  {s.due && (
+                    <span className="ml-2 text-caption-1 font-normal text-pi-faint">
+                      {s.due}
+                    </span>
+                  )}
+                </span>
+                <Button
+                  size="sm"
+                  variant={s === needs[0] ? "default" : "outline"}
+                  onClick={() => onOpen(c.company, s.href)}
+                >
+                  Open
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {c.parts.length > 1 && (
+            <p className="mt-2 text-caption-1 text-pi-faint">
+              {c.parts.map((p) => p.label).join(" · ")}. ITC at risk, bills
+              waiting and money overdue are shown apart, never added.
+            </p>
+          )}
+        </section>
+      )}
 
       <section aria-labelledby="brief-chases">
         <h3
@@ -156,7 +162,7 @@ const Brief = ({ onOpen }: Props) => {
         >
           Chases
         </h3>
-        <ChaseList all onOpen={onOpen} />
+        <ChaseList onOpen={onOpen} />
       </section>
     </FeaturePage>
   );
